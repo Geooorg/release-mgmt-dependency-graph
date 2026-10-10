@@ -23,6 +23,7 @@ function AppShell() {
   const { screenToFlowPosition } = useReactFlow()
   const [confirmImportOpen, setConfirmImportOpen] = useState(false)
 
+  const projectName = useGraph((s) => s.projectName)
   const connectMode = useGraph((s) => s.connectMode)
   const groupable = useGraph((s) => canGroup(s.nodes, s.selectedNodeIds))
   const ungroupable = useGraph((s) =>
@@ -79,6 +80,10 @@ function AppShell() {
   }, [])
 
   useEffect(() => {
+    document.title = `${projectName} – Abhängigkeiten`
+  }, [projectName])
+
+  useEffect(() => {
     if (!notice || notice.kind === 'error') return
     const timer = setTimeout(() => graphStore.getState().dismissNotice(), NOTICE_AUTO_DISMISS_MS)
     return () => clearTimeout(timer)
@@ -97,8 +102,11 @@ function AppShell() {
   }
 
   const exportModel = () => {
-    const { nodes, edges } = graphStore.getState()
-    downloadTextFile(exportFileName(), serializeModel(toModel({ nodes, edges })))
+    const { nodes, edges, projectName: name } = graphStore.getState()
+    downloadTextFile(
+      exportFileName(new Date(), name),
+      serializeModel(toModel({ nodes, edges, projectName: name })),
+    )
   }
 
   // Runs inside the click handler of the confirm button, so the file picker still counts as user-initiated.
@@ -112,6 +120,8 @@ function AppShell() {
   return (
     <div className="app">
       <Toolbar
+        projectName={projectName}
+        onRenameProject={(name) => graphStore.getState().renameProject(name)}
         connectMode={connectMode}
         canGroup={groupable}
         canUngroup={ungroupable}

@@ -11,6 +11,7 @@ import {
   type History,
 } from '../model/history'
 import * as placement from '../model/placement'
+import { DEFAULT_PROJECT_NAME, isValidProjectName } from '../model/projectName'
 import { parseModelJson } from '../model/serialize'
 import type { ConnectionCheck } from '../model/graph'
 import type {
@@ -39,6 +40,8 @@ export interface GraphState {
   // --- model (single source of truth, persisted) ---
   nodes: ModelNode[]
   edges: ModelEdge[]
+  /** Always set; `A-Z a-z 0-9 - _ .` only. */
+  projectName: string
 
   // --- UI state (never persisted, never triggers a save) ---
   selectedNodeIds: string[]
@@ -66,6 +69,8 @@ export interface GraphState {
 
   applyNodeSelection: (changes: readonly Selection[]) => void
   applyEdgeSelection: (changes: readonly Selection[]) => void
+  /** Returns false (and changes nothing) if `name` is not a valid project name. */
+  renameProject: (name: string) => boolean
   openSidebar: (id: string) => void
   openEdgeSidebar: (id: string) => void
   saveEdgeLabel: (id: string, label: string) => void
@@ -117,7 +122,11 @@ export function createGraphStore(
   initialNotice: Notice | null = null,
 ): GraphStore {
   return createStore<GraphState>()((set, get) => {
-    const content = (): GraphContent => ({ nodes: get().nodes, edges: get().edges })
+    const content = (): GraphContent => ({
+      nodes: get().nodes,
+      edges: get().edges,
+      projectName: get().projectName,
+    })
 
     /**
      * Applies new content and records the previous state as an undo step (unless a gesture is
@@ -126,10 +135,17 @@ export function createGraphStore(
      */
     const apply = (next: GraphContent, extra: Partial<GraphState> = {}) => {
       const current = content()
-      const changed = next.nodes !== current.nodes || next.edges !== current.edges
+      const renamed = next.projectName !== undefined && next.projectName !== current.projectName
+      const changed = renamed || next.nodes !== current.nodes || next.edges !== current.edges
       const history =
         changed && !get().gesture ? recordHistory(get().history, current) : get().history
-      set({ nodes: next.nodes, edges: next.edges, history, ...extra })
+      set({
+        nodes: next.nodes,
+        edges: next.edges,
+        projectName: next.projectName ?? current.projectName ?? DEFAULT_PROJECT_NAME,
+        history,
+        ...extra,
+      })
     }
 
     /** UI state that references elements must not outlive them (after undo, delete, …). */
@@ -154,6 +170,7 @@ export function createGraphStore(
       set({
         nodes: result.content.nodes,
         edges: result.content.edges,
+        projectName: result.content.projectName ?? DEFAULT_PROJECT_NAME,
         history: result.history,
         gesture: false,
         ...pruneUi(result.content),
@@ -186,6 +203,7 @@ export function createGraphStore(
     return {
       nodes: initial.nodes,
       edges: initial.edges,
+      projectName: initial.projectName ?? DEFAULT_PROJECT_NAME,
       selectedNodeIds: [],
       selectedEdgeIds: [],
       sidebarId: null,
@@ -214,6 +232,11 @@ export function createGraphStore(
         set({ selectedNodeIds: mergeSelection(get().selectedNodeIds, changes) }),
       applyEdgeSelection: (changes) =>
         set({ selectedEdgeIds: mergeSelection(get().selectedEdgeIds, changes) }),
+      renameProject: (name) => {
+        if (!isValidProjectName(name)) return false
+        apply({ ...content(), projectName: name })
+        return true
+      },
       openSidebar: (id) => {
         if (get().nodes.some((node) => node.id === id)) set({ sidebarId: id, sidebarEdgeId: null })
       },
@@ -316,9 +339,9 @@ export function createGraphStore(
       },
       endGesture: () => {
         if (!get().gesture) return
-        const { history, nodes, edges } = get()
+        const { history } = get()
         const start = history.past.at(-1)
-        const unchanged = start !== undefined && sameContent(start, { nodes, edges })
+        const unchanged = start !== undefined && sameContent(start, content())
         set({ gesture: false, history: unchanged ? discardLastRecord(history) : history })
       },
       setDependencyMode: (mode) => set({ dependencyMode: mode }),
@@ -327,6 +350,7 @@ export function createGraphStore(
         set({
           nodes: next.nodes,
           edges: next.edges,
+          projectName: next.projectName ?? DEFAULT_PROJECT_NAME,
           history: recordHistory(get().history, content()),
           selectedNodeIds: [],
           selectedEdgeIds: [],
@@ -350,7 +374,11 @@ export function createGraphStore(
           })
           return false
         }
-        get().replaceContent({ nodes: result.model.nodes, edges: result.model.edges })
+        get().replaceContent({
+          nodes: result.model.nodes,
+          edges: result.model.edges,
+          projectName: result.model.projectName,
+        })
         set({ notice: { kind: 'success', message: 'Modell importiert.' } })
         return true
       },
@@ -362,7 +390,9 @@ export function createGraphStore(
 
 /** Same model, ignoring object identity (a "move" onto the same spot is no change). */
 function sameContent(a: GraphContent, b: GraphContent): boolean {
-  if (a.edges !== b.edges || a.nodes.length !== b.nodes.length) return false
+  if (a.edges !== b.edges || a.projectName !== b.projectName || a.nodes.length !== b.nodes.length) {
+    return false
+  }
   return a.nodes.every((n, i) => {
     const m = b.nodes[i]
     return (

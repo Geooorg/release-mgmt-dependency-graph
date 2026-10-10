@@ -22,6 +22,20 @@ describe('localStorage persistence', () => {
     }
   })
 
+  it('round-trips the project name', () => {
+    const storage = memoryStorage()
+    saveContent({ ...sample, projectName: 'Mein-Projekt' }, storage)
+    const loaded = loadStoredContent(storage)
+    expect(loaded.status === 'loaded' && loaded.content.projectName).toBe('Mein-Projekt')
+  })
+
+  it('leaves the project name unset when none was stored', () => {
+    const storage = memoryStorage()
+    saveContent(sample, storage)
+    const loaded = loadStoredContent(storage)
+    expect(loaded.status === 'loaded' && loaded.content.projectName).toBeUndefined()
+  })
+
   it('quarantines invalid data instead of overwriting it', () => {
     const storage = memoryStorage({ [STORAGE_KEY]: '{"version": 99}' })
     const loaded = loadStoredContent(storage)

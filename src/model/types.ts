@@ -61,6 +61,8 @@ export interface ModelEdge {
 export interface GraphContent {
   nodes: ModelNode[]
   edges: ModelEdge[]
+  /** Name of the project, `A-Z a-z 0-9 - _ .` only; undefined = default ("Release-Management"). */
+  projectName?: string
 }
 
 /** Persisted / exported document. */

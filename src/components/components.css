@@ -532,3 +532,54 @@
 .tooltip__hint {
   color: #fbbf24;
 }
+
+/* ---------- Project title (inline editable) ---------- */
+
+.toolbar__title.project-title-editor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-title {
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: text;
+}
+
+.project-title:hover {
+  border-color: var(--gray-200);
+  background: var(--gray-50);
+}
+
+.project-title:focus-visible,
+.project-title__input:focus-visible {
+  outline: 2px solid var(--blue-500);
+  outline-offset: 2px;
+}
+
+.project-title__input {
+  width: auto;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--blue-900);
+}
+
+.project-title__input[aria-invalid='true'] {
+  border-color: var(--danger-600);
+}
+
+.project-title__hint {
+  color: var(--gray-600);
+  font-size: 12px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.project-title__hint--error {
+  color: var(--danger-600);
+}

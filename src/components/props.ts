@@ -3,6 +3,8 @@ import type { DependencyDirection, DependencyMode } from '../model/dependency'
 import type { ElementKind, MetadataEntry } from '../model/types'
 
 export interface ToolbarProps {
+  projectName: string
+  onRenameProject: (name: string) => void
   connectMode: ConnectMode
   canGroup: boolean
   canUngroup: boolean

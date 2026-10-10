@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { GroupIcon, RedoIcon, UndoIcon, UngroupIcon } from './icons'
+import { ProjectTitle } from './ProjectTitle'
 import type { DependencyDirection, ToolbarProps } from './props'
 import { Tooltip } from './Tooltip'
 import './components.css'
@@ -29,6 +30,8 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function Toolbar({
+  projectName,
+  onRenameProject,
   connectMode,
   canGroup,
   canUngroup,
@@ -52,7 +55,7 @@ export function Toolbar({
 
   return (
     <header className="toolbar" role="toolbar" aria-label="Werkzeuge">
-      <h1 className="toolbar__title">Release-Management</h1>
+      <ProjectTitle name={projectName} onRename={onRenameProject} />
 
       <Section label="Erstellen">
         <Tooltip text="Neues Objekt in der Mitte des sichtbaren Bereichs anlegen">

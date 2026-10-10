@@ -6,6 +6,8 @@ import type { ToolbarProps } from './props'
 
 function makeProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
   return {
+    projectName: 'Release-Management',
+    onRenameProject: vi.fn(),
     connectMode: 'off',
     canGroup: true,
     canUngroup: true,

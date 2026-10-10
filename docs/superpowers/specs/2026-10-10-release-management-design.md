@@ -76,7 +76,7 @@ andere Elemente – auch weitere Gruppen – enthält; fachlich ein Sub-Graph.
 | Verbinden | (a) Griff am rechten Rand eines Elements auf den linken Rand eines anderen ziehen; (b) Toolbar „Verbinden": erst Quelle, dann Ziel anklicken |
 | Doppelklick auf Element | Sidebar rechts mit UUID (disabled), Name, freien Feldern; „Save" übernimmt |
 | Entf-Taste / „Löschen" | markierte Elemente und Kanten löschen (Gruppen: auflösen) |
-| Export | lädt `release-management-YYYY-MM-DD.json` herunter |
+| Export | lädt `<Projektname>_<YYYY-MM-DD>_<HHmmss>.json` herunter (lokale Zeit) |
 | Import | Rückfrage „Aktuelle Änderungen verwerfen?" → Dateiauswahl → Validierung → Ersetzen; bei Fehler bleibt das Modell unverändert und die Fehler werden aufgelistet |
 
 ## 6a. Erweiterungen (zweite Iteration)
@@ -87,6 +87,7 @@ andere Elemente – auch weitere Gruppen – enthält; fachlich ein Sub-Graph.
 - **Farbe**: Metadatenfeld `color` (`#rrggbb`) mit Farbwähler; wird gerendert als Hintergrund und Rahmen (Gruppen: Rahmen, Titel, 8 % Tönung). Schriftfarbe per Helligkeit (`getContrastColor`). Ungültige Werte zählen als „nicht gesetzt".
 - **Kanten-Label**: `ModelEdge.label` (optional, getrimmt, leer = entfernt). Doppelklick auf eine Kante öffnet dieselbe Sidebar (`sidebarEdgeId` im Store, exklusiv zu `sidebarId`) mit UUID und nur einem Feld „Label"; gespeichert über `updateEdgeLabel` (undo-fähig). Gezeichnet als React-Flow-Label in der Kantenfarbe.
 - **Toolbar**: in Bereiche gegliedert (Erstellen · Verlauf · Gruppen · Analyse · Datei). Rückgängig, Wiederholen, Gruppieren und Gruppe auflösen sind Icon-Buttons (Inline-SVG, keine neue Abhängigkeit, Name per `aria-label`). Alle Buttons haben einen Tooltip (`Tooltip.tsx`: Hover mit 250 ms Verzögerung und Tastaturfokus, Portal mit `position: fixed`, damit die scrollbare Toolbar ihn nicht abschneidet) mit Erklärung, ggf. Tastenkürzel und – bei deaktivierten Buttons – dem Grund.
+- **Projektname**: Teil des Modells (`GraphContent.projectName`, optional im JSON, Standard „Release-Management"), also auch in `localStorage`, Export/Import und im Undo-Verlauf. Erlaubt `A-Z a-z 0-9 - _ .`, 1–100 Zeichen (`model/projectName.ts`) – so ist er immer ein gültiger Dateinamenbestandteil. Inline-Editor in der Toolbar (`ProjectTitle`): unerlaubte Zeichen werden beim Tippen/Einfügen entfernt und gemeldet; Enter/Blur übernimmt, Esc verwirft. Der Import lehnt ungültige Namen ab.
 - **UUID-Feld** in der Sidebar: grau, gestrichelt, mit Hinweis „nicht editierbar".
 
 ## 7. Persistenz

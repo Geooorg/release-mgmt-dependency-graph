@@ -723,21 +723,71 @@ describe('round trip', () => {
 // ---------------------------------------------------------------------------
 
 describe('exportFileName', () => {
-  it('uses the local date as release-management-YYYY-MM-DD.json', () => {
-    expect(exportFileName(new Date(2026, 9, 10))).toBe('release-management-2026-10-10.json')
+  it('is <project name>_<date>_<time>.json with the local time as HHmmss', () => {
+    expect(exportFileName(new Date(2026, 9, 9, 14, 10, 22), 'Release-Management')).toBe(
+      'Release-Management_2026-10-09_141022.json',
+    )
   })
 
-  it('zero-pads month and day', () => {
-    expect(exportFileName(new Date(2026, 0, 5))).toBe('release-management-2026-01-05.json')
+  it('uses the given project name', () => {
+    expect(exportFileName(new Date(2026, 9, 9, 14, 10, 22), 'Mein_Projekt.v2')).toBe(
+      'Mein_Projekt.v2_2026-10-09_141022.json',
+    )
   })
 
-  it('uses the local (not UTC) date, also late in the evening and at midnight', () => {
-    expect(exportFileName(new Date(2026, 11, 31, 23, 59, 59))).toBe('release-management-2026-12-31.json')
-    expect(exportFileName(new Date(2027, 0, 1, 0, 0, 0))).toBe('release-management-2027-01-01.json')
+  it('zero-pads every part', () => {
+    expect(exportFileName(new Date(2026, 0, 5, 3, 4, 5), 'P')).toBe('P_2026-01-05_030405.json')
+    expect(exportFileName(new Date(2027, 0, 1, 0, 0, 0), 'P')).toBe('P_2027-01-01_000000.json')
   })
 
-  it('defaults to today', () => {
-    expect(exportFileName()).toMatch(/^release-management-\d{4}-\d{2}-\d{2}\.json$/)
+  it('uses the local (not UTC) time, up to the last second of the year', () => {
+    expect(exportFileName(new Date(2026, 11, 31, 23, 59, 59), 'P')).toBe('P_2026-12-31_235959.json')
+  })
+
+  it('defaults to the default project name and now', () => {
+    expect(exportFileName()).toMatch(/^Release-Management_\d{4}-\d{2}-\d{2}_\d{6}\.json$/)
+  })
+
+  it('falls back to the default name if the given one is not file-safe', () => {
+    expect(exportFileName(new Date(2026, 9, 9, 14, 10, 22), '../evil name')).toBe(
+      'Release-Management_2026-10-09_141022.json',
+    )
+  })
+})
+
+describe('project name in the model', () => {
+  const base = (extra: Json) => ({ ...validInput(), ...extra })
+
+  it('is optional on input; absent stays absent', () => {
+    const result = parseModel(validInput())
+    expect(result.ok && 'projectName' in result.model).toBe(false)
+  })
+
+  it('keeps a valid project name', () => {
+    const result = parseModel(base({ projectName: 'Mein-Projekt_1.0' }))
+    expect(result.ok && result.model.projectName).toBe('Mein-Projekt_1.0')
+  })
+
+  it('rejects names with other characters, empty or non-text names', () => {
+    for (const bad of ['', 'mit Leerzeichen', 'Müller', 'a/b', 5, null, 'x'.repeat(101)]) {
+      const result = parseModel(base({ projectName: bad }))
+      expect(result.ok).toBe(false)
+      expect(!result.ok && result.errors.join('\n')).toMatch(/projectName/)
+    }
+  })
+
+  it('is exported right after the version and survives a round trip', () => {
+    const model: GraphModel = { version: 1, projectName: 'Alpha', nodes: [], edges: [] }
+    const text = serializeModel(model)
+    expect(text.indexOf('"projectName"')).toBeGreaterThan(text.indexOf('"version"'))
+    expect(text.indexOf('"projectName"')).toBeLessThan(text.indexOf('"nodes"'))
+    const back = parseModelJson(text)
+    expect(back.ok && back.model.projectName).toBe('Alpha')
+  })
+
+  it('toModel carries the project name over; serialize omits it when unset', () => {
+    expect(toModel({ nodes: [], edges: [], projectName: 'Alpha' }).projectName).toBe('Alpha')
+    expect(serializeModel(toModel({ nodes: [], edges: [] }))).not.toContain('projectName')
   })
 })
 

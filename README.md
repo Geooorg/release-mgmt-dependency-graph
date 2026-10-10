@@ -52,17 +52,21 @@ npm run preview    # gebauten Stand lokal ansehen
 
 15. Auch **Pfeile (Verbindungen)** lassen sich beschriften. Ein **Doppelklick auf den Pfeil** öffnet dieselbe Sidebar wie bei Objekten; sie zeigt die UUID der Verbindung (nicht editierbar) und genau ein Feld **„Label"**, das anfangs leer ist. Das Label (getrimmt) erscheint mittig auf dem Pfeil; ein leeres Label entfernt die Beschriftung. Änderungen sind rückgängig machbar.
 
+### Projektname
+
+19. Das Projekt hat einen **Namen**, der in der Toolbar steht und anfangs immer **`Release-Management`** lautet. Ein **Doppelklick** (oder Enter bzw. F2 auf dem fokussierten Namen) öffnet ihn **inline** zum Bearbeiten; Enter oder Verlassen des Feldes übernimmt, Esc verwirft. **Erlaubt sind nur die Zeichen `A-Z a-z 0-9 - _ .`** (1 bis 100 Zeichen); andere Zeichen werden beim Tippen und Einfügen entfernt, mit Hinweis. Der Name wird mit dem Modell gespeichert, exportiert und importiert, erscheint im Browser-Tab und ist rückgängig machbar.
+
 ### Persistenz und Austausch
 
-19. Das Modell des Graphen wird **bei jeder Änderung im `localStorage`** des Browsers gespeichert.
-20. Beim **Neuladen** der Seite wird zuerst im `localStorage` nach einem Modell aus einer früheren Sitzung gesucht und – falls vorhanden – geladen. Andernfalls werden **initial zwei miteinander verbundene Objekte** angezeigt.
-21. Über einen **Button der Toolbar** kann das Modell **exportiert** werden (Format: **JSON**, siehe unten).
-22. Der Benutzer kann ein Modell aus einer **JSON-Datei importieren**. **Vorher wird gefragt, ob die aktuellen Änderungen verworfen werden sollen.** Ungültige Dateien werden mit Fehlerliste abgelehnt; das aktuelle Modell bleibt dann unverändert.
+23. Das Modell des Graphen wird **bei jeder Änderung im `localStorage`** des Browsers gespeichert.
+24. Beim **Neuladen** der Seite wird zuerst im `localStorage` nach einem Modell aus einer früheren Sitzung gesucht und – falls vorhanden – geladen. Andernfalls werden **initial zwei miteinander verbundene Objekte** angezeigt.
+25. Über einen **Button der Toolbar** kann das Modell **exportiert** werden (Format: **JSON**, siehe unten). Der **Dateiname** lautet `<Projektname>_<JJJJ-MM-TT>_<HHmmss>.json` (lokale Zeit), z. B. `Release-Management_2026-10-09_141022.json`.
+26. Der Benutzer kann ein Modell aus einer **JSON-Datei importieren**. **Vorher wird gefragt, ob die aktuellen Änderungen verworfen werden sollen.** Ungültige Dateien werden mit Fehlerliste abgelehnt; das aktuelle Modell bleibt dann unverändert.
 
 ### Rahmenbedingungen
 
-23. Rein clientseitig (`npm` + `vite`), keine Server-Abhängigkeit zur Laufzeit.
-24. Eingesetzte Technik: React Flow für die Graph-Darstellung und -Interaktion.
+27. Rein clientseitig (`npm` + `vite`), keine Server-Abhängigkeit zur Laufzeit.
+28. Eingesetzte Technik: React Flow für die Graph-Darstellung und -Interaktion.
 
 ## Bedienung
 
@@ -80,6 +84,7 @@ npm run preview    # gebauten Stand lokal ansehen
 | Hilfe zur Toolbar | Mit der Maus über einen Button fahren (oder per Tab fokussieren): Ein Tooltip erklärt die Funktion, nennt das Tastenkürzel und sagt bei deaktivierten Buttons, was fehlt |
 | Abhängigkeiten anzeigen | Objekt markieren → Toolbar → **Abhängigkeiten**, Richtung im Auswahlfeld wählen |
 | Farbe ändern | Doppelklick → Sidebar → Feld **Farbe (color)** → **Save** |
+| Projekt umbenennen | Doppelklick auf den Projektnamen in der Toolbar, Enter übernimmt, Esc bricht ab |
 | Export / Import | Toolbar → **Export** / **Import** |
 
 ## Datenformat (JSON)
@@ -89,6 +94,7 @@ Der Export entspricht exakt dem im `localStorage` abgelegten Modell (Schlüssel 
 ```json
 {
   "version": 1,
+  "projectName": "Release-Management",
   "nodes": [
     {
       "id": "0b1f6c3e-…",
@@ -115,6 +121,7 @@ Der Export entspricht exakt dem im `localStorage` abgelegten Modell (Schlüssel 
 }
 ```
 
+- `projectName` (optional): Projektname, nur `A-Z a-z 0-9 - _ .`; fehlt er, gilt `Release-Management`.
 - `kind`: `node` (blauer Kasten) oder `group` (Gruppe/Sub-Graph).
 - `parentId` (optional) verweist auf eine Gruppe; `position` ist dann relativ zu dieser Gruppe.
 - `metadata` ist eine geordnete Liste; der Eintrag `name` steht immer an erster Stelle.

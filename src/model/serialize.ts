@@ -1,5 +1,6 @@
 import { sortParentsFirst } from './graph'
 import { findDuplicateKeys, normalizeMetadata } from './metadata'
+import { DEFAULT_PROJECT_NAME, PROJECT_NAME_RULE, isValidProjectName } from './projectName'
 import { HANDLE_SIDES, SCHEMA_VERSION } from './types'
 import type {
   ElementKind,
@@ -27,13 +28,19 @@ type Report = (message: string) => void
 
 /** `GraphContent` -> `GraphModel` (adds `version`, orders nodes parents first). Does not mutate. */
 export function toModel(content: GraphContent): GraphModel {
-  return { version: SCHEMA_VERSION, nodes: sortParentsFirst(content.nodes), edges: content.edges }
+  return {
+    version: SCHEMA_VERSION,
+    ...(content.projectName !== undefined && { projectName: content.projectName }),
+    nodes: sortParentsFirst(content.nodes),
+    edges: content.edges,
+  }
 }
 
 /** Pretty-printed JSON (2 spaces, trailing newline) with stable key order: version, nodes, edges. */
 export function serializeModel(model: GraphModel): string {
   const canonical = {
     version: model.version,
+    ...(model.projectName !== undefined && { projectName: model.projectName }),
     nodes: model.nodes.map(canonicalNode),
     edges: model.edges.map(canonicalEdge),
   }
@@ -64,12 +71,19 @@ function canonicalNode(node: ModelNode) {
   }
 }
 
-/** `release-management-YYYY-MM-DD.json` using the LOCAL date of `date`. */
-export function exportFileName(date: Date = new Date()): string {
-  const year = String(date.getFullYear()).padStart(4, '0')
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `release-management-${year}-${month}-${day}.json`
+/**
+ * `<project name>_<YYYY-MM-DD>_<HHmmss>.json` using the LOCAL time of `date`, e.g.
+ * `Release-Management_2026-10-09_141022.json`. A name that is not file-safe falls back to the default.
+ */
+export function exportFileName(
+  date: Date = new Date(),
+  projectName: string = DEFAULT_PROJECT_NAME,
+): string {
+  const pad = (value: number, length = 2) => String(value).padStart(length, '0')
+  const name = isValidProjectName(projectName) ? projectName : DEFAULT_PROJECT_NAME
+  const day = `${pad(date.getFullYear(), 4)}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+  const time = `${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
+  return `${name}_${day}_${time}.json`
 }
 
 // ---------------------------------------------------------------------------
@@ -116,6 +130,15 @@ export function parseModel(input: unknown): ParseResult {
 
   checkVersion(input.version, report)
 
+  let projectName: string | undefined
+  if (input.projectName !== undefined) {
+    if (typeof input.projectName === 'string' && isValidProjectName(input.projectName)) {
+      projectName = input.projectName
+    } else {
+      report(`projectName ist ungültig: muss 1 bis 100 Zeichen lang sein. ${PROJECT_NAME_RULE}`)
+    }
+  }
+
   let nodes: ModelNode[] = []
   let nodeIds = new Set<string>()
   if (Array.isArray(input.nodes)) {
@@ -134,7 +157,15 @@ export function parseModel(input: unknown): ParseResult {
   }
 
   if (errors.length > 0) return { ok: false, errors }
-  return { ok: true, model: { version: SCHEMA_VERSION, nodes: sortParentsFirst(nodes), edges } }
+  return {
+    ok: true,
+    model: {
+      version: SCHEMA_VERSION,
+      ...(projectName !== undefined && { projectName }),
+      nodes: sortParentsFirst(nodes),
+      edges,
+    },
+  }
 }
 
 function checkVersion(version: unknown, report: Report): void {

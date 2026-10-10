@@ -30,7 +30,16 @@ describe('connectPersistence', () => {
     expect(save).toHaveBeenCalledWith({
       nodes: [expect.objectContaining({ id: 'a', position: { x: 3, y: 3 } })],
       edges: [],
+      projectName: 'Release-Management',
     })
+  })
+
+  it('saves when only the project name changes, and includes it', () => {
+    const { store, save } = setup()
+    store.getState().renameProject('Neu-Name')
+    vi.advanceTimersByTime(100)
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ projectName: 'Neu-Name' }))
   })
 
   it('does not save for UI-only changes', () => {

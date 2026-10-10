@@ -43,6 +43,7 @@ Vor „fertig" immer: `npm test && npm run typecheck && npm run lint && npm run 
 - Jede Modelländerung im Store läuft über `apply` (legt den Undo-Schritt an). Mehrteilige Gesten (Drag, Resize) mit `beginGesture`/`endGesture` klammern. UI-Zustand (Auswahl, Sidebar, Modi) wird nicht aufgezeichnet.
 - Kanten haben optional `sourceHandle`/`targetHandle` (`top|right|bottom|left`); fehlen sie, zeichnet `toFlowEdges` die zugewandten Seiten (`pickSides`). Die Knoten haben 4 `source`-Handles, der Canvas läuft im Loose-Modus.
 - Kanten können ein `label` tragen (`updateEdgeLabel`, getrimmt, leer = Schlüssel entfernen). Die Sidebar zeigt für Kanten (`kind: 'edge'`) nur UUID + Label; im Store sind `sidebarId` (Element) und `sidebarEdgeId` (Kante) exklusiv.
+- Der Projektname (`projectName`) ist Teil von `GraphContent` (Store, History, Persistenz, Export) und darf nur `A-Z a-z 0-9 - _ .` enthalten (`isValidProjectName`); er ist Bestandteil des Export-Dateinamens `<Name>_<JJJJ-MM-TT>_<HHmmss>.json`.
 - `color` ist ein normaler Metadateneintrag (`#rrggbb`, direkt nach `name`); nur `getColor` liefert gültige Werte. Die Sidebar rendert ihn als Farbwähler, nicht als freie Zeile.
 
 ## Konventionen

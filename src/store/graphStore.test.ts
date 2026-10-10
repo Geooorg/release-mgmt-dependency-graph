@@ -242,6 +242,83 @@ describe('graphStore', () => {
     })
   })
 
+  describe('project name', () => {
+    const named = (projectName?: string) => createGraphStore({ ...twoNodes(), projectName })
+
+    it('defaults to "Release-Management"', () => {
+      expect(named().getState().projectName).toBe('Release-Management')
+    })
+
+    it('starts with the name of the loaded content', () => {
+      expect(named('Mein-Projekt').getState().projectName).toBe('Mein-Projekt')
+    })
+
+    it('renames to a valid name', () => {
+      const store = named()
+      expect(store.getState().renameProject('Alpha_1.0')).toBe(true)
+      expect(store.getState().projectName).toBe('Alpha_1.0')
+    })
+
+    it('refuses names with other characters, or empty ones', () => {
+      const store = named('Alpha')
+      for (const bad of ['', 'mit Leerzeichen', 'Müller', 'a/b']) {
+        expect(store.getState().renameProject(bad)).toBe(false)
+      }
+      expect(store.getState().projectName).toBe('Alpha')
+      expect(store.getState().history.past).toHaveLength(0)
+    })
+
+    it('can be undone and redone', () => {
+      const store = named('Alpha')
+      store.getState().renameProject('Beta')
+      store.getState().undo()
+      expect(store.getState().projectName).toBe('Alpha')
+      store.getState().redo()
+      expect(store.getState().projectName).toBe('Beta')
+    })
+
+    it('does not record a rename to the same name', () => {
+      const store = named('Alpha')
+      expect(store.getState().renameProject('Alpha')).toBe(true)
+      expect(store.getState().history.past).toHaveLength(0)
+    })
+
+    it('keeps the name when the graph changes and when those changes are undone', () => {
+      const store = named('Alpha')
+      store.getState().connect('a', 'b')
+      store.getState().renameProject('Beta')
+      store.getState().undo() // rename
+      store.getState().undo() // edge
+      expect(store.getState().edges).toEqual([])
+      expect(store.getState().projectName).toBe('Alpha')
+      store.getState().redo()
+      store.getState().redo()
+      expect(store.getState().projectName).toBe('Beta')
+      expect(store.getState().edges).toHaveLength(1)
+    })
+
+    it('takes the name from an import, falls back to the default, and undoes both', () => {
+      const store = named('Alpha')
+      const withName = JSON.stringify({ version: 1, projectName: 'Importiert', nodes: [], edges: [] })
+      const withoutName = JSON.stringify({ version: 1, nodes: [], edges: [] })
+      store.getState().importText(withName)
+      expect(store.getState().projectName).toBe('Importiert')
+      store.getState().importText(withoutName)
+      expect(store.getState().projectName).toBe('Release-Management')
+      store.getState().undo()
+      expect(store.getState().projectName).toBe('Importiert')
+      store.getState().undo()
+      expect(store.getState().projectName).toBe('Alpha')
+    })
+
+    it('rejects an import with an invalid name and keeps the current one', () => {
+      const store = named('Alpha')
+      const bad = JSON.stringify({ version: 1, projectName: 'mit Leerzeichen', nodes: [], edges: [] })
+      expect(store.getState().importText(bad)).toBe(false)
+      expect(store.getState().projectName).toBe('Alpha')
+    })
+  })
+
   describe('edge labels', () => {
     const withEdge = () =>
       createGraphStore(content([box('a', 0, 0), box('b', 300, 0)], [edge('e', 'a', 'b')]))

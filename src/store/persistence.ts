@@ -23,8 +23,8 @@ export function connectPersistence(store: GraphStore, options: PersistenceOption
     clearTimeout(timer)
     if (!dirty) return
     dirty = false
-    const { nodes, edges } = store.getState()
-    if (save({ nodes, edges })) {
+    const { nodes, edges, projectName } = store.getState()
+    if (save({ nodes, edges, projectName })) {
       failureReported = false
     } else if (!failureReported) {
       failureReported = true
@@ -33,7 +33,13 @@ export function connectPersistence(store: GraphStore, options: PersistenceOption
   }
 
   const unsubscribe = store.subscribe((state, previous) => {
-    if (state.nodes === previous.nodes && state.edges === previous.edges) return
+    if (
+      state.nodes === previous.nodes &&
+      state.edges === previous.edges &&
+      state.projectName === previous.projectName
+    ) {
+      return
+    }
     dirty = true
     clearTimeout(timer)
     timer = setTimeout(flush, debounceMs)

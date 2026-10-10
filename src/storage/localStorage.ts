@@ -30,8 +30,8 @@ export function loadStoredContent(storage: Storage | null = getStorage()): LoadR
     if (raw === null) return { status: 'empty' }
     const result = parseModelJson(raw)
     if (result.ok) {
-      const { nodes, edges } = result.model
-      return { status: 'loaded', content: { nodes, edges } }
+      const { nodes, edges, projectName } = result.model
+      return { status: 'loaded', content: { nodes, edges, projectName } }
     }
     storage.setItem(CORRUPT_KEY, raw)
     storage.removeItem(STORAGE_KEY)
