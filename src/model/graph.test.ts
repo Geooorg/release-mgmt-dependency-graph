@@ -20,7 +20,11 @@ import {
   resizeNode,
   sortParentsFirst,
   ungroup,
-  updateEdgeLabel,
+  renameEdge,
+  reconnectEdge,
+  checkReconnection,
+  renameElement,
+  setColor,
   updateMetadata,
   wouldBreakHierarchy,
 } from './graph'
@@ -894,6 +898,157 @@ describe('addEdge', () => {
 // Property updates
 // ---------------------------------------------------------------------------
 
+describe('setColor', () => {
+  const colored = (id: string, color: string) =>
+    node(id, 0, 0, { metadata: [{ key: 'name', value: id }, { key: 'color', value: color }, { key: 'owner', value: 'Anna' }] })
+
+  it('sets the colour of every listed object and group, right after the name', () => {
+    const c = content([node('a', 0, 0), group('g', 0, 0, 100, 100), node('b', 0, 0)])
+    const result = setColor(c, ['a', 'g'], '#FF0000')
+
+    expect(find(result, 'a').metadata).toEqual([{ key: 'name', value: 'a' }, { key: 'color', value: '#ff0000' }])
+    expect(find(result, 'g').metadata[1]).toEqual({ key: 'color', value: '#ff0000' })
+    expect(find(result, 'b')).toBe(find(c, 'b'))
+  })
+
+  it('replaces an existing colour and keeps the other entries', () => {
+    const result = setColor(content([colored('a', '#00ff00')]), ['a'], '#112233')
+
+    expect(find(result, 'a').metadata).toEqual([
+      { key: 'name', value: 'a' },
+      { key: 'color', value: '#112233' },
+      { key: 'owner', value: 'Anna' },
+    ])
+  })
+
+  it('removes the colour with undefined, also an invalid one', () => {
+    const result = setColor(content([colored('a', '#00ff00'), colored('b', 'red')]), ['a', 'b'], undefined)
+
+    for (const id of ['a', 'b']) {
+      expect(find(result, id).metadata).toEqual([{ key: 'name', value: id }, { key: 'owner', value: 'Anna' }])
+    }
+  })
+
+  it('keeps elements that already have the colour and returns the content when nothing changes', () => {
+    const c = content([colored('a', '#112233'), node('b', 0, 0)])
+
+    expect(setColor(c, ['a'], '#112233')).toBe(c)
+    expect(setColor(c, ['b'], undefined)).toBe(c)
+    expect(setColor(c, ['nope'], '#112233')).toBe(c)
+    expect(find(setColor(c, ['a', 'b'], '#112233'), 'a')).toBe(find(c, 'a'))
+  })
+
+  it('ignores a value that is no #rrggbb colour', () => {
+    const c = content([node('a', 0, 0)])
+
+    expect(setColor(c, ['a'], 'red')).toBe(c)
+    expect(setColor(c, ['a'], '#abc')).toBe(c)
+  })
+
+  it('does not mutate its input', () => {
+    const c = deepFreeze(content([node('a', 0, 0)]))
+    expect(() => setColor(c, ['a'], '#112233')).not.toThrow()
+  })
+})
+
+describe('reconnectEdge', () => {
+  const base = () =>
+    content(
+      [node('a', 0, 0), node('b', 300, 0), node('c', 600, 0), group('g', 0, 300, 300, 200), node('m', 24, 56, { parentId: 'g' })],
+      [
+        { id: 'e1', source: 'a', target: 'b', sourceHandle: 'right', targetHandle: 'left', metadata: [{ key: 'name', value: 'hängt ab' }] },
+        { id: 'e2', source: 'b', target: 'c' },
+      ],
+    )
+  const edgeOf = (c: GraphContent, id: string) => c.edges.find((e) => e.id === id)!
+
+  it('moves only the connector and keeps id, ends and name', () => {
+    const result = reconnectEdge(base(), 'e1', { source: 'a', target: 'b', sourceHandle: 'bottom', targetHandle: 'top' })
+
+    expect(edgeOf(result, 'e1')).toEqual({
+      id: 'e1',
+      source: 'a',
+      target: 'b',
+      sourceHandle: 'bottom',
+      targetHandle: 'top',
+      metadata: [{ key: 'name', value: 'hängt ab' }],
+    })
+    expect(edgeOf(result, 'e2')).toBe(edgeOf(base(), 'e2') && result.edges[1])
+  })
+
+  it('can point to another element', () => {
+    const result = reconnectEdge(base(), 'e1', { source: 'a', target: 'c', targetHandle: 'left' })
+
+    expect(edgeOf(result, 'e1')).toMatchObject({ source: 'a', target: 'c', targetHandle: 'left', metadata: [{ key: 'name', value: 'hängt ab' }] })
+    expect(edgeOf(result, 'e1').sourceHandle).toBeUndefined()
+  })
+
+  it('refuses what a new connection would not allow, but not the edge itself as a duplicate', () => {
+    const c = base()
+
+    expect(checkReconnection(c, 'e1', 'a', 'b').ok).toBe(true)
+    expect(checkReconnection(c, 'e1', 'b', 'c')).toEqual({ ok: false, reason: 'duplicate' })
+    expect(checkReconnection(c, 'e1', 'a', 'a')).toEqual({ ok: false, reason: 'self' })
+    expect(checkReconnection(c, 'e1', 'g', 'm')).toEqual({ ok: false, reason: 'hierarchy' })
+    expect(reconnectEdge(c, 'e1', { source: 'b', target: 'c' })).toBe(c)
+  })
+
+  it('returns the content when nothing changes or the edge is unknown', () => {
+    const c = base()
+
+    expect(reconnectEdge(c, 'e1', { source: 'a', target: 'b', sourceHandle: 'right', targetHandle: 'left' })).toBe(c)
+    expect(reconnectEdge(c, 'nope', { source: 'a', target: 'c' })).toBe(c)
+  })
+
+  it('does not mutate its input', () => {
+    const c = deepFreeze(base())
+    expect(() => reconnectEdge(c, 'e1', { source: 'a', target: 'c', targetHandle: 'top' })).not.toThrow()
+  })
+})
+
+describe('renameElement', () => {
+  const named = (id: string, extra: ModelNode['metadata'] = []) =>
+    node(id, 0, 0, { metadata: [{ key: 'name', value: id }, ...extra] })
+
+  it('sets the trimmed name and keeps every other entry in place', () => {
+    const owner = { key: 'owner', value: 'Anna' }
+    const c = content([named('a', [owner]), named('b')])
+    const result = renameElement(c, 'a', '  Neu  ')
+
+    expect(find(result, 'a').metadata).toEqual([{ key: 'name', value: 'Neu' }, owner])
+    expect(find(result, 'b')).toBe(find(c, 'b'))
+  })
+
+  it('works for groups as well', () => {
+    const c = content([group('g', 0, 0, 200, 100)])
+    expect(find(renameElement(c, 'g', 'Backend'), 'g').metadata[0]).toEqual({ key: 'name', value: 'Backend' })
+  })
+
+  it('allows an empty name', () => {
+    expect(find(renameElement(content([named('a')]), 'a', '  '), 'a').metadata[0].value).toBe('')
+  })
+
+  it('returns the same reference when nothing changes or the id is unknown', () => {
+    const c = content([named('a')])
+    expect(renameElement(c, 'a', 'a')).toBe(c)
+    expect(renameElement(c, 'a', ' a ')).toBe(c)
+    expect(renameElement(c, 'nope', 'x')).toBe(c)
+  })
+
+  it('adds a name entry to an element that has none', () => {
+    const c = content([node('a', 0, 0, { metadata: [{ key: 'owner', value: 'Anna' }] })])
+    expect(find(renameElement(c, 'a', 'Neu'), 'a').metadata).toEqual([
+      { key: 'name', value: 'Neu' },
+      { key: 'owner', value: 'Anna' },
+    ])
+  })
+
+  it('does not mutate its input', () => {
+    const c = deepFreeze(content([named('a')]))
+    expect(() => renameElement(c, 'a', 'x')).not.toThrow()
+  })
+})
+
 describe('updateMetadata', () => {
   it('replaces the metadata with its normalized form', () => {
     const other = node('b', 0, 0)
@@ -1207,7 +1362,7 @@ describe('addEdge with connectors', () => {
   })
 })
 
-describe('updateEdgeLabel', () => {
+describe('renameEdge', () => {
   const base: GraphContent = {
     nodes: [node('a', 0, 0), node('b', 300, 0)],
     edges: [
@@ -1216,31 +1371,56 @@ describe('updateEdgeLabel', () => {
     ],
   }
 
-  it('sets a trimmed label and keeps everything else', () => {
-    const next = updateEdgeLabel(base, 'e1', '  hängt ab von  ')
-    expect(next.edges[0]).toEqual({ id: 'e1', source: 'a', target: 'b', sourceHandle: 'right', label: 'hängt ab von' })
+  it('sets the trimmed name as the same `name` entry elements have, and keeps everything else', () => {
+    const next = renameEdge(base, 'e1', '  hängt ab von  ')
+    expect(next.edges[0]).toEqual({
+      id: 'e1',
+      source: 'a',
+      target: 'b',
+      sourceHandle: 'right',
+      metadata: [{ key: 'name', value: 'hängt ab von' }],
+    })
     expect(next.edges[1]).toBe(base.edges[1])
     expect(next.nodes).toBe(base.nodes)
   })
 
-  it('removes the label for blank text', () => {
-    const labelled = updateEdgeLabel(base, 'e1', 'x')
-    for (const blank of ['', '   ']) {
-      const cleared = updateEdgeLabel(labelled, 'e1', blank)
-      expect('label' in cleared.edges[0]).toBe(false)
+  it('keeps other metadata entries and puts the name first', () => {
+    const withOwner: GraphContent = {
+      ...base,
+      edges: [{ ...base.edges[0], metadata: [{ key: 'owner', value: 'Anna' }, { key: 'name', value: 'alt' }] }, base.edges[1]],
     }
+
+    expect(renameEdge(withOwner, 'e1', 'neu').edges[0].metadata).toEqual([
+      { key: 'name', value: 'neu' },
+      { key: 'owner', value: 'Anna' },
+    ])
   })
 
-  it('returns the same content for unknown edges or unchanged labels', () => {
-    expect(updateEdgeLabel(base, 'nope', 'x')).toBe(base)
-    expect(updateEdgeLabel(base, 'e1', '')).toBe(base)
-    const labelled = updateEdgeLabel(base, 'e1', 'x')
-    expect(updateEdgeLabel(labelled, 'e1', ' x ')).toBe(labelled)
+  it('removes the metadata again for blank text, unless other entries remain', () => {
+    const named = renameEdge(base, 'e1', 'x')
+    for (const blank of ['', '   ']) {
+      expect('metadata' in renameEdge(named, 'e1', blank).edges[0]).toBe(false)
+    }
+    const withOwner: GraphContent = {
+      ...base,
+      edges: [{ ...base.edges[0], metadata: [{ key: 'name', value: 'x' }, { key: 'owner', value: 'Anna' }] }, base.edges[1]],
+    }
+    expect(renameEdge(withOwner, 'e1', '').edges[0].metadata).toEqual([
+      { key: 'name', value: '' },
+      { key: 'owner', value: 'Anna' },
+    ])
+  })
+
+  it('returns the same content for unknown edges or an unchanged name', () => {
+    expect(renameEdge(base, 'nope', 'x')).toBe(base)
+    expect(renameEdge(base, 'e1', '')).toBe(base)
+    const named = renameEdge(base, 'e1', 'x')
+    expect(renameEdge(named, 'e1', ' x ')).toBe(named)
   })
 
   it('does not mutate its input', () => {
     const before = JSON.stringify(base)
-    updateEdgeLabel(base, 'e1', 'x')
+    renameEdge(base, 'e1', 'x')
     expect(JSON.stringify(base)).toBe(before)
   })
 })

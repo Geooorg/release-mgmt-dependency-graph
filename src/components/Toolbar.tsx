@@ -2,11 +2,16 @@ import type { ReactNode } from 'react'
 import type { Highlight, Tool, WorkMode } from '../model/workMode'
 import {
   AddObjectIcon,
+  BracesIcon,
+  ClipboardIcon,
   ConnectIcon,
+  CopyIcon,
   CursorIcon,
   CycleIcon,
   GraphIcon,
   GroupIcon,
+  PasteIcon,
+  SearchIcon,
   RedoIcon,
   TrashIcon,
   UndoIcon,
@@ -104,6 +109,8 @@ export function Toolbar({
   canGroup,
   canUngroup,
   canDelete,
+  canCopy,
+  canPaste,
   canUndo,
   canRedo,
   highlight,
@@ -118,8 +125,14 @@ export function Toolbar({
   onGroup,
   onUngroup,
   onDelete,
+  onCopy,
+  onPaste,
+  searchOpen,
+  onToggleSearch,
   onExport,
   onImport,
+  onShowJson,
+  onPasteJson,
 }: ToolbarProps) {
   const dependencyHighlight = highlight === 'outgoing' || highlight === 'incoming' || highlight === 'both'
 
@@ -217,6 +230,41 @@ export function Toolbar({
               </button>
             </Tooltip>
           </Section>
+
+          <Separator />
+
+          <Section label="Zwischenablage">
+            <Tooltip
+              text="Markierte Objekte und Gruppen kopieren (mit dem Inhalt der Gruppen, ohne Verbindungen)"
+              shortcut="Strg/Cmd + C"
+              hint={canCopy ? undefined : 'Zuerst Objekte oder Gruppen markieren.'}
+            >
+              <button
+                type="button"
+                className="ui-button ui-button--tool"
+                aria-label="Kopieren"
+                disabled={!canCopy}
+                onClick={onCopy}
+              >
+                <CopyIcon />
+              </button>
+            </Tooltip>
+            <Tooltip
+              text="Kopierte Elemente als neue Elemente einfügen (neue IDs, ohne Verbindungen)"
+              shortcut="Strg/Cmd + V"
+              hint={canPaste ? undefined : 'Zuerst etwas kopieren.'}
+            >
+              <button
+                type="button"
+                className="ui-button ui-button--tool"
+                aria-label="Einfügen"
+                disabled={!canPaste}
+                onClick={onPaste}
+              >
+                <PasteIcon />
+              </button>
+            </Tooltip>
+          </Section>
         </>
       ) : (
         <Section label="Analyse">
@@ -308,6 +356,22 @@ export function Toolbar({
         </>
       )}
 
+      <Separator />
+
+      <Section label="Suche">
+        <Tooltip text="Objekt oder Gruppe über den Namen suchen (Anfang des Namens, Groß-/Kleinschreibung egal). Enter springt zum Treffer, nochmal Enter zum nächsten.">
+          <button
+            type="button"
+            className="ui-button ui-button--tool"
+            aria-label="Suchen"
+            aria-pressed={searchOpen}
+            onClick={onToggleSearch}
+          >
+            <SearchIcon />
+          </button>
+        </Tooltip>
+      </Section>
+
       <span className="toolbar__spacer" />
 
       {/* Sticky: stays reachable when a narrow window scrolls the toolbar sideways. */}
@@ -319,9 +383,19 @@ export function Toolbar({
               Export
             </button>
           </Tooltip>
+          <Tooltip text="Das Projekt als JSON-Text anzeigen (nur lesen) und in die Zwischenablage kopieren">
+            <button type="button" className="ui-button ui-button--tool" aria-label="JSON anzeigen" onClick={onShowJson}>
+              <BracesIcon />
+            </button>
+          </Tooltip>
           <Tooltip text="Ein Projekt aus einer JSON-Datei laden. Es ersetzt das aktuelle Projekt; vorher wird gefragt und bei nicht exportierten Änderungen gewarnt.">
             <button type="button" className="ui-button" onClick={onImport}>
               Import
+            </button>
+          </Tooltip>
+          <Tooltip text="Ein Projekt aus eingefügtem JSON-Text laden. Es ersetzt das aktuelle Projekt; bei nicht exportierten Änderungen wird gewarnt.">
+            <button type="button" className="ui-button ui-button--tool" aria-label="JSON einfügen" onClick={onPasteJson}>
+              <ClipboardIcon />
             </button>
           </Tooltip>
         </Section>

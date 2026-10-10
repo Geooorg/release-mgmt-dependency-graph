@@ -1,10 +1,9 @@
 import { useEffect, useId, useRef } from 'react'
 import type { SyntheticEvent } from 'react'
 import type { ImportDialogProps } from './props'
+import { projectSummary } from './projectSummary'
 import { useNativeDialog } from './useNativeDialog'
 import './components.css'
-
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
 /** Asks before an import replaces the project, and warns when that would lose changes never exported. */
 export function ImportDialog({
@@ -31,12 +30,7 @@ export function ImportDialog({
     onCancel()
   }
 
-  // Objects are always named (even 0); groups and connections only when there are any.
-  const summary = [
-    plural(counts.objects, 'Objekt', 'Objekte'),
-    ...(counts.groups > 0 ? [plural(counts.groups, 'Gruppe', 'Gruppen')] : []),
-    ...(counts.connections > 0 ? [plural(counts.connections, 'Verbindung', 'Verbindungen')] : []),
-  ].join(', ')
+  const summary = projectSummary(counts)
 
   return (
     <dialog

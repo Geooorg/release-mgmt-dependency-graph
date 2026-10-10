@@ -29,6 +29,239 @@ describe('graphStore', () => {
       expect(overlapsA).toBe(false)
     })
 
+    it('renames one element as a single undo step and ignores no-ops', () => {
+      const store = createGraphStore(twoNodes(), counterIds())
+      store.getState().renameElement('a', ' Neu ')
+      expect(store.getState().nodes[0].metadata[0]).toEqual({ key: 'name', value: 'Neu' })
+      expect(store.getState().history.past).toHaveLength(1)
+
+      store.getState().renameElement('a', 'Neu')
+      expect(store.getState().history.past).toHaveLength(1)
+
+      store.getState().undo()
+      expect(store.getState().nodes[0].metadata[0].value).toBe('a')
+    })
+
+    it('sets one colour for the whole selection as a single undo step', () => {
+      const store = createGraphStore(content([box('a', 0, 0), box('b', 300, 0), group('g', 0, 400, 300, 200)]), counterIds())
+      store.getState().applyNodeSelection([
+        { id: 'a', selected: true },
+        { id: 'g', selected: true },
+      ])
+      store.getState().setSelectionColor('#ff0000')
+
+      const colors = store.getState().nodes.map((n) => n.metadata.find((m) => m.key === 'color')?.value)
+      expect(colors).toEqual(['#ff0000', undefined, '#ff0000'])
+      expect(store.getState().history.past).toHaveLength(1)
+
+      store.getState().setSelectionColor(undefined)
+      expect(store.getState().nodes.every((n) => n.metadata.every((m) => m.key !== 'color'))).toBe(true)
+      store.getState().undo()
+      expect(store.getState().nodes[0].metadata.find((m) => m.key === 'color')?.value).toBe('#ff0000')
+    })
+
+    it('grows a group when an object is dropped into it, as part of the drop', () => {
+      const store = createGraphStore(content([group('g', 0, 0, 300, 200), box('a', 200, 150)]), counterIds())
+      store.getState().finishDrag(['a'])
+
+      const state = store.getState()
+      const a = state.nodes.find((n) => n.id === 'a')!
+      const g = state.nodes.find((n) => n.id === 'g')!
+      expect(a.parentId).toBe('g')
+      expect(g.size!.width).toBeGreaterThanOrEqual(a.position.x + 160 + 24)
+      expect(g.size!.height).toBeGreaterThanOrEqual(a.position.y + 56 + 24)
+    })
+
+    it('leaves the group as it is when the dropped object fits', () => {
+      const store = createGraphStore(content([group('g', 0, 0, 600, 400), box('a', 100, 100)]), counterIds())
+      store.getState().finishDrag(['a'])
+
+      expect(store.getState().nodes.find((n) => n.id === 'g')!.size).toEqual({ width: 600, height: 400 })
+    })
+
+    describe('reconnecting a connection', () => {
+      const withEdge = () =>
+        createGraphStore(
+          content([box('a', 0, 0), box('b', 400, 0), box('c', 800, 0)], [{ ...edge('e', 'a', 'b'), metadata: [{ key: 'name', value: 'x' }] }]),
+          counterIds(),
+        )
+
+      it('moves it to another connector as one undo step', () => {
+        const store = withEdge()
+        store.getState().reconnectEdge('e', { source: 'a', target: 'b', sourceHandle: 'bottom', targetHandle: 'bottom' })
+
+        expect(store.getState().edges[0]).toEqual({
+          id: 'e', source: 'a', target: 'b', sourceHandle: 'bottom', targetHandle: 'bottom', metadata: [{ key: 'name', value: 'x' }],
+        })
+        expect(store.getState().history.past).toHaveLength(1)
+        store.getState().undo()
+        expect(store.getState().edges[0].sourceHandle).toBeUndefined()
+      })
+
+      it('explains a refused move and leaves everything as it is', () => {
+        const store = createGraphStore(
+          content([box('a', 0, 0), box('b', 400, 0)], [edge('e1', 'a', 'b'), edge('e2', 'b', 'a')]),
+          counterIds(),
+        )
+        store.getState().reconnectEdge('e2', { source: 'a', target: 'b' })
+
+        expect(store.getState().edges[1]).toEqual(edge('e2', 'b', 'a'))
+        expect(store.getState().notice?.message).toBe('Diese Verbindung existiert bereits.')
+      })
+
+      it('is locked while analysing', () => {
+        const store = withEdge()
+        store.getState().setMode('analyze')
+        store.getState().reconnectEdge('e', { source: 'a', target: 'c' })
+
+        expect(store.getState().edges[0].target).toBe('b')
+      })
+    })
+
+    describe('connection dropped on a node', () => {
+      const pair = () => createGraphStore(content([box('a', 0, 0), box('b', 400, 0), group('g', 0, 300, 300, 200), box('m', 24, 56, 'g')]), counterIds())
+
+      it('connects to the node with the dragged connector and the facing one there', () => {
+        const store = pair()
+        store.getState().connectToNode('a', 'b', 'top')
+
+        expect(store.getState().edges).toEqual([
+          { id: 'id-1', source: 'a', target: 'b', sourceHandle: 'top', targetHandle: 'left' },
+        ])
+        expect(store.getState().history.past).toHaveLength(1)
+      })
+
+      it('picks the facing connector on both sides when it was not dragged from one', () => {
+        const store = pair()
+        store.getState().connectToNode('a', 'b')
+
+        expect(store.getState().edges[0]).toMatchObject({ sourceHandle: 'right', targetHandle: 'left' })
+      })
+
+      it('also works with a group as the target', () => {
+        const store = pair()
+        store.getState().connectToNode('a', 'g')
+
+        expect(store.getState().edges[0]).toMatchObject({ source: 'a', target: 'g' })
+      })
+
+      it('says why a rejected connection is not made, and ignores a drop on the node itself', () => {
+        const store = pair()
+        store.getState().connectToNode('a', 'a')
+        expect(store.getState().notice).toBeNull()
+
+        store.getState().connectToNode('g', 'm')
+        expect(store.getState().edges).toEqual([])
+        expect(store.getState().notice?.message).toBe('Eine Gruppe kann nicht mit ihrem eigenen Inhalt verbunden werden.')
+
+        store.getState().connectToNode('a', 'b')
+        store.getState().connectToNode('a', 'b')
+        expect(store.getState().edges).toHaveLength(1)
+      })
+
+      it('is locked while analysing', () => {
+        const store = pair()
+        store.getState().setMode('analyze')
+        store.getState().connectToNode('a', 'b')
+
+        expect(store.getState().edges).toEqual([])
+      })
+    })
+
+    describe('copy and paste', () => {
+      const withGroup = () =>
+        createGraphStore(
+          content([box('a', 0, 0), box('b', 300, 0), group('g', 0, 400, 300, 200), box('m', 24, 56, 'g')], [edge('e', 'a', 'b')]),
+          counterIds(),
+        )
+      const select = (store: GraphStore, ...ids: string[]) =>
+        store.getState().applyNodeSelection(ids.map((id) => ({ id, selected: true })))
+
+      it('copies the selection without changing anything', () => {
+        const store = withGroup()
+        const before = store.getState().nodes
+        select(store, 'a')
+        store.getState().copySelection()
+
+        expect(store.getState().clipboard?.entries.map((e) => e.node.id)).toEqual(['a'])
+        expect(store.getState().nodes).toBe(before)
+        expect(store.getState().history.past).toHaveLength(0)
+        expect(store.getState().notice).toMatchObject({ kind: 'success', message: '1 Element kopiert.' })
+      })
+
+      it('does nothing without a selection', () => {
+        const store = withGroup()
+        store.getState().copySelection()
+
+        expect(store.getState().clipboard).toBeNull()
+      })
+
+      it('pastes new elements with new ids, selects them and keeps the connections as they are', () => {
+        const store = withGroup()
+        select(store, 'a', 'b')
+        store.getState().copySelection()
+        store.getState().paste()
+
+        const state = store.getState()
+        expect(state.nodes).toHaveLength(6)
+        expect(state.nodes.slice(4).map((n) => n.id)).toEqual(['id-1', 'id-2'])
+        expect(state.edges).toEqual([edge('e', 'a', 'b')])
+        expect(state.selectedNodeIds).toEqual(['id-1', 'id-2'])
+        expect(state.history.past).toHaveLength(1)
+
+        state.undo()
+        expect(store.getState().nodes).toHaveLength(4)
+      })
+
+      it('moves every further paste a bit further', () => {
+        const store = withGroup()
+        select(store, 'a')
+        store.getState().copySelection()
+        store.getState().paste()
+        store.getState().paste()
+
+        const [first, second] = store.getState().nodes.slice(4)
+        expect(first.position).toEqual({ x: 24, y: 24 })
+        expect(second.position).toEqual({ x: 48, y: 48 })
+
+        // A new copy starts over: the selection is the last paste (48, 48), the next one lands one step further.
+        store.getState().copySelection()
+        store.getState().paste()
+        expect(store.getState().nodes.at(-1)!.position).toEqual({ x: 72, y: 72 })
+      })
+
+      it('copies a group with its content, re-linked', () => {
+        const store = withGroup()
+        select(store, 'g')
+        store.getState().copySelection()
+        store.getState().paste()
+
+        const [newGroup, newMember] = store.getState().nodes.slice(4)
+        expect(newGroup.kind).toBe('group')
+        expect(newMember.parentId).toBe(newGroup.id)
+        expect(store.getState().selectedNodeIds).toEqual([newGroup.id])
+      })
+
+      it('is locked while analysing, copying still works', () => {
+        const store = withGroup()
+        select(store, 'a')
+        store.getState().setMode('analyze')
+        store.getState().copySelection()
+        store.getState().paste()
+
+        expect(store.getState().clipboard).not.toBeNull()
+        expect(store.getState().nodes).toHaveLength(4)
+      })
+
+      it('has nothing to paste without a copy', () => {
+        const store = withGroup()
+        store.getState().paste()
+
+        expect(store.getState().nodes).toHaveLength(4)
+        expect(store.getState().history.past).toHaveLength(0)
+      })
+    })
+
     it('stores normalized metadata', () => {
       const store = createGraphStore(twoNodes(), counterIds())
       store.getState().updateMetadata('a', [
@@ -351,7 +584,7 @@ describe('graphStore', () => {
       store.getState().beginGesture()
       store.getState().endGesture()
       store.getState().beginGesture()
-      store.getState().updateEdgeLabel('nope', 'x')
+      store.getState().renameEdge('nope', 'x')
       store.getState().endGesture()
       expect(store.getState().history.past).toHaveLength(0)
     })
@@ -621,21 +854,21 @@ describe('graphStore', () => {
     })
   })
 
-  describe('edge labels', () => {
+  describe('edge names', () => {
     const withEdge = () =>
       createGraphStore(content([box('a', 0, 0), box('b', 300, 0)], [edge('e', 'a', 'b')]))
 
-    it('saves a trimmed label and can undo it', () => {
+    it('saves a trimmed name as metadata and can undo it', () => {
       const store = withEdge()
-      store.getState().updateEdgeLabel('e', '  braucht  ')
-      expect(store.getState().edges[0].label).toBe('braucht')
+      store.getState().renameEdge('e', '  braucht  ')
+      expect(store.getState().edges[0].metadata).toEqual([{ key: 'name', value: 'braucht' }])
       store.getState().undo()
-      expect(store.getState().edges[0].label).toBeUndefined()
+      expect(store.getState().edges[0].metadata).toBeUndefined()
     })
 
-    it('does not record an unchanged label as an undo step', () => {
+    it('does not record an unchanged name as an undo step', () => {
       const store = withEdge()
-      store.getState().updateEdgeLabel('e', '   ')
+      store.getState().renameEdge('e', '   ')
       expect(store.getState().history.past).toHaveLength(0)
     })
 
@@ -1091,16 +1324,16 @@ describe('graphStore', () => {
         expect(s().history.past).toHaveLength(1)
       })
 
-      it('still allows editing metadata, edge labels, the project name, status and undo', () => {
+      it('still allows editing metadata, edge names, the project name, status and undo', () => {
         const { s } = analyzing()
         s().updateMetadata('a', [
           { key: 'name', value: 'A' },
           { key: 'status', value: 'fertig' },
         ])
-        s().updateEdgeLabel('e', 'braucht')
+        s().renameEdge('e', 'braucht')
         expect(s().renameProject('Neu')).toBe(true)
         expect(s().nodes[0].metadata[1]).toEqual({ key: 'status', value: 'fertig' })
-        expect(s().edges[0].label).toBe('braucht')
+        expect(s().edges[0].metadata?.[0].value).toBe('braucht')
         s().undo()
         expect(s().projectName).toBe('Release-Management')
       })

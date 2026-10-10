@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -218,7 +218,7 @@ describe('App: changes are applied at once', () => {
     expect(graphStore.getState().nodes[0].metadata).toContainEqual({ key: 'owner', value: 'v' })
   })
 
-  it('applies the status choice and the edge label at once', async () => {
+  it('applies the status choice and the edge name at once', async () => {
     render(<App />)
     select(graphStore.getState().nodes[0].id)
     await userEvent.selectOptions(screen.getByLabelText('Status'), 'fertig')
@@ -226,9 +226,9 @@ describe('App: changes are applied at once', () => {
 
     const [edge] = graphStore.getState().edges
     act(() => graphStore.getState().openEdgeSidebar(edge.id))
-    await userEvent.type(screen.getByLabelText('Label'), ' braucht ')
-    expect(graphStore.getState().edges[0].label).toBe('braucht')
-    expect(screen.getByLabelText('Label')).toHaveValue(' braucht ')
+    await userEvent.type(screen.getByLabelText('Name'), ' braucht ')
+    expect(graphStore.getState().edges[0].metadata).toEqual([{ key: 'name', value: 'braucht' }])
+    expect(screen.getByLabelText('Name')).toHaveValue(' braucht ')
   })
 
   it('bundles the keystrokes of one field into one undo step; leaving the field ends it', async () => {
@@ -523,6 +523,382 @@ describe('App: import warning', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Analysieren' }))
     await userEvent.click(screen.getByRole('button', { name: 'Import' }))
     expect(importDialog()).not.toBeNull()
+  })
+})
+
+describe('App: colour of a multi selection', () => {
+  const colorOf = (index: number) => graphStore.getState().nodes[index].metadata.find((m) => m.key === 'color')?.value
+
+  it('colours every selected element at once, as one undo step', () => {
+    render(<App />)
+    const [first, second] = graphStore.getState().nodes
+    select(first.id, second.id)
+    const before = graphStore.getState().history.past.length
+
+    fireEvent.change(screen.getByLabelText('Farbe (color) für alle 2 Elemente'), { target: { value: '#ff0000' } })
+
+    expect(colorOf(0)).toBe('#ff0000')
+    expect(colorOf(1)).toBe('#ff0000')
+    expect(graphStore.getState().history.past).toHaveLength(before + 1)
+    expect(screen.getByLabelText('Farbe (color) für alle 2 Elemente')).toHaveValue('#ff0000')
+
+    act(() => graphStore.getState().endGesture())
+    act(() => graphStore.getState().undo())
+    expect(colorOf(0)).toBeUndefined()
+    expect(colorOf(1)).toBeUndefined()
+  })
+
+  it('shows that the colours differ and resets all of them', async () => {
+    render(<App />)
+    const [first, second] = graphStore.getState().nodes
+    act(() => {
+      graphStore.getState().updateMetadata(first.id, [...first.metadata, { key: 'color', value: '#00ff00' }])
+    })
+    select(first.id, second.id)
+
+    expect(screen.getByText('verschieden')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Zurücksetzen' }))
+
+    expect(colorOf(0)).toBeUndefined()
+    expect(colorOf(1)).toBeUndefined()
+  })
+
+  it('does not ignore the single selection: one element still gets the normal form', () => {
+    render(<App />)
+    select(graphStore.getState().nodes[0].id)
+
+    expect(screen.queryByLabelText(/für alle/)).toBeNull()
+    expect(screen.getByLabelText('Name')).toBeInTheDocument()
+  })
+})
+
+describe('App: a group grows with a new object', () => {
+  it('grows when an object is created in a full group, as one undo step', () => {
+    render(<App />)
+    const frame = { x: 2000, y: 2000 }
+    act(() => {
+      graphStore.getState().replaceContent({
+        nodes: [
+          { id: 'g', kind: 'group', position: frame, size: { width: 208, height: 136 }, metadata: [{ key: 'name', value: 'G' }] },
+          { id: 'm', kind: 'node', parentId: 'g', position: { x: 24, y: 56 }, metadata: [{ key: 'name', value: 'M' }] },
+        ],
+        edges: [],
+      })
+      graphStore.setState({ history: emptyHistory })
+      graphStore.getState().setTool('create')
+    })
+
+    act(() => graphStore.getState().addNodeAt({ x: frame.x + 100, y: frame.y + 80 }))
+
+    const state = graphStore.getState()
+    const group = state.nodes.find((n) => n.id === 'g')!
+    expect(state.nodes).toHaveLength(3)
+    expect(group.size!.width * group.size!.height).toBeGreaterThan(208 * 136)
+    expect(state.history.past).toHaveLength(1)
+
+    act(() => state.undo())
+    expect(graphStore.getState().nodes.find((n) => n.id === 'g')!.size).toEqual({ width: 208, height: 136 })
+  })
+})
+
+describe('App: rename on the canvas', () => {
+  const label = (text: string) => screen.getByText(text, { selector: '.box-node__label, .group-node__label' })
+
+  it('renames by double click without opening the sidebar, as one undo step', async () => {
+    render(<App />)
+    const before = graphStore.getState().history.past.length
+
+    fireEvent.doubleClick(label('Projekt A'))
+    await userEvent.keyboard('Umbenannt{Enter}')
+
+    expect(nameOf(0)).toBe('Umbenannt')
+    expect(label('Umbenannt')).toBeInTheDocument()
+    expect(graphStore.getState().history.past).toHaveLength(before + 1)
+    expect(sidebar()).toBeNull()
+
+    act(() => graphStore.getState().undo())
+    expect(nameOf(0)).toBe('Projekt A')
+  })
+
+  it('shows the new name in an open sidebar', async () => {
+    render(<App />)
+    const [first] = graphStore.getState().nodes
+    select(first.id)
+
+    fireEvent.doubleClick(label('Projekt A'))
+    await userEvent.keyboard('Neu{Enter}')
+
+    expect(screen.getByLabelText('Name')).toHaveValue('Neu')
+  })
+
+  it('is off while another tool is active', () => {
+    render(<App />)
+    act(() => graphStore.getState().setTool('create'))
+
+    fireEvent.doubleClick(label('Projekt A'))
+
+    expect(screen.queryByLabelText('Name', { selector: '.node-name-input' })).toBeNull()
+  })
+})
+
+describe('App: search by name', () => {
+  const searchButton = () => screen.getByRole('button', { name: 'Suchen' })
+  const field = () => screen.getByRole('textbox', { name: 'Suchen nach Name' })
+  const selected = () => graphStore.getState().selectedNodeIds
+  const idsWhere = (prefix: string) =>
+    graphStore.getState().nodes.filter((n) => n.metadata[0].value.toLowerCase().startsWith(prefix)).map((n) => n.id)
+
+  beforeEach(() => {
+    act(() => {
+      graphStore.getState().replaceContent({
+        nodes: [
+          { id: 'a', kind: 'node', position: { x: 0, y: 0 }, metadata: [{ key: 'name', value: 'Service A' }] },
+          { id: 'g', kind: 'group', position: { x: 0, y: 300 }, size: { width: 300, height: 200 }, metadata: [{ key: 'name', value: 'Backend' }] },
+          { id: 'b', kind: 'node', position: { x: 400, y: 0 }, metadata: [{ key: 'name', value: 'service b' }] },
+          { id: 'c', kind: 'node', position: { x: 800, y: 0 }, metadata: [{ key: 'name', value: 'SERVICE C' }] },
+        ],
+        edges: [],
+      })
+      graphStore.getState().closeSidebar()
+    })
+  })
+
+  it('opens and closes the field with the magnifier button', async () => {
+    render(<App />)
+    expect(screen.queryByRole('search')).toBeNull()
+
+    await userEvent.click(searchButton())
+    expect(field()).toHaveFocus()
+
+    await userEvent.click(searchButton())
+    expect(screen.queryByRole('search')).toBeNull()
+  })
+
+  it('selects the first hit on Enter, then the next ones, then round again', async () => {
+    render(<App />)
+    await userEvent.click(searchButton())
+    await userEvent.type(field(), 'SERV')
+
+    const visited: string[][] = []
+    for (let i = 0; i < 4; i++) {
+      await userEvent.keyboard('{Enter}')
+      visited.push(selected())
+    }
+
+    expect(visited).toEqual([['a'], ['b'], ['c'], ['a']])
+    expect(idsWhere('serv')).toEqual(['a', 'b', 'c'])
+  })
+
+  it('finds groups too and starts over with a changed text', async () => {
+    render(<App />)
+    await userEvent.click(searchButton())
+    await userEvent.type(field(), 'service{Enter}{Enter}')
+    expect(selected()).toEqual(['b'])
+
+    await userEvent.clear(field())
+    await userEvent.type(field(), 'back{Enter}')
+    expect(selected()).toEqual(['g'])
+  })
+
+  it('reports the position and says so when nothing matches, leaving the selection alone', async () => {
+    render(<App />)
+    await userEvent.click(searchButton())
+
+    await userEvent.type(field(), 'service{Enter}{Enter}')
+    expect(screen.getByRole('search')).toHaveTextContent('Treffer 2 von 3')
+
+    await userEvent.clear(field())
+    await userEvent.type(field(), 'nichts{Enter}')
+    expect(screen.getByRole('search')).toHaveTextContent('Kein Treffer')
+    expect(selected()).toEqual(['b'])
+  })
+
+  it('starts at the first hit again after the field was closed and reopened', async () => {
+    render(<App />)
+    await userEvent.click(searchButton())
+    await userEvent.type(field(), 'service{Enter}{Enter}')
+    expect(selected()).toEqual(['b'])
+
+    await userEvent.click(searchButton())
+    await userEvent.click(searchButton())
+    await userEvent.type(field(), 'service{Enter}')
+
+    expect(selected()).toEqual(['a'])
+  })
+
+  it('works while analysing and closes with Escape', async () => {
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: 'Analysieren' }))
+    await userEvent.click(searchButton())
+    await userEvent.type(field(), 'back{Enter}')
+    expect(selected()).toEqual(['g'])
+
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('search')).toBeNull()
+  })
+})
+
+describe('App: copy and paste', () => {
+  const copyButton = () => screen.getByRole('button', { name: 'Kopieren' })
+  const pasteButton = () => screen.getByRole('button', { name: 'Einfügen' })
+
+  beforeEach(() => {
+    act(() => graphStore.setState({ clipboard: null, pasteRound: 0 }))
+  })
+
+  it('enables copy with a selection and paste after copying', async () => {
+    render(<App />)
+    expect(copyButton()).toBeDisabled()
+    expect(pasteButton()).toBeDisabled()
+
+    select(graphStore.getState().nodes[0].id)
+    expect(copyButton()).toBeEnabled()
+    await userEvent.click(copyButton())
+
+    expect(pasteButton()).toBeEnabled()
+    expect(await screen.findByText('1 Element kopiert.')).toBeInTheDocument()
+  })
+
+  it('pastes a new element with a new id and no connection, selected', async () => {
+    render(<App />)
+    const { nodes, edges } = graphStore.getState()
+    select(nodes[0].id)
+    await userEvent.click(copyButton())
+    await userEvent.click(pasteButton())
+
+    const state = graphStore.getState()
+    expect(state.nodes).toHaveLength(nodes.length + 1)
+    const pasted = state.nodes.at(-1)!
+    expect(nodes.map((n) => n.id)).not.toContain(pasted.id)
+    expect(pasted.metadata[0].value).toBe(nodes[0].metadata[0].value)
+    expect(state.edges).toEqual(edges)
+    expect(state.selectedNodeIds).toEqual([pasted.id])
+  })
+
+  it('works with Strg/Cmd + C and V, but not in a text field', async () => {
+    render(<App />)
+    const count = graphStore.getState().nodes.length
+    select(graphStore.getState().nodes[0].id)
+
+    await userEvent.keyboard('{Control>}c{/Control}')
+    expect(graphStore.getState().clipboard).not.toBeNull()
+    await userEvent.keyboard('{Control>}v{/Control}')
+    expect(graphStore.getState().nodes).toHaveLength(count + 1)
+
+    // In the sidebar's name field the browser keeps its own copy and paste.
+    act(() => graphStore.setState({ clipboard: null }))
+    await userEvent.click(screen.getByLabelText('Name'))
+    await userEvent.keyboard('{Control>}c{/Control}')
+    expect(graphStore.getState().clipboard).toBeNull()
+  })
+
+  it('is not offered while analysing', async () => {
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: 'Analysieren' }))
+
+    expect(screen.queryByRole('button', { name: 'Kopieren' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Einfügen' })).toBeNull()
+  })
+})
+
+describe('App: JSON as text', () => {
+  const showDialog = () => screen.queryByRole('dialog', { name: 'Projekt als JSON' })
+  const pasteDialog = () => screen.queryByRole('dialog', { name: 'JSON einfügen' })
+  const modelJson = (projectName: string) => serializeModel(toModel({ nodes: [], edges: [], projectName }))
+
+  beforeEach(() => {
+    act(() => graphStore.getState().replaceContent(createDefaultContent()))
+    localStorage.removeItem(EXPORT_FINGERPRINT_KEY)
+    act(() => graphStore.setState({ exportedFingerprint: null }))
+  })
+
+  it('shows exactly the JSON of the file export, read-only', async () => {
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: 'Export' }))
+    const exported = vi.mocked(downloadTextFile).mock.calls[0][1]
+
+    await userEvent.click(screen.getByRole('button', { name: 'JSON anzeigen' }))
+
+    const area = within(showDialog()!).getByRole('textbox', { name: 'Projekt-JSON (schreibgeschützt)' })
+    expect(area).toHaveValue(exported)
+    expect(area).toHaveAttribute('readonly')
+  })
+
+  it('does not count as exported until it is copied', async () => {
+    const user = userEvent.setup()
+    const write = vi.spyOn(navigator.clipboard, 'writeText')
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'JSON anzeigen' }))
+    expect(graphStore.getState().exportedFingerprint).toBeNull()
+
+    await user.click(within(showDialog()!).getByRole('button', { name: 'In Zwischenablage kopieren' }))
+
+    expect(write).toHaveBeenCalledWith(serializeModel(toModel(graphStore.getState())))
+    expect(graphStore.getState().exportedFingerprint).toBe(contentFingerprint(graphStore.getState()))
+    expect(await within(showDialog()!).findByRole('status')).toHaveTextContent('kopiert')
+  })
+
+  it('imports pasted text, replaces the project and closes', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(screen.getByRole('button', { name: 'JSON einfügen' }))
+    expect(within(pasteDialog()!).getByRole('alert')).toHaveTextContent('noch nicht exportiert')
+
+    await user.click(within(pasteDialog()!).getByRole('textbox', { name: 'JSON-Text' }))
+    await user.paste(modelJson('Eingefuegt'))
+    await user.click(within(pasteDialog()!).getByRole('button', { name: 'Importieren' }))
+
+    expect(graphStore.getState().projectName).toBe('Eingefuegt')
+    expect(graphStore.getState().nodes).toEqual([])
+    expect(graphStore.getState().exportedFingerprint).toBe(contentFingerprint(graphStore.getState()))
+    expect(pasteDialog()).toBeNull()
+    expect(pickTextFile).not.toHaveBeenCalled()
+  })
+
+  it('keeps the project and explains an invalid text inside the dialog', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    const { nodes } = graphStore.getState()
+    await user.click(screen.getByRole('button', { name: 'JSON einfügen' }))
+
+    await user.click(within(pasteDialog()!).getByRole('textbox', { name: 'JSON-Text' }))
+    await user.paste('das ist kein JSON')
+    await user.click(within(pasteDialog()!).getByRole('button', { name: 'Importieren' }))
+
+    expect(pasteDialog()).not.toBeNull()
+    expect(within(pasteDialog()!).getAllByRole('alert').at(-1)).toHaveTextContent('kein gültiges Modell')
+    expect(graphStore.getState().nodes).toBe(nodes)
+  })
+
+  it('can be undone and cancelled without a trace', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    const { nodes } = graphStore.getState()
+
+    await user.click(screen.getByRole('button', { name: 'JSON einfügen' }))
+    await user.click(within(pasteDialog()!).getByRole('button', { name: 'Abbrechen' }))
+    expect(pasteDialog()).toBeNull()
+    expect(graphStore.getState().nodes).toBe(nodes)
+
+    await user.click(screen.getByRole('button', { name: 'JSON einfügen' }))
+    await user.click(within(pasteDialog()!).getByRole('textbox', { name: 'JSON-Text' }))
+    await user.paste(modelJson('Eingefuegt'))
+    await user.click(within(pasteDialog()!).getByRole('button', { name: 'Importieren' }))
+    act(() => graphStore.getState().undo())
+
+    expect(graphStore.getState().nodes).toEqual(nodes)
+  })
+
+  it('works from the analysis mode too', async () => {
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: 'Analysieren' }))
+
+    await userEvent.click(screen.getByRole('button', { name: 'JSON anzeigen' }))
+    expect(showDialog()).not.toBeNull()
+    await userEvent.click(within(showDialog()!).getByRole('button', { name: 'Schließen' }))
+    await userEvent.click(screen.getByRole('button', { name: 'JSON einfügen' }))
+    expect(pasteDialog()).not.toBeNull()
   })
 })
 

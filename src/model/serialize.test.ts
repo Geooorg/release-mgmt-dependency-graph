@@ -12,7 +12,7 @@ type Json = Record<string, unknown>
 /** A valid untrusted input (plain JSON shape) that individual tests then break on purpose. */
 function validInput(): { version: unknown; nodes: Json[]; edges: Json[] } {
   return {
-    version: 1,
+    version: 2,
     nodes: [
       {
         id: 'g1',
@@ -73,7 +73,7 @@ function allErrors(input: unknown): string {
 }
 
 const sampleModel: GraphModel = {
-  version: 1,
+  version: 2,
   nodes: [
     {
       id: 'g1',
@@ -121,7 +121,7 @@ describe('toModel', () => {
 
   it('adds the schema version and orders the nodes parents first', () => {
     const model = toModel(content)
-    expect(model.version).toBe(1)
+    expect(model.version).toBe(2)
     expect(model.nodes.map((n) => n.id)).toEqual(['g', 'c'])
     expect(model.edges).toEqual(content.edges)
   })
@@ -144,8 +144,8 @@ describe('toModel', () => {
 
 describe('parseModel: success', () => {
   it('accepts an empty graph', () => {
-    expect(modelOf(parseModel({ version: 1, nodes: [], edges: [] }))).toEqual({
-      version: 1,
+    expect(modelOf(parseModel({ version: 2, nodes: [], edges: [] }))).toEqual({
+      version: 2,
       nodes: [],
       edges: [],
     })
@@ -153,7 +153,7 @@ describe('parseModel: success', () => {
 
   it('accepts a valid graph with groups, nested nodes and edges', () => {
     const model = modelOf(parseModel(validInput()))
-    expect(model.version).toBe(1)
+    expect(model.version).toBe(2)
     expect(model.nodes.map((n) => n.id)).toEqual(['g1', 'n1', 'n2'])
     expect(model.nodes[1]).toEqual({
       id: 'n1',
@@ -284,7 +284,7 @@ describe('parseModel: top level', () => {
     expect(allErrors(input)).toMatch(/Version.*fehlt/)
   })
 
-  it.each([2, 0, '1', null, 1.5, {}])('reports unsupported version %j', (version) => {
+  it.each([3, 0, '2', null, 1.5, {}])('reports unsupported version %j', (version) => {
     const input = validInput()
     input.version = version
     expect(allErrors(input)).toMatch(/Nicht unterstützte Version/)
@@ -571,7 +571,7 @@ describe('parseModel: edges', () => {
 describe('parseModel: error collection', () => {
   it('collects problems from all areas in one run', () => {
     const input = validInput()
-    input.version = 2
+    input.version = 3
     delete input.nodes[0].size // group without size
     input.nodes[1].parentId = 'missing'
     input.nodes[2].id = 'g1' // duplicate id
@@ -636,8 +636,8 @@ describe('parseModelJson', () => {
 
 describe('serializeModel', () => {
   it('writes pretty-printed JSON with two spaces and a trailing newline', () => {
-    const text = serializeModel({ version: 1, nodes: [], edges: [] })
-    expect(text).toBe('{\n  "version": 1,\n  "nodes": [],\n  "edges": []\n}\n')
+    const text = serializeModel({ version: 2, nodes: [], edges: [] })
+    expect(text).toBe('{\n  "version": 2,\n  "nodes": [],\n  "edges": []\n}\n')
   })
 
   it('uses the stable key order version, nodes, edges and a canonical order inside the elements', () => {
@@ -654,7 +654,7 @@ describe('serializeModel', () => {
           id: 'n',
         },
       ],
-      version: 1,
+      version: 2,
     } as unknown as GraphModel
     const parsed = JSON.parse(serializeModel(scrambled)) as GraphModel
     expect(Object.keys(parsed)).toEqual(['version', 'nodes', 'edges'])
@@ -667,7 +667,7 @@ describe('serializeModel', () => {
 
   it('omits undefined optional properties', () => {
     const text = serializeModel({
-      version: 1,
+      version: 2,
       nodes: [
         { id: 'a', kind: 'node', parentId: undefined, size: undefined, position: { x: 0, y: 0 }, metadata: [] },
       ],
@@ -777,7 +777,7 @@ describe('project name in the model', () => {
   })
 
   it('is exported right after the version and survives a round trip', () => {
-    const model: GraphModel = { version: 1, projectName: 'Alpha', nodes: [], edges: [] }
+    const model: GraphModel = { version: 2, projectName: 'Alpha', nodes: [], edges: [] }
     const text = serializeModel(model)
     expect(text.indexOf('"projectName"')).toBeGreaterThan(text.indexOf('"version"'))
     expect(text.indexOf('"projectName"')).toBeLessThan(text.indexOf('"nodes"'))
@@ -822,7 +822,7 @@ describe('edge connectors', () => {
 
   it('serializes connectors in a stable key order and round-trips them', () => {
     const model: GraphModel = {
-      version: 1,
+      version: 2,
       nodes: [
         { id: 'a', kind: 'node', position: { x: 0, y: 0 }, metadata: [{ key: 'name', value: 'A' }] },
         { id: 'b', kind: 'node', position: { x: 9, y: 0 }, metadata: [{ key: 'name', value: 'B' }] },
@@ -837,45 +837,91 @@ describe('edge connectors', () => {
   })
 })
 
-describe('edge labels', () => {
-  const withLabel = (label: unknown) => {
+describe('edge names', () => {
+  const edgeInput = (extra: Record<string, unknown>, version: unknown = 2) => {
     const input = validInput()
-    input.edges = [{ id: 'e1', source: 'n1', target: 'n2', label }]
+    input.version = version
+    input.edges = [{ id: 'e1', source: 'n1', target: 'n2', ...extra }]
     return input
   }
+  const edgeOf = (input: unknown) => {
+    const result = parseModel(input)
+    return result.ok ? result.model.edges[0] : undefined
+  }
 
-  it('keeps a label, trimmed', () => {
-    const result = parseModel(withLabel('  hängt ab von  '))
-    expect(result.ok && result.model.edges[0]).toEqual({ id: 'e1', source: 'n1', target: 'n2', label: 'hängt ab von' })
+  it('keeps the metadata of an edge, normalized with the name first like for elements', () => {
+    const edge = edgeOf(
+      edgeInput({ metadata: [{ key: ' owner ', value: ' Anna ' }, { key: 'name', value: '  hängt ab von  ' }] }),
+    )
+
+    expect(edge).toEqual({
+      id: 'e1',
+      source: 'n1',
+      target: 'n2',
+      metadata: [
+        { key: 'name', value: 'hängt ab von' },
+        { key: 'owner', value: 'Anna' },
+      ],
+    })
   })
 
-  it('treats a blank label as no label', () => {
-    for (const blank of ['', '   ']) {
-      const result = parseModel(withLabel(blank))
-      expect(result.ok && 'label' in result.model.edges[0]).toBe(false)
+  it('leaves out metadata that holds nothing', () => {
+    for (const metadata of [[], [{ key: 'name', value: '' }], [{ key: 'name', value: '   ' }]]) {
+      expect(edgeOf(edgeInput({ metadata }))).toEqual({ id: 'e1', source: 'n1', target: 'n2' })
     }
   })
 
-  it('rejects labels that are not text', () => {
-    for (const bad of [5, null, {}, ['x']]) {
-      const result = parseModel(withLabel(bad))
+  it('rejects metadata that is no list of key/value texts or repeats a key', () => {
+    for (const bad of ['x', 5, {}, [{ key: 1, value: 'x' }], [{ key: 'a', value: 'x' }, { key: 'a', value: 'y' }]]) {
+      const result = parseModel(edgeInput({ metadata: bad }))
       expect(result.ok).toBe(false)
-      expect(!result.ok && result.errors.join('\n')).toMatch(/label/)
     }
   })
 
-  it('serializes the label after the connectors and round-trips it', () => {
+  it('serializes the metadata after the connectors and round-trips it', () => {
     const model: GraphModel = {
-      version: 1,
+      version: 2,
       nodes: [
         { id: 'a', kind: 'node', position: { x: 0, y: 0 }, metadata: [{ key: 'name', value: 'A' }] },
         { id: 'b', kind: 'node', position: { x: 9, y: 0 }, metadata: [{ key: 'name', value: 'B' }] },
       ],
-      edges: [{ label: 'braucht', targetHandle: 'left', id: 'e', source: 'a', target: 'b' }],
+      edges: [{ metadata: [{ key: 'name', value: 'braucht' }], targetHandle: 'left', id: 'e', source: 'a', target: 'b' }],
     }
     const text = serializeModel(model)
-    expect(text.indexOf('"label"')).toBeGreaterThan(text.indexOf('"targetHandle"'))
+    expect(text.indexOf('"metadata"', text.indexOf('"edges"'))).toBeGreaterThan(text.indexOf('"targetHandle"'))
     const back = parseModelJson(text)
     expect(back.ok && back.model.edges).toEqual(model.edges)
+  })
+
+  describe('a file of version 1', () => {
+    it('turns the label into the name', () => {
+      const edge = edgeOf(edgeInput({ label: '  hängt ab von  ' }, 1))
+
+      expect(edge).toEqual({ id: 'e1', source: 'n1', target: 'n2', metadata: [{ key: 'name', value: 'hängt ab von' }] })
+    })
+
+    it('treats a blank label as no name', () => {
+      for (const blank of ['', '   ']) {
+        expect(edgeOf(edgeInput({ label: blank }, 1))).toEqual({ id: 'e1', source: 'n1', target: 'n2' })
+      }
+    })
+
+    it('rejects labels that are not text', () => {
+      for (const bad of [5, null, {}, ['x']]) {
+        const result = parseModel(edgeInput({ label: bad }, 1))
+        expect(result.ok).toBe(false)
+        expect(!result.ok && result.errors.join('\n')).toMatch(/label/)
+      }
+    })
+
+    it('is imported as the current version', () => {
+      const result = parseModel(edgeInput({ label: 'x' }, 1))
+
+      expect(result.ok && result.model.version).toBe(2)
+    })
+  })
+
+  it('ignores a label in a file of version 2 (it is an unknown property there)', () => {
+    expect(edgeOf(edgeInput({ label: 'x' }))).toEqual({ id: 'e1', source: 'n1', target: 'n2' })
   })
 })

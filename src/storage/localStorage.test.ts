@@ -36,6 +36,19 @@ describe('localStorage persistence', () => {
     expect(loaded.status === 'loaded' && loaded.content.projectName).toBeUndefined()
   })
 
+  it('still loads a model saved in version 1, whose edge caption was a label', () => {
+    const old = JSON.stringify({
+      version: 1,
+      nodes: [box('a', 0, 0), box('b', 200, 0)],
+      edges: [{ id: 'e', source: 'a', target: 'b', label: 'braucht' }],
+    })
+    const loaded = loadStoredContent(memoryStorage({ [STORAGE_KEY]: old }))
+
+    expect(loaded.status === 'loaded' && loaded.content.edges).toEqual([
+      { id: 'e', source: 'a', target: 'b', metadata: [{ key: 'name', value: 'braucht' }] },
+    ])
+  })
+
   it('quarantines invalid data instead of overwriting it', () => {
     const storage = memoryStorage({ [STORAGE_KEY]: '{"version": 99}' })
     const loaded = loadStoredContent(storage)

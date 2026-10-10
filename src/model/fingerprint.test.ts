@@ -25,7 +25,7 @@ describe('contentFingerprint', () => {
     const moved = content([box('a', 1, 0), base.nodes[1]], base.edges)
     const renamed = { ...base, projectName: 'Anders' }
     const noEdge = content(base.nodes)
-    const labelled = content(base.nodes, [{ ...base.edges[0], label: 'x' }])
+    const labelled = content(base.nodes, [{ ...base.edges[0], metadata: [{ key: 'name', value: 'x' }] }])
     const metadata = content(
       [{ ...base.nodes[0], metadata: [...base.nodes[0].metadata, { key: 'status', value: 'fertig' }] }, base.nodes[1]],
       base.edges,

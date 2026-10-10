@@ -4,10 +4,10 @@ import '@xyflow/react/dist/style.css'
 import './theme.css'
 import './components/components.css'
 import './App.css'
-import App from './App.tsx'
+import { Root } from './Root'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <Root />
   </StrictMode>,
 )

@@ -102,30 +102,18 @@ describe('toFlowNodes', () => {
   })
 })
 
-describe('toFlowEdges labels', () => {
-  it('passes the label to the edge, in the edge colour', () => {
+describe('toFlowEdges names', () => {
+  it('shows the name of the edge as its label, in the edge colour', () => {
     const [plain, labelled] = toFlowEdges(
-      [edge('p', 'a', 'b'), { ...edge('l', 'a', 'c'), label: 'braucht' }],
+      [edge('p', 'a', 'b'), { ...edge('l', 'a', 'c'), metadata: [{ key: 'name', value: 'braucht' }] }],
       none,
       new Set(['l']),
       nodes,
     )
     expect(plain.label).toBeUndefined()
     expect(labelled.label).toBe('braucht')
-    expect(labelled.labelStyle).toMatchObject({ fill: '#dc2626' })
-  })
-})
-
-describe('toFlowEdges labels', () => {
-  it('passes the label to the edge, in the edge colour', () => {
-    const [plain, labelled] = toFlowEdges(
-      [edge('p', 'a', 'b'), { ...edge('l', 'a', 'c'), label: 'braucht' }],
-      none,
-      new Set(['l']),
-      nodes,
-    )
-    expect(plain.label).toBeUndefined()
-    expect(labelled.label).toBe('braucht')
+    // an edge with other entries but no name has no caption
+    expect(toFlowEdges([{ ...edge('o', 'a', 'b'), metadata: [{ key: 'name', value: '' }, { key: 'x', value: 'y' }] }], none, none, nodes)[0].label).toBeUndefined()
     expect(labelled.labelStyle).toMatchObject({ fill: '#dc2626' })
   })
 })

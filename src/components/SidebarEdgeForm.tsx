@@ -1,21 +1,22 @@
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
+import { NAME_KEY } from '../model/types'
 import type { SidebarElement, SidebarProps } from './props'
 import { useEditGesture } from './useSidebarEffects'
 import './components.css'
 
-export const LABEL_KEY = 'label'
 
 type SidebarEdgeFormProps = Omit<SidebarProps, 'element' | 'selectionCount'> & {
   element: SidebarElement
 }
 
 const labelOf = (element: SidebarElement) =>
-  element.metadata.find((entry) => entry.key === LABEL_KEY)?.value ?? ''
+  element.metadata.find((entry) => entry.key === NAME_KEY)?.value ?? ''
 
 /**
- * Sidebar content for an edge: the read-only UUID and a single "Label" field. The label is applied
- * (trimmed) with every keystroke; the draft keeps what was typed until the label changes from outside.
+ * Sidebar content for an edge: the read-only UUID and the `name` field every element has, which is the
+ * caption on the edge. The name is applied (trimmed) with every keystroke; the draft keeps what was typed
+ * until the name changes from outside.
  */
 export function SidebarEdgeForm({
   element,
@@ -46,7 +47,7 @@ export function SidebarEdgeForm({
     if (trimmed === applied) return
     gesture.start()
     setApplied(trimmed)
-    onChange([{ key: LABEL_KEY, value: trimmed }])
+    onChange([{ key: NAME_KEY, value: trimmed }])
   }
 
   // A form with a single field would otherwise reload the page on Enter.
@@ -83,11 +84,11 @@ export function SidebarEdgeForm({
       </div>
 
       <div className="sidebar__field">
-        <label className="sidebar__label" htmlFor={`${formId}-label`}>
-          Label
+        <label className="sidebar__label" htmlFor={`${formId}-name`}>
+          Name
         </label>
         <input
-          id={`${formId}-label`}
+          id={`${formId}-name`}
           className="ui-input"
           value={label}
           onChange={(event) => edit(event.target.value)}

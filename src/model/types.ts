@@ -5,7 +5,10 @@
  * Positions of nodes with a `parentId` are relative to that parent group.
  */
 
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
+
+/** Older format that is still imported: an edge had a plain `label` instead of `metadata`. */
+export const LEGACY_SCHEMA_VERSION = 1
 
 /** One free-form metadata field. Order is significant and preserved. */
 export interface MetadataEntry {
@@ -53,8 +56,8 @@ export interface ModelEdge {
   sourceHandle?: HandleSide
   /** Connector on the target element; undefined = renderer picks. */
   targetHandle?: HandleSide
-  /** Optional caption shown on the edge. Trimmed; absent = no label. */
-  label?: string
+  /** Optional, like the metadata of an element: the `name` entry is the caption shown on the edge. Absent = unnamed. */
+  metadata?: MetadataEntry[]
 }
 
 /** Graph content without the schema version (what the store works on). */

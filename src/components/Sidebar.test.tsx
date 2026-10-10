@@ -121,6 +121,65 @@ describe('Sidebar', () => {
     expect(props.onClose).toHaveBeenCalledTimes(1)
   })
 
+  describe('colour of several selected elements', () => {
+    const bulk = (overrides: Partial<NonNullable<SidebarProps['bulkColor']>> = {}) => ({
+      count: 3,
+      color: '',
+      mixed: false,
+      onChange: vi.fn(),
+      ...overrides,
+    })
+    const picker = () => screen.getByLabelText('Farbe (color) für alle 3 Elemente')
+
+    it('offers one colour field for all of them next to the hint', () => {
+      render(<Sidebar {...makeProps({ element: null, selectionCount: 4, bulkColor: bulk() })} />)
+
+      expect(screen.getByText(/4 Elemente markiert/)).toBeInTheDocument()
+      expect(picker()).toHaveAttribute('type', 'color')
+      expect(screen.getByText('Standard')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Zurücksetzen' })).toBeDisabled()
+    })
+
+    it('has no colour field without a colour control (only connections selected)', () => {
+      render(<Sidebar {...makeProps({ element: null, selectionCount: 2 })} />)
+
+      expect(screen.queryByLabelText(/Farbe/)).not.toBeInTheDocument()
+    })
+
+    it('shows the shared colour, or that the colours differ', () => {
+      const { rerender } = render(
+        <Sidebar {...makeProps({ element: null, selectionCount: 3, bulkColor: bulk({ color: '#ff0000' }) })} />,
+      )
+      expect(picker()).toHaveValue('#ff0000')
+      expect(screen.getByText('#ff0000')).toBeInTheDocument()
+
+      rerender(<Sidebar {...makeProps({ element: null, selectionCount: 3, bulkColor: bulk({ mixed: true }) })} />)
+      expect(screen.getByText('verschieden')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Zurücksetzen' })).toBeEnabled()
+    })
+
+    it('reports a chosen colour inside one edit, and a reset as undefined', async () => {
+      const bulkColor = bulk({ color: '#ff0000' })
+      const props = makeProps({ element: null, selectionCount: 3, bulkColor })
+      render(<Sidebar {...props} />)
+
+      fireEvent.change(picker(), { target: { value: '#00ff00' } })
+      expect(props.onEditStart).toHaveBeenCalled()
+      expect(bulkColor.onChange).toHaveBeenLastCalledWith('#00ff00')
+      expect(props.onEditEnd).not.toHaveBeenCalled()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Zurücksetzen' }))
+      expect(props.onEditEnd).toHaveBeenCalledTimes(1)
+      expect(bulkColor.onChange).toHaveBeenLastCalledWith(undefined)
+    })
+
+    it('says "1 Element" for a single colourable element', () => {
+      render(<Sidebar {...makeProps({ element: null, selectionCount: 2, bulkColor: bulk({ count: 1 }) })} />)
+
+      expect(screen.getByLabelText('Farbe (color) für 1 Element')).toBeInTheDocument()
+    })
+  })
+
   it('shows a labelled aside with the heading for the element kind', () => {
     const { rerender } = render(<Sidebar {...makeProps()} />)
     expect(screen.getByRole('complementary', { name: 'Metadaten' })).toBeInTheDocument()
@@ -180,11 +239,12 @@ describe('Sidebar', () => {
   })
 
   it('does not take the focus when it opens', () => {
-    render(<Sidebar {...makeProps()} />)
+    const { unmount } = render(<Sidebar {...makeProps()} />)
     expect(document.body).toHaveFocus()
+    unmount()
 
-    render(<Sidebar {...makeProps({ element: { id: ID_B, kind: 'edge', metadata: [{ key: 'label', value: '' }] } })} />)
-    expect(screen.getByLabelText('Label')).not.toHaveFocus()
+    render(<Sidebar {...makeProps({ element: { id: ID_B, kind: 'edge', metadata: [{ key: 'name', value: '' }] } })} />)
+    expect(screen.getByLabelText('Name')).not.toHaveFocus()
   })
 
   describe('live changes', () => {
@@ -895,39 +955,38 @@ describe('Sidebar', () => {
     const edgeElement = (label = ''): SidebarElement => ({
       id: ID_B,
       kind: 'edge',
-      metadata: [{ key: 'label', value: label }],
+      metadata: [{ key: 'name', value: label }],
     })
 
-    it('shows only the read-only UUID and one empty "Label" field', () => {
+    it('shows only the read-only UUID and the name field every element has', () => {
       render(<Sidebar {...makeProps({ element: edgeElement() })} />)
 
       expect(screen.getByRole('heading', { name: 'Verbindung' })).toBeInTheDocument()
       expect(screen.getByLabelText('UUID')).toBeDisabled()
       expect(screen.getByLabelText('UUID')).toHaveValue(ID_B)
-      expect(screen.getByLabelText('Label')).toHaveValue('')
-      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+      expect(screen.getByLabelText('Name')).toHaveValue('')
       expect(screen.queryByLabelText(/Farbe/)).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Feld hinzufügen' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
     })
 
-    it('shows an existing label', () => {
+    it('shows an existing name', () => {
       render(<Sidebar {...makeProps({ element: edgeElement('braucht') })} />)
 
-      expect(screen.getByLabelText('Label')).toHaveValue('braucht')
+      expect(screen.getByLabelText('Name')).toHaveValue('braucht')
     })
 
-    it('applies the trimmed label with every keystroke, the field keeps what was typed', async () => {
+    it('applies the trimmed name with every keystroke, the field keeps what was typed', async () => {
       const onChange = vi.fn()
       render(<Sidebar {...makeProps({ element: edgeElement(), onChange })} />)
 
-      await userEvent.type(screen.getByLabelText('Label'), '  hängt ab ')
+      await userEvent.type(screen.getByLabelText('Name'), '  hängt ab ')
 
-      expect(onChange).toHaveBeenLastCalledWith([{ key: 'label', value: 'hängt ab' }])
-      expect(screen.getByLabelText('Label')).toHaveValue('  hängt ab ')
+      expect(onChange).toHaveBeenLastCalledWith([{ key: 'name', value: 'hängt ab' }])
+      expect(screen.getByLabelText('Name')).toHaveValue('  hängt ab ')
     })
 
-    it('keeps trailing spaces when the owner echoes the label back', async () => {
+    it('keeps trailing spaces when the owner echoes the name back', async () => {
       const user = userEvent.setup()
       const props = makeProps({ element: edgeElement('a') })
       function Owner() {
@@ -942,25 +1001,25 @@ describe('Sidebar', () => {
       }
       render(<Owner />)
 
-      await user.type(screen.getByLabelText('Label'), ' b ')
-      expect(screen.getByLabelText('Label')).toHaveValue('a b ')
+      await user.type(screen.getByLabelText('Name'), ' b ')
+      expect(screen.getByLabelText('Name')).toHaveValue('a b ')
     })
 
-    it('clears the label by emptying the field', async () => {
+    it('clears the name by emptying the field', async () => {
       const onChange = vi.fn()
       render(<Sidebar {...makeProps({ element: edgeElement('alt'), onChange })} />)
 
-      await userEvent.clear(screen.getByLabelText('Label'))
+      await userEvent.clear(screen.getByLabelText('Name'))
 
-      expect(onChange).toHaveBeenLastCalledWith([{ key: 'label', value: '' }])
+      expect(onChange).toHaveBeenLastCalledWith([{ key: 'name', value: '' }])
     })
 
-    it('adopts a label that changed from outside', () => {
+    it('adopts a name that changed from outside', () => {
       const { rerender } = render(<Sidebar {...makeProps({ element: edgeElement('alt') })} />)
 
       rerender(<Sidebar {...makeProps({ element: edgeElement('neu') })} />)
 
-      expect(screen.getByLabelText('Label')).toHaveValue('neu')
+      expect(screen.getByLabelText('Name')).toHaveValue('neu')
     })
 
     it('Enter does not submit anything; the close button calls onClose', async () => {
@@ -968,7 +1027,7 @@ describe('Sidebar', () => {
       const props = makeProps({ element: edgeElement(), onClose })
       render(<Sidebar {...props} />)
 
-      await userEvent.type(screen.getByLabelText('Label'), 'x{Enter}')
+      await userEvent.type(screen.getByLabelText('Name'), 'x{Enter}')
       expect(props.onChange).toHaveBeenCalledTimes(1)
       await userEvent.click(screen.getByRole('button', { name: 'Schließen' }))
       expect(onClose).toHaveBeenCalledTimes(1)
@@ -978,22 +1037,22 @@ describe('Sidebar', () => {
       const props = makeProps({ element: edgeElement() })
       const { rerender } = render(<Sidebar {...props} />)
 
-      await userEvent.type(screen.getByLabelText('Label'), 'x')
+      await userEvent.type(screen.getByLabelText('Name'), 'x')
       await userEvent.tab()
       expect(props.onEditEnd).toHaveBeenCalledTimes(1)
 
-      await userEvent.type(screen.getByLabelText('Label'), 'y')
+      await userEvent.type(screen.getByLabelText('Name'), 'y')
       rerender(<Sidebar {...props} element={null} selectionCount={0} />)
       expect(props.onEditEnd).toHaveBeenCalledTimes(2)
     })
 
     it('starts a fresh draft when another element is opened', async () => {
       const { rerender } = render(<Sidebar {...makeProps({ element: edgeElement() })} />)
-      await userEvent.type(screen.getByLabelText('Label'), 'entwurf')
+      await userEvent.type(screen.getByLabelText('Name'), 'entwurf')
 
       rerender(<Sidebar {...makeProps({ element: { ...edgeElement('zweite'), id: ID_A } })} />)
 
-      expect(screen.getByLabelText('Label')).toHaveValue('zweite')
+      expect(screen.getByLabelText('Name')).toHaveValue('zweite')
     })
   })
 })

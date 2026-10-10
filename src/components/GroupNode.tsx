@@ -5,11 +5,11 @@ import type { GroupFlowNode } from '../flow/types'
 import { GROUP_HEADER_HEIGHT, GROUP_MIN_SIZE } from '../model/types'
 import { CycleBadge } from './CycleBadge'
 import { NodeHandles } from './NodeHandles'
+import { NodeName } from './NodeName'
 import { BlockedFlag, WaitingMark } from './StatusMarks'
 import './components.css'
 
 export function GroupNode({ data, selected }: NodeProps<GroupFlowNode>) {
-  const hasName = data.name.trim() !== ''
   const className = [
     'group-node',
     data.isDropTarget && 'group-node--drop-target',
@@ -34,9 +34,7 @@ export function GroupNode({ data, selected }: NodeProps<GroupFlowNode>) {
       <div className="group-node__header" style={{ height: GROUP_HEADER_HEIGHT }}>
         {data.blockedTitle && <BlockedFlag title={data.blockedTitle} inline />}
         {data.waitingTitle && <WaitingMark title={data.waitingTitle} inline />}
-        <span className={hasName ? 'group-node__label' : 'group-node__label group-node__label--empty'}>
-          {hasName ? data.name : data.id.slice(0, 8)}
-        </span>
+        <NodeName id={data.id} name={data.name} className="group-node__label" />
       </div>
     </div>
   )

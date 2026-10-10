@@ -1,6 +1,8 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { contentFingerprint } from '../model/fingerprint'
+import { copyElements, pasteElements, type ElementClipboard } from '../model/clipboard'
 import * as graph from '../model/graph'
+import { growGroupsToFit } from '../model/groupGrowth'
 import {
   discardLastRecord,
   emptyHistory,
@@ -94,6 +96,10 @@ export interface GraphState {
   focusRequest: { id: number; nodeIds: string[] } | null
   /** Element briefly highlighted after `revealNode`; cleared by the canvas. */
   revealedId: string | null
+  /** Copied objects and groups (no connections); null = nothing copied yet. Not persisted, no undo step. */
+  clipboard: ElementClipboard | null
+  /** How often the current clipboard was pasted: every paste lands a bit further down and right. */
+  pasteRound: number
 
   /** Adds an object centred on this canvas point (member of the group there, if any) and selects it. */
   addNodeAt: (center: Point) => void
@@ -101,6 +107,10 @@ export interface GraphState {
   resizeNode: (id: string, size: Size) => void
   /** Live sidebar edit: stores the normalized entries right away. */
   updateMetadata: (id: string, entries: readonly MetadataEntry[]) => void
+  /** Sets only the name (inline editing on the canvas); one undo step. */
+  renameElement: (id: string, name: string) => void
+  /** Sets (or with undefined removes) the colour of every selected object and group; one undo step. */
+  setSelectionColor: (color: string | undefined) => void
   /** Sets the status of an object (also in analysis mode); one undo step. */
   setStatus: (id: string, status: Status) => void
   /** Sets the reason of a blocked object (trimmed, blank removes it); no-op for other objects. Also in analysis mode. */
@@ -119,8 +129,8 @@ export interface GraphState {
   openSidebar: (id: string) => void
   /** Selects exactly this edge, which opens its sidebar (no-op with the connect tool). Asks first if the draft is invalid. */
   openEdgeSidebar: (id: string) => void
-  /** Live sidebar edit of an edge label. */
-  updateEdgeLabel: (id: string, label: string) => void
+  /** Live sidebar edit of an edge name (the caption); one undo step per edit. */
+  renameEdge: (id: string, name: string) => void
   /** Clears the selection, which closes the sidebar. Asks first (see `pendingSidebarChange`) if the draft is invalid. */
   closeSidebar: () => void
   setSidebarInvalid: (invalid: boolean) => void
@@ -129,6 +139,10 @@ export interface GraphState {
   /** Keeps the sidebar and its draft as they are. */
   cancelSidebarChange: () => void
 
+  /** An existing connection was dragged to another connector or element (it keeps its id and name); one undo step. */
+  reconnectEdge: (edgeId: string, ends: { source: string; target: string } & graph.EdgeHandles) => void
+  /** A dragged connection was dropped on the body of `targetId`: connects with the connector it was dragged from (if any) and the facing one there. */
+  connectToNode: (sourceId: string, targetId: string, sourceHandle?: HandleSide) => void
   connect: (
     source: string,
     target: string,
@@ -142,6 +156,10 @@ export interface GraphState {
   /** Connect tool: forget the picked source (click on the empty pane). */
   clearConnectSource: () => void
 
+  /** Copies the selected objects and groups (with the content of groups, without connections). */
+  copySelection: () => void
+  /** Pastes the clipboard as new elements with new ids, selects them; one undo step. */
+  paste: () => void
   groupSelection: () => void
   ungroupSelection: () => void
   deleteSelection: () => void
@@ -166,6 +184,9 @@ export interface GraphState {
   notify: (notice: Notice) => void
   dismissNotice: () => void
 }
+
+/** Distance between a copy and the original (one grid step, as elsewhere on the canvas). */
+const PASTE_STEP = 24
 
 const CONNECTION_MESSAGES: Record<Exclude<ConnectionCheck, { ok: true }>['reason'], string> = {
   'unknown-node': 'Das Element existiert nicht mehr.',
@@ -328,6 +349,8 @@ export function createGraphStore(
       contentRevision: 0,
       focusRequest: null,
       revealedId: null,
+      clipboard: null,
+      pasteRound: 0,
 
       addNodeAt: (center) => {
         if (structureLocked()) return
@@ -339,6 +362,8 @@ export function createGraphStore(
       moveNode: (id, position) => apply(graph.moveNode(content(), id, position)),
       resizeNode: (id, size) => apply(graph.resizeNode(content(), id, size)),
       updateMetadata: (id, entries) => apply(graph.updateMetadata(content(), id, entries)),
+      renameElement: (id, name) => apply(graph.renameElement(content(), id, name)),
+      setSelectionColor: (color) => apply(graph.setColor(content(), get().selectedNodeIds, color)),
       setStatus: (id, status) => apply(graph.setStatus(content(), id, status)),
       setBlockReason: (id, reason) => apply(graph.setBlockReason(content(), id, reason)),
 
@@ -394,7 +419,7 @@ export function createGraphStore(
         if (isSameTarget(sidebarTarget(selectedNodeIds, selectedEdgeIds), { kind: 'edge', id })) return
         requestSelection([], [id])
       },
-      updateEdgeLabel: (id, label) => apply(graph.updateEdgeLabel(content(), id, label)),
+      renameEdge: (id, name) => apply(graph.renameEdge(content(), id, name)),
       closeSidebar: () => {
         const { selectedNodeIds, selectedEdgeIds } = get()
         if (selectedNodeIds.length + selectedEdgeIds.length > 0) requestSelection([], [])
@@ -412,6 +437,20 @@ export function createGraphStore(
       connect: (source, target, sourceHandle, targetHandle) => {
         if (structureLocked()) return
         tryConnect(source, target, { sourceHandle, targetHandle })
+      },
+      reconnectEdge: (edgeId, ends) => {
+        if (structureLocked()) return
+        const check = graph.checkReconnection(content(), edgeId, ends.source, ends.target)
+        if (!check.ok) {
+          set({ notice: { kind: 'info', message: CONNECTION_MESSAGES[check.reason] } })
+          return
+        }
+        apply(graph.reconnectEdge(content(), edgeId, ends))
+      },
+      connectToNode: (sourceId, targetId, sourceHandle) => {
+        if (structureLocked() || sourceId === targetId) return
+        const facing = graph.pickSides(get().nodes, sourceId, targetId)
+        tryConnect(sourceId, targetId, { sourceHandle: sourceHandle ?? facing.sourceHandle, targetHandle: facing.targetHandle })
       },
       setTool: (tool) => {
         if (tool !== 'select' && structureLocked()) return
@@ -434,6 +473,24 @@ export function createGraphStore(
         }
       },
 
+      copySelection: () => {
+        const copied = copyElements(content(), get().selectedNodeIds)
+        if (!copied) return
+        const count = copied.entries.length
+        set({
+          clipboard: copied,
+          pasteRound: 0,
+          notice: { kind: 'success', message: `${count} ${count === 1 ? 'Element' : 'Elemente'} kopiert.` },
+        })
+      },
+      paste: () => {
+        const { clipboard, pasteRound } = get()
+        if (structureLocked() || !clipboard) return
+        const step = PASTE_STEP * (pasteRound + 1)
+        const result = pasteElements(content(), clipboard, { x: step, y: step }, newId)
+        apply(result.content, { pasteRound: pasteRound + 1 })
+        requestSelection(result.rootIds, [])
+      },
       groupSelection: () => {
         if (structureLocked()) return
         const { selectedNodeIds, nodes } = get()
@@ -488,7 +545,11 @@ export function createGraphStore(
           const target = graph.findDropTargetGroup(next.nodes, node.id)
           if (target === node.parentId) continue
           if (graph.wouldBreakHierarchy(next, node.id, target)) refused = true
-          else next = graph.reparent(next, node.id, target)
+          else {
+            next = graph.reparent(next, node.id, target)
+            // Dropped into a group: the group grows if the element does not fit.
+            if (target !== undefined) next = growGroupsToFit(next, node.id)
+          }
         }
         apply(next, {
           dropTargetId: null,

@@ -4,11 +4,11 @@ import type { BoxFlowNode } from '../flow/types'
 import { NODE_SIZE } from '../model/types'
 import { CycleBadge } from './CycleBadge'
 import { NodeHandles } from './NodeHandles'
+import { NodeName } from './NodeName'
 import { BlockedFlag, StatusMark, WaitingMark } from './StatusMarks'
 import './components.css'
 
 export function BoxNode({ data, selected }: NodeProps<BoxFlowNode>) {
-  const hasName = data.name.trim() !== ''
   const className = [
     'box-node',
     selected && 'box-node--selected',
@@ -32,9 +32,7 @@ export function BoxNode({ data, selected }: NodeProps<BoxFlowNode>) {
       {data.waitingTitle && <WaitingMark title={data.waitingTitle} />}
       {data.isInCycle && <CycleBadge />}
       <StatusMark status={data.status} raw={data.statusRaw} known={data.statusKnown} />
-      <span className={hasName ? 'box-node__label' : 'box-node__label box-node__label--empty'}>
-        {hasName ? data.name : data.id.slice(0, 8)}
-      </span>
+      <NodeName id={data.id} name={data.name} className="box-node__label" />
     </div>
   )
 }

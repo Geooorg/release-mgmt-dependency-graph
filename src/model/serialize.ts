@@ -1,7 +1,7 @@
 import { sortParentsFirst } from './graph'
-import { findDuplicateKeys, normalizeMetadata } from './metadata'
+import { findDuplicateKeys, normalizeMetadata, tidyEdgeMetadata } from './metadata'
 import { DEFAULT_PROJECT_NAME, PROJECT_NAME_RULE, isValidProjectName } from './projectName'
-import { HANDLE_SIDES, SCHEMA_VERSION } from './types'
+import { HANDLE_SIDES, LEGACY_SCHEMA_VERSION, NAME_KEY, SCHEMA_VERSION } from './types'
 import type {
   ElementKind,
   GraphContent,
@@ -47,7 +47,7 @@ export function serializeModel(model: GraphModel): string {
   return `${JSON.stringify(canonical, null, 2)}\n`
 }
 
-/** Fixed key order inside an edge; connectors and label only when set. */
+/** Fixed key order inside an edge; connectors and metadata only when set. */
 function canonicalEdge(edge: ModelEdge): ModelEdge {
   return {
     id: edge.id,
@@ -55,7 +55,7 @@ function canonicalEdge(edge: ModelEdge): ModelEdge {
     target: edge.target,
     ...(edge.sourceHandle && { sourceHandle: edge.sourceHandle }),
     ...(edge.targetHandle && { targetHandle: edge.targetHandle }),
-    ...(edge.label && { label: edge.label }),
+    ...(edge.metadata && { metadata: edge.metadata.map((entry) => ({ key: entry.key, value: entry.value })) }),
   }
 }
 
@@ -106,7 +106,8 @@ export function parseModelJson(text: string): ParseResult {
  * Validates and normalizes untrusted input (parsed JSON from localStorage or an imported file).
  * Collects ALL problems as human-readable German messages (max 20) instead of stopping at the first.
  * Rules:
- *  - top-level object with `version === 1` (else error mentioning the unsupported/missing version)
+ *  - top-level object with `version === 2`, or the older `version === 1` whose edge `label` becomes the
+ *    `name` metadata entry (else error mentioning the unsupported/missing version)
  *  - `nodes` and `edges` arrays
  *  - node: non-empty string `id` (unique), `kind` 'node'|'group', `position` with finite x/y,
  *    `size` (optional for nodes, required for groups) with finite width/height > 0,
@@ -114,7 +115,7 @@ export function parseModelJson(text: string): ParseResult {
  *    optional `parentId` that references an existing node of kind 'group', no parent cycles
  *  - metadata is normalized with `normalizeMetadata`; duplicate keys (after trim) are an error
  *  - edge: unique non-empty string `id`, `source`/`target` reference existing nodes, source !== target,
- *    no duplicate (source,target) pair
+ *    no duplicate (source,target) pair, optional `metadata` like an element's (duplicate keys are an error)
  *  - unknown extra properties are ignored
  * On success the model has nodes ordered parents first.
  */
@@ -151,7 +152,7 @@ export function parseModel(input: unknown): ParseResult {
 
   let edges: ModelEdge[] = []
   if (Array.isArray(input.edges)) {
-    edges = parseEdges(input.edges, nodeIds, report)
+    edges = parseEdges(input.edges, nodeIds, report, input.version === LEGACY_SCHEMA_VERSION)
   } else {
     report('Das Feld "edges" muss eine Liste sein.')
   }
@@ -169,7 +170,7 @@ export function parseModel(input: unknown): ParseResult {
 }
 
 function checkVersion(version: unknown, report: Report): void {
-  if (version === SCHEMA_VERSION) return
+  if (version === SCHEMA_VERSION || version === LEGACY_SCHEMA_VERSION) return
   if (version === undefined) {
     report(`Die Versionsangabe (version) fehlt. Erwartet wird Version ${SCHEMA_VERSION}.`)
   } else {
@@ -357,6 +358,7 @@ function parseEdges(
   raw: readonly unknown[],
   nodeIds: ReadonlySet<string>,
   report: Report,
+  legacy: boolean,
 ): ModelEdge[] {
   const firstIndexById = new Map<string, number>()
   const firstIndexByPair = new Map<string, number>()
@@ -414,17 +416,24 @@ function parseEdges(
       }
     }
 
-    let caption: string | undefined
-    if (value.label !== undefined) {
-      if (typeof value.label === 'string') caption = value.label.trim() || undefined
-      else fail('label muss ein Text sein.')
+    let metadata: MetadataEntry[] | undefined
+    if (legacy) {
+      // Version 1: the caption was a plain `label`.
+      if (value.label !== undefined) {
+        if (typeof value.label === 'string') metadata = tidyEdgeMetadata([{ key: NAME_KEY, value: value.label }])
+        else fail('label muss ein Text sein.')
+      }
+    } else if (value.metadata !== undefined) {
+      const entries = parseMetadata(value.metadata, fail)
+      for (const key of findDuplicateKeys(entries)) fail(`Der Metadaten-Schlüssel ${quote(key)} kommt mehrfach vor.`)
+      metadata = tidyEdgeMetadata(entries)
     }
 
     if (problems.length > 0 || id === undefined || typeof source !== 'string' || typeof target !== 'string') {
       for (const problem of problems) report(problem)
       return
     }
-    edges.push({ id, source, target, ...handles, ...(caption && { label: caption }) })
+    edges.push({ id, source, target, ...handles, ...(metadata && { metadata }) })
   })
   return edges
 }

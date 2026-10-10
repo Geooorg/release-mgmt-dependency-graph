@@ -14,6 +14,10 @@ export interface ToolbarProps {
   canGroup: boolean
   canUngroup: boolean
   canDelete: boolean
+  /** Something that can be copied (an object or group) is selected. */
+  canCopy: boolean
+  /** The clipboard holds copied elements. */
+  canPaste: boolean
   canUndo: boolean
   canRedo: boolean
   /** Analysis mode: what is drawn in red. */
@@ -33,8 +37,29 @@ export interface ToolbarProps {
   onGroup: () => void
   onUngroup: () => void
   onDelete: () => void
+  onCopy: () => void
+  onPaste: () => void
+  /** The search field is shown. */
+  searchOpen: boolean
+  onToggleSearch: () => void
   onExport: () => void
   onImport: () => void
+  /** Show the project JSON read-only (to copy it). */
+  onShowJson: () => void
+  /** Open the dialog to import pasted JSON text. */
+  onPasteJson: () => void
+}
+
+/** Result of one search step: how many elements match and which one (1-based) was jumped to; 0 of 0 = none. */
+export interface SearchOutcome {
+  count: number
+  position: number
+}
+
+export interface SearchBarProps {
+  /** Runs the search for this text (a jump to a hit) and reports where it landed. */
+  onSearch: (query: string) => SearchOutcome
+  onClose: () => void
 }
 
 export interface ToolHintProps {
@@ -45,11 +70,23 @@ export interface ToolHintProps {
 
 export interface SidebarElement {
   id: string
-  /** `edge`: only a `label` entry is shown/edited and saved (no name, colour or free-form fields). */
+  /** `edge`: only the `name` entry (the caption) is shown/edited and saved (no colour, status or free-form fields). */
   kind: ElementKind | 'edge'
   metadata: MetadataEntry[]
   /** Groups only: finished and total objects inside, shown as a read-only status summary. */
   progress?: { done: number; total: number }
+}
+
+/** The colour of all selected objects and groups, set in one go (several elements selected). */
+export interface BulkColor {
+  /** Number of selected objects and groups (connections have no colour). */
+  count: number
+  /** `#rrggbb` all of them share; '' = none set (default blue) or they differ, see `mixed`. */
+  color: string
+  /** The selected elements have different colours. */
+  mixed: boolean
+  /** A colour, or undefined to remove it from all of them. */
+  onChange: (color: string | undefined) => void
 }
 
 export interface SidebarProps {
@@ -57,6 +94,8 @@ export interface SidebarProps {
   element: SidebarElement | null
   /** With `element === null`: more than one selected element shows a hint instead of a form; otherwise the sidebar is closed. */
   selectionCount: number
+  /** With several elements selected: the shared colour control; absent when none of them can have one. */
+  bulkColor?: BulkColor
   /**
    * Live edit: called with every valid draft, already normalized (trimmed, empty keys dropped, `name`
    * first). An invalid draft (duplicate field names) is not reported; the owner keeps the last valid state.
@@ -99,6 +138,30 @@ export interface ImportDialogProps {
   onExportAndImport: () => void
   /** Choose the file to import without exporting first. */
   onImportWithoutExport: () => void
+  onCancel: () => void
+}
+
+export interface JsonExportDialogProps {
+  open: boolean
+  /** The serialized project, exactly what the file export writes. */
+  json: string
+  /** Copies the JSON; resolves with whether that worked. */
+  onCopy: () => Promise<boolean>
+  onClose: () => void
+}
+
+export interface JsonImportDialogProps {
+  open: boolean
+  /** Name of the project that would be replaced. */
+  projectName: string
+  /** Size of the project that would be replaced. */
+  counts: { objects: number; groups: number; connections: number }
+  /** The current project differs from the last export, copy or import. */
+  unsaved: boolean
+  /** Validation messages of the last failed attempt; the project was left unchanged. */
+  errors: string[]
+  /** Replace the project by the pasted text. */
+  onImport: (text: string) => void
   onCancel: () => void
 }
 

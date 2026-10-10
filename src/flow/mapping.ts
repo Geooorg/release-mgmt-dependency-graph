@@ -1,6 +1,6 @@
 import { MarkerType, type Edge } from '@xyflow/react'
 import { getSize, pickSides, sortParentsFirst } from '../model/graph'
-import { displayName, getColor, getContrastColor, getName } from '../model/metadata'
+import { displayName, getColor, getContrastColor, getEdgeName, getName } from '../model/metadata'
 import { joinNames, type ProjectAnalysis } from '../model/releaseAnalysis'
 import type { ModelEdge, ModelNode } from '../model/types'
 import type { AppFlowNode } from './types'
@@ -126,7 +126,7 @@ export function toFlowEdges(
       sourceHandle: edge.sourceHandle ?? facing?.sourceHandle,
       targetHandle: edge.targetHandle ?? facing?.targetHandle,
       selected,
-      label: edge.label,
+      label: getEdgeName(edge) || undefined,
       labelStyle: { fill: color, fontWeight: 600, fontSize: 13 },
       labelBgPadding: [6, 3],
       labelBgBorderRadius: 4,

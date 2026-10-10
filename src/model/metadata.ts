@@ -20,6 +20,20 @@ export function normalizeMetadata(entries: readonly MetadataEntry[]): MetadataEn
 }
 
 /**
+ * Normalized metadata of an edge, or undefined when there is nothing worth keeping (no name and
+ * no other entry): unnamed edges stay free of a `metadata` field.
+ */
+export function tidyEdgeMetadata(entries: readonly MetadataEntry[]): MetadataEntry[] | undefined {
+  const normalized = normalizeMetadata(entries)
+  return normalized.length === 1 && normalized[0].value === '' ? undefined : normalized
+}
+
+/** The caption of an edge: its `name`, or '' when unnamed. */
+export function getEdgeName(edge: { metadata?: readonly MetadataEntry[] }): string {
+  return getName(edge.metadata ?? [])
+}
+
+/**
  * Distinct keys that occur more than once (compared after trimming, case-sensitive,
  * entries with an empty key ignored), in order of first occurrence.
  */
@@ -49,6 +63,18 @@ export function isValidColor(value: string): boolean {
 export function getColor(entries: readonly MetadataEntry[]): string | undefined {
   const value = entries.find((entry) => entry.key === COLOR_KEY)?.value
   return value !== undefined && isValidColor(value) ? value.toLowerCase() : undefined
+}
+
+/**
+ * The entries with the colour set (lower-cased) right after `name`, replacing every existing colour
+ * entry; `undefined` removes it. Not normalized, and `color` must be a valid `#rrggbb` (checked by callers).
+ */
+export function withColorEntry(entries: readonly MetadataEntry[], color: string | undefined): MetadataEntry[] {
+  const others = entries.filter((entry) => entry.key !== COLOR_KEY)
+  if (color === undefined) return others
+  const nameIndex = others.findIndex((entry) => entry.key === NAME_KEY)
+  const at = nameIndex + 1
+  return [...others.slice(0, at), { key: COLOR_KEY, value: color.toLowerCase() }, ...others.slice(at)]
 }
 
 /** Dark or white text, whichever reads better on the given `#rrggbb` background (YIQ brightness). */

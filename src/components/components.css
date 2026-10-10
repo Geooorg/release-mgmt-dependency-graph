@@ -1245,9 +1245,37 @@ ol.analysis-list > li::before {
   }
 
   .toolbar .project-title {
-    max-width: 120px;
+    max-width: 64px;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .toolbar {
+    gap: 6px;
+  }
+
+  .toolbar__section {
+    gap: 4px;
+  }
+
+  .mode-switch .ui-button {
+    padding: 0 8px;
+  }
+
+  /* Export / Import: the text buttons of the sticky file section. */
+  .toolbar__file .ui-button:not(.ui-button--tool) {
+    padding: 0 8px;
+  }
+
+  /* The words say it already; the icons make room for the cycle button. */
+  .mode-switch .icon {
+    display: none;
+  }
+
+  .toolbar .ui-button--tool,
+  .toolbar .tool-switch .ui-button {
+    width: 32px;
+    min-width: 32px;
   }
 }
 
@@ -1269,4 +1297,134 @@ ol.analysis-list > li::before {
     width: min(var(--sidebar-width), calc(100% - 16px));
     box-shadow: 0 8px 24px rgb(17 24 39 / 0.2);
   }
+}
+
+/* ---------- JSON dialogs (show / paste the project as text) ---------- */
+
+.json-dialog {
+  width: min(720px, calc(100vw - 32px));
+}
+
+.json-dialog__label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--gray-600);
+  font-weight: 600;
+}
+
+.json-dialog__text {
+  display: block;
+  width: 100%;
+  height: min(50vh, 420px);
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre;
+  overflow: auto;
+}
+
+.json-dialog__status {
+  min-height: 1.5em;
+  margin: 8px 0 12px;
+  color: var(--gray-600);
+}
+
+.json-dialog__errors {
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  border-left: 4px solid var(--danger-600);
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.json-dialog__errors p {
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.json-dialog__errors ul {
+  margin: 0;
+  padding-left: 20px;
+  max-height: 96px;
+  overflow: auto;
+}
+
+.json-dialog .import-dialog__note {
+  margin: 12px 0;
+}
+
+/* ---------- Inline name editor on objects and groups ---------- */
+
+.node-name-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  height: 26px;
+  padding: 0 6px;
+  border: 2px solid var(--blue-600);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--gray-900);
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+}
+
+.group-node__header .node-name-input {
+  text-align: left;
+}
+
+.node-name-input:focus {
+  outline: none;
+}
+
+/* While a connection is dragged, the node under the pointer shows that dropping anywhere on it connects. */
+.react-flow:has(.react-flow__connectionline) .box-node:hover,
+.react-flow:has(.react-flow__connectionline) .group-node__header:hover {
+  outline: 2px dashed var(--blue-600);
+  outline-offset: 3px;
+}
+
+/* The ends of a selected connection can be dragged to another connector: make the grips visible. */
+.react-flow__edge.selected .react-flow__edgeupdater {
+  fill: rgb(37 99 235 / 0.2);
+  stroke: var(--blue-600);
+  stroke-width: 2px;
+}
+
+/* ---------- Search field on the canvas ---------- */
+
+.search-bar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 24px);
+  padding: 6px 8px 6px 10px;
+  border: 1px solid var(--gray-300);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgb(17 24 39 / 0.15);
+}
+
+.search-bar__input {
+  width: 240px;
+  min-width: 0;
+}
+
+.search-bar__status {
+  min-width: 7.5em;
+  color: var(--gray-600);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.search-bar__status--none {
+  color: var(--danger-600);
+  font-weight: 600;
 }

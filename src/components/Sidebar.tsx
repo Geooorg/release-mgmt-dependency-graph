@@ -13,6 +13,7 @@ import {
 import { COLOR_KEY, DEFAULT_COLOR, NAME_KEY } from '../model/types'
 import type { MetadataEntry } from '../model/types'
 import type { SidebarElement, SidebarProps } from './props'
+import { SidebarBulkColor } from './SidebarBulkColor'
 import { SidebarEdgeForm } from './SidebarEdgeForm'
 import { useEditGesture, useReportInvalid } from './useSidebarEffects'
 import './components.css'
@@ -336,7 +337,7 @@ function SidebarForm({
   )
 }
 
-export function Sidebar({ element, selectionCount, hidden, ...handlers }: SidebarProps) {
+export function Sidebar({ element, selectionCount, bulkColor, hidden, ...handlers }: SidebarProps) {
   if (element === null) {
     if (selectionCount < 2) return null
     return (
@@ -356,6 +357,9 @@ export function Sidebar({ element, selectionCount, hidden, ...handlers }: Sideba
           <p className="sidebar__info" role="status">
             {selectionCount} Elemente markiert – zum Bearbeiten genau eines auswählen.
           </p>
+          {bulkColor && (
+            <SidebarBulkColor {...bulkColor} onEditStart={handlers.onEditStart} onEditEnd={handlers.onEditEnd} />
+          )}
         </div>
       </aside>
     )

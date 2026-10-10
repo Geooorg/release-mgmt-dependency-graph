@@ -1,4 +1,4 @@
-import { normalizeMetadata } from './metadata'
+import { getEdgeName, getName, isValidColor, normalizeMetadata, tidyEdgeMetadata, withColorEntry } from './metadata'
 import {
   BLOCK_REASON_KEY,
   STATUS_KEY,
@@ -423,6 +423,43 @@ export function addEdge(
   return { ...content, edges: [...content.edges, edge] }
 }
 
+/** Is moving the ends of edge `edgeId` to `source` -> `target` allowed? Like `checkConnection`, but the edge itself does not count as a duplicate. */
+export function checkReconnection(
+  content: GraphContent,
+  edgeId: string,
+  source: string,
+  target: string,
+): ConnectionCheck {
+  return checkConnection({ ...content, edges: content.edges.filter((edge) => edge.id !== edgeId) }, source, target)
+}
+
+/**
+ * Moves an existing edge to other ends and/or other connectors (the edge keeps its id and name).
+ * Missing connectors let the renderer pick the facing sides. A move that `checkReconnection`
+ * refuses, an unknown edge or no actual change -> the content itself.
+ */
+export function reconnectEdge(
+  content: GraphContent,
+  edgeId: string,
+  ends: { source: string; target: string } & EdgeHandles,
+): GraphContent {
+  const current = content.edges.find((edge) => edge.id === edgeId)
+  if (current === undefined || !checkReconnection(content, edgeId, ends.source, ends.target).ok) return content
+  if (
+    current.source === ends.source &&
+    current.target === ends.target &&
+    current.sourceHandle === ends.sourceHandle &&
+    current.targetHandle === ends.targetHandle
+  ) {
+    return content
+  }
+  const { sourceHandle: _s, targetHandle: _t, ...rest } = current
+  const moved: ModelEdge = { ...rest, source: ends.source, target: ends.target }
+  if (ends.sourceHandle) moved.sourceHandle = ends.sourceHandle
+  if (ends.targetHandle) moved.targetHandle = ends.targetHandle
+  return { ...content, edges: content.edges.map((edge) => (edge.id === edgeId ? moved : edge)) }
+}
+
 /**
  * Connectors that face each other, for connections made without dragging between two specific
  * connectors (toolbar "Verbinden"): horizontal if the centres differ more in x than in y.
@@ -459,6 +496,42 @@ export function updateMetadata(
   entries: readonly MetadataEntry[],
 ): GraphContent {
   return updateNode(content, id, (node) => ({ ...node, metadata: normalizeMetadata(entries) }))
+}
+
+/**
+ * Sets the (trimmed) name of an element, e.g. from the inline editor: only the `name` entry changes.
+ * An empty name is allowed. No actual change / unknown id -> unchanged.
+ */
+export function renameElement(content: GraphContent, id: string, name: string): GraphContent {
+  const target = content.nodes.find((n) => n.id === id)
+  const value = name.trim()
+  if (target === undefined || getName(target.metadata) === value) return content
+  const at = target.metadata.findIndex((entry) => entry.key === NAME_KEY)
+  const entries =
+    at === -1
+      ? [{ key: NAME_KEY, value }, ...target.metadata]
+      : target.metadata.map((entry, index) => (index === at ? { key: NAME_KEY, value } : entry))
+  return updateMetadata(content, id, entries)
+}
+
+/**
+ * Sets the `color` of all listed elements (objects and groups) at once, or removes it with
+ * `undefined`. Unknown ids are skipped, elements that already have that colour keep their
+ * reference; nothing to change or an invalid colour -> the content itself.
+ */
+export function setColor(content: GraphContent, ids: readonly string[], color: string | undefined): GraphContent {
+  if (color !== undefined && !isValidColor(color)) return content
+  const wanted = color?.toLowerCase()
+  const targets = new Set(ids)
+  let changed = false
+  const nodes = content.nodes.map((node) => {
+    if (!targets.has(node.id)) return node
+    const metadata = normalizeMetadata(withColorEntry(node.metadata, wanted))
+    if (JSON.stringify(metadata) === JSON.stringify(node.metadata)) return node
+    changed = true
+    return { ...node, metadata }
+  })
+  return changed ? { ...content, nodes } : content
 }
 
 /**
@@ -511,14 +584,22 @@ function clampAtLeast(value: number, min: number): number {
 }
 
 /**
- * Sets the caption of an edge (trimmed; blank removes it). Unknown edge or no actual change ->
- * the same `content` reference.
+ * Sets the name (caption) of an edge, the same `name` metadata entry objects have: trimmed, blank
+ * removes it (and the `metadata` field when nothing else is left). Other entries stay. Unknown
+ * edge or no actual change -> the same `content` reference.
  */
-export function updateEdgeLabel(content: GraphContent, id: string, label: string): GraphContent {
+export function renameEdge(content: GraphContent, id: string, name: string): GraphContent {
   const edge = content.edges.find((e) => e.id === id)
-  const text = label.trim()
-  if (edge === undefined || (edge.label ?? '') === text) return content
-  const { label: _old, ...rest } = edge
-  const updated: ModelEdge = text === '' ? rest : { ...rest, label: text }
+  const text = name.trim()
+  if (edge === undefined || getEdgeName(edge) === text) return content
+  const entries = edge.metadata ?? []
+  const at = entries.findIndex((entry) => entry.key === NAME_KEY)
+  const renamed =
+    at === -1
+      ? [{ key: NAME_KEY, value: text }, ...entries]
+      : entries.map((entry, index) => (index === at ? { key: NAME_KEY, value: text } : entry))
+  const { metadata: _old, ...rest } = edge
+  const metadata = tidyEdgeMetadata(renamed)
+  const updated: ModelEdge = metadata === undefined ? rest : { ...rest, metadata }
   return { ...content, edges: content.edges.map((e) => (e.id === id ? updated : e)) }
 }

@@ -15,6 +15,8 @@ function makeProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
     canGroup: true,
     canUngroup: true,
     canDelete: true,
+    canCopy: true,
+    canPaste: true,
     canUndo: true,
     canRedo: true,
     highlight: 'critical',
@@ -29,8 +31,14 @@ function makeProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
     onGroup: vi.fn(),
     onUngroup: vi.fn(),
     onDelete: vi.fn(),
+    onCopy: vi.fn(),
+    onPaste: vi.fn(),
+    searchOpen: false,
+    onToggleSearch: vi.fn(),
     onExport: vi.fn(),
     onImport: vi.fn(),
+    onShowJson: vi.fn(),
+    onPasteJson: vi.fn(),
     ...overrides,
   }
 }
@@ -50,14 +58,19 @@ describe('Toolbar', () => {
       'Gruppieren',
       'Gruppe auflösen',
       'Löschen',
+      'Kopieren',
+      'Einfügen',
+      'Suchen',
       'Rückgängig',
       'Wiederholen',
       'Export',
+      'JSON anzeigen',
       'Import',
+      'JSON einfügen',
     ]) {
       expect(screen.getByRole('button', { name: label })).toHaveAttribute('type', 'button')
     }
-    expect(screen.getAllByRole('separator')).toHaveLength(4)
+    expect(screen.getAllByRole('separator')).toHaveLength(6)
   })
 
   it('calls the matching handler for every button', async () => {
@@ -68,14 +81,51 @@ describe('Toolbar', () => {
     await user.click(screen.getByRole('button', { name: 'Gruppieren' }))
     await user.click(screen.getByRole('button', { name: 'Gruppe auflösen' }))
     await user.click(screen.getByRole('button', { name: 'Löschen' }))
+    await user.click(screen.getByRole('button', { name: 'Kopieren' }))
+    await user.click(screen.getByRole('button', { name: 'Einfügen' }))
     await user.click(screen.getByRole('button', { name: 'Export' }))
     await user.click(screen.getByRole('button', { name: 'Import' }))
+    await user.click(screen.getByRole('button', { name: 'JSON anzeigen' }))
+    await user.click(screen.getByRole('button', { name: 'JSON einfügen' }))
 
     expect(props.onGroup).toHaveBeenCalledTimes(1)
     expect(props.onUngroup).toHaveBeenCalledTimes(1)
     expect(props.onDelete).toHaveBeenCalledTimes(1)
+    expect(props.onCopy).toHaveBeenCalledTimes(1)
+    expect(props.onPaste).toHaveBeenCalledTimes(1)
     expect(props.onExport).toHaveBeenCalledTimes(1)
     expect(props.onImport).toHaveBeenCalledTimes(1)
+    expect(props.onShowJson).toHaveBeenCalledTimes(1)
+    expect(props.onPasteJson).toHaveBeenCalledTimes(1)
+  })
+
+  it('has a search button in both modes that shows whether the field is open', async () => {
+    const props = makeProps({ searchOpen: true })
+    const { rerender } = render(<Toolbar {...props} />)
+    const button = () => screen.getByRole('button', { name: 'Suchen' })
+
+    expect(button()).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(button())
+    expect(props.onToggleSearch).toHaveBeenCalledTimes(1)
+
+    rerender(<Toolbar {...props} mode="analyze" searchOpen={false} />)
+    expect(button()).toHaveAttribute('aria-pressed', 'false')
+    await userEvent.hover(button())
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Enter')
+  })
+
+  it('disables copy and paste until there is something to copy or paste', async () => {
+    render(<Toolbar {...makeProps({ canCopy: false, canPaste: false })} />)
+
+    expect(screen.getByRole('button', { name: 'Kopieren' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Einfügen' })).toBeDisabled()
+  })
+
+  it('names the shortcuts of copy and paste', async () => {
+    render(<Toolbar {...makeProps()} />)
+
+    await userEvent.hover(screen.getByRole('button', { name: 'Kopieren' }))
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Strg/Cmd + C')
   })
 
   it('disables group, ungroup and delete unless allowed', async () => {
@@ -249,7 +299,7 @@ describe('Toolbar', () => {
     it('shows the structure sections and no analysis controls', () => {
       render(<Toolbar {...makeProps({ mode: 'build' })} />)
 
-      for (const name of ['Erstellen', 'Gruppen', 'Verlauf', 'Datei']) {
+      for (const name of ['Erstellen', 'Gruppen', 'Zwischenablage', 'Verlauf', 'Datei']) {
         expect(screen.getByRole('group', { name })).toBeInTheDocument()
       }
       expect(screen.queryByRole('group', { name: 'Analyse' })).not.toBeInTheDocument()
@@ -269,6 +319,9 @@ describe('Toolbar', () => {
       }
       expect(screen.queryByRole('group', { name: 'Erstellen' })).not.toBeInTheDocument()
       expect(screen.queryByRole('group', { name: 'Gruppen' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('group', { name: 'Zwischenablage' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Kopieren' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Einfügen' })).not.toBeInTheDocument()
       expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })
 
@@ -354,7 +407,12 @@ describe('Toolbar', () => {
         const { unmount } = render(<Toolbar {...makeProps({ mode })} />)
         const groups = screen.getAllByRole('group')
         expect(groups.at(-1)).toHaveAccessibleName('Datei')
-        expect(within(groups.at(-1)!).getAllByRole('button').map((b) => b.textContent)).toEqual(['Export', 'Import'])
+        expect(within(groups.at(-1)!).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
+          'Export',
+          'JSON anzeigen',
+          'Import',
+          'JSON einfügen',
+        ])
         unmount()
       }
     })
@@ -461,6 +519,13 @@ describe('Toolbar', () => {
 
       await userEvent.hover(screen.getByRole('button', { name: 'Export' }))
       expect(await screen.findByRole('tooltip')).toHaveTextContent('JSON')
+    })
+
+    it('explains the JSON buttons', async () => {
+      render(<Toolbar {...makeProps()} />)
+
+      await userEvent.hover(screen.getByRole('button', { name: 'JSON anzeigen' }))
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('Zwischenablage')
     })
 
     it('groups the buttons into labelled sections', () => {

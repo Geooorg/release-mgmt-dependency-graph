@@ -4,15 +4,25 @@ import { AnalysisPanel } from './components/AnalysisPanel'
 import { Banner } from './components/Banner'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { ImportDialog } from './components/ImportDialog'
+import { JsonExportDialog } from './components/JsonExportDialog'
+import { JsonImportDialog } from './components/JsonImportDialog'
+import { SearchBar } from './components/SearchBar'
 import { Sidebar } from './components/Sidebar'
 import { ToolHint } from './components/ToolHint'
 import { Toolbar } from './components/Toolbar'
-import type { AnalysisEntry, AnalysisPanelProps, AnalysisSelected } from './components/props'
+import type {
+  AnalysisEntry,
+  AnalysisPanelProps,
+  AnalysisSelected,
+  BulkColor,
+  SearchOutcome,
+} from './components/props'
 import { Canvas } from './flow/Canvas'
 import { findCycles } from './model/cycles'
 import { canGroup } from './model/graph'
 import { contentFingerprint } from './model/fingerprint'
-import { displayName } from './model/metadata'
+import { displayName, getColor, getEdgeName } from './model/metadata'
+import { findByName, nextHit, normalizeQuery } from './model/search'
 import { sidebarTarget } from './model/sidebarTarget'
 import { getBlockReason, getStatusInfo } from './model/status'
 import type { Tool } from './model/workMode'
@@ -23,7 +33,7 @@ import {
   type ProjectAnalysis,
   type SelectionAnalysis,
 } from './model/releaseAnalysis'
-import { exportFileName, serializeModel, toModel } from './model/serialize'
+import { exportFileName, parseModelJson, serializeModel, toModel } from './model/serialize'
 import type { GraphContent } from './model/types'
 import { copyText } from './storage/clipboard'
 import { downloadTextFile, pickTextFile } from './storage/fileIO'
@@ -97,6 +107,11 @@ function toPanelProps(
 function AppShell() {
   // Set while the import dialog is open; `unsaved` is decided when it opens.
   const [importDialog, setImportDialog] = useState<{ unsaved: boolean } | null>(null)
+  // JSON as text instead of a file: the shown text (null = closed) and the paste dialog with its last errors.
+  const [searchOpen, setSearchOpen] = useState(false)
+  const lastSearch = useRef<{ query: string; id: string | null }>({ query: '', id: null })
+  const [jsonExport, setJsonExport] = useState<string | null>(null)
+  const [jsonImport, setJsonImport] = useState<{ unsaved: boolean; errors: string[] } | null>(null)
 
   const projectName = useGraph((s) => s.projectName)
   const tool = useGraph((s) => s.tool)
@@ -111,6 +126,8 @@ function AppShell() {
   const highlight = useGraph((s) => s.highlight)
   const panelShown = useGraph((s) => s.analysisPanelVisible)
   const selectionEmpty = useGraph((s) => s.selectedNodeIds.length === 0)
+  const copyable = useGraph((s) => s.selectedNodeIds.length > 0)
+  const pasteable = useGraph((s) => s.clipboard !== null)
   const deletable = useGraph((s) => s.selectedNodeIds.length + s.selectedEdgeIds.length > 0)
   const notice = useGraph((s) => s.notice)
   const nodes = useGraph((s) => s.nodes)
@@ -152,6 +169,19 @@ function AppShell() {
     () => (target.kind === 'node' ? (nodes.find((n) => n.id === target.id) ?? null) : null),
     [target, nodes],
   )
+  // Several elements selected: their colour can be set together (connections have none).
+  const bulkColor = useMemo<BulkColor | undefined>(() => {
+    if (target.kind !== 'multiple') return undefined
+    const colors = nodes.filter((n) => selectedNodeIds.includes(n.id)).map((n) => getColor(n.metadata) ?? '')
+    if (colors.length === 0) return undefined
+    const shared = new Set(colors)
+    return {
+      count: colors.length,
+      color: shared.size === 1 ? colors[0] : '',
+      mixed: shared.size > 1,
+      onChange: (color) => graphStore.getState().setSelectionColor(color),
+    }
+  }, [target, nodes, selectedNodeIds])
   const sidebarEdge = useMemo(
     () => (target.kind === 'edge' ? (edges.find((e) => e.id === target.id) ?? null) : null),
     [target, edges],
@@ -182,7 +212,7 @@ function AppShell() {
       return {
         id: sidebarEdge.id,
         kind: 'edge' as const,
-        metadata: [{ key: 'label', value: sidebarEdge.label ?? '' }],
+        metadata: [{ key: 'name', value: getEdgeName(sidebarEdge) }],
       }
     }
     return null
@@ -201,6 +231,15 @@ function AppShell() {
       } else if (modifier && key === 'y') {
         event.preventDefault()
         state.redo()
+      } else if (modifier && !event.shiftKey && !event.altKey && state.mode === 'build' && (key === 'c' || key === 'v')) {
+        // Only the app's own selection: with nothing selected / copied the browser keeps its shortcut.
+        if (key === 'c' && state.selectedNodeIds.length > 0) {
+          event.preventDefault()
+          state.copySelection()
+        } else if (key === 'v' && state.clipboard) {
+          event.preventDefault()
+          state.paste()
+        }
       } else if (!modifier && !event.altKey && state.mode === 'build' && Object.hasOwn(TOOL_KEYS, key)) {
         state.setTool(TOOL_KEYS[key])
       } else if (event.key === 'Delete' || event.key === 'Backspace') {
@@ -248,6 +287,23 @@ function AppShell() {
     }
   }
 
+  // Enter in the search field: the first hit, and with an unchanged text every further Enter the next one (then round again).
+  const runSearch = (query: string): SearchOutcome => {
+    const hits = findByName(graphStore.getState().nodes, query)
+    const wanted = normalizeQuery(query)
+    const last = lastSearch.current
+    const id = nextHit(hits, last.query === wanted ? last.id : null)
+    lastSearch.current = { query: wanted, id: id ?? null }
+    if (id === undefined) return { count: 0, position: 0 }
+    graphStore.getState().focusNodes([id])
+    return { count: hits.length, position: hits.indexOf(id) + 1 }
+  }
+
+  const toggleSearch = () => {
+    lastSearch.current = { query: '', id: null }
+    setSearchOpen((open) => !open)
+  }
+
   const exportModel = () => {
     const state = graphStore.getState()
     const { nodes, edges, projectName: name } = state
@@ -258,9 +314,34 @@ function AppShell() {
     state.markExported()
   }
 
-  const requestImport = () => {
+  const hasUnexportedChanges = () => {
     const { nodes, edges, projectName: name, exportedFingerprint } = graphStore.getState()
-    setImportDialog({ unsaved: contentFingerprint({ nodes, edges, projectName: name }) !== exportedFingerprint })
+    return contentFingerprint({ nodes, edges, projectName: name }) !== exportedFingerprint
+  }
+
+  const requestImport = () => setImportDialog({ unsaved: hasUnexportedChanges() })
+
+  const showJson = () => {
+    const { nodes, edges, projectName: name } = graphStore.getState()
+    setJsonExport(serializeModel(toModel({ nodes, edges, projectName: name })))
+  }
+
+  // Copying counts as an export: the text is a full copy of the project.
+  const copyJson = async () => {
+    if (jsonExport === null || !(await copyText(jsonExport))) return false
+    graphStore.getState().markExported()
+    return true
+  }
+
+  // Validated here first so the dialog (which covers the banner) can show what is wrong.
+  const importJson = (text: string) => {
+    const result = parseModelJson(text)
+    if (!result.ok) {
+      setJsonImport((current) => current && { ...current, errors: result.errors })
+      return
+    }
+    graphStore.getState().importText(text)
+    setJsonImport(null)
   }
 
   // Both import paths call this synchronously from the click handler (no `await` before the picker),
@@ -298,6 +379,8 @@ function AppShell() {
         canGroup={groupable}
         canUngroup={ungroupable}
         canDelete={deletable}
+        canCopy={copyable}
+        canPaste={pasteable}
         canUndo={canUndo}
         canRedo={canRedo}
         highlight={highlight}
@@ -312,13 +395,20 @@ function AppShell() {
         onGroup={() => graphStore.getState().groupSelection()}
         onUngroup={() => graphStore.getState().ungroupSelection()}
         onDelete={() => graphStore.getState().deleteSelection()}
+        onCopy={() => graphStore.getState().copySelection()}
+        onPaste={() => graphStore.getState().paste()}
+        searchOpen={searchOpen}
+        onToggleSearch={toggleSearch}
         onExport={exportModel}
         onImport={requestImport}
+        onShowJson={showJson}
+        onPasteJson={() => setJsonImport({ unsaved: hasUnexportedChanges(), errors: [] })}
       />
       <div className="workspace">
         <main className="canvas">
           <Canvas cycles={cycles} analysis={analysis} critical={critical} />
           <ToolHint tool={tool} sourcePicked={connectSourcePicked} />
+          {searchOpen && <SearchBar onSearch={runSearch} onClose={toggleSearch} />}
           <div className="banner-host">
             <Banner
               message={notice?.message ?? null}
@@ -350,11 +440,12 @@ function AppShell() {
           hidden={analyzing}
           element={sidebarElement}
           selectionCount={selectedNodeIds.length + selectedEdgeIds.length}
+          bulkColor={bulkColor}
           onChange={(metadata) => {
             if (!sidebarElement) return
             const state = graphStore.getState()
             if (sidebarElement.kind === 'edge') {
-              state.updateEdgeLabel(sidebarElement.id, metadata.find((m) => m.key === 'label')?.value ?? '')
+              state.renameEdge(sidebarElement.id, metadata.find((m) => m.key === 'name')?.value ?? '')
             } else {
               state.updateMetadata(sidebarElement.id, metadata)
             }
@@ -381,6 +472,21 @@ function AppShell() {
         onExportAndImport={exportAndImport}
         onImportWithoutExport={() => void pickAndImport()}
         onCancel={() => setImportDialog(null)}
+      />
+      <JsonExportDialog
+        open={jsonExport !== null}
+        json={jsonExport ?? ''}
+        onCopy={copyJson}
+        onClose={() => setJsonExport(null)}
+      />
+      <JsonImportDialog
+        open={jsonImport !== null}
+        projectName={projectName}
+        counts={importCounts}
+        unsaved={jsonImport?.unsaved ?? false}
+        errors={jsonImport?.errors ?? []}
+        onImport={importJson}
+        onCancel={() => setJsonImport(null)}
       />
     </div>
   )

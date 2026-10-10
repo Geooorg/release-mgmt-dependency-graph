@@ -200,3 +200,55 @@ export function CheckIcon({ size }: { size?: number }) {
     </Icon>
   )
 }
+
+/** Curly braces: show the project as JSON text. */
+export function BracesIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1" />
+      <path d="M16 21h1a2 2 0 0 0 2-2v-5a2 2 0 0 1 2-2 2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" />
+    </Icon>
+  )
+}
+
+/** Clipboard: paste JSON text. */
+export function ClipboardIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <rect x="8" y="2" width="8" height="4" rx="1" />
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+      <path d="M9 12h6M9 16h4" />
+    </Icon>
+  )
+}
+
+/** Two overlapping sheets: copy the selection. */
+export function CopyIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" />
+    </Icon>
+  )
+}
+
+/** Board with an arrow into it: paste the copied elements. */
+export function PasteIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <rect x="8" y="2" width="8" height="4" rx="1" />
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+      <path d="M12 10v7m-3-3 3 3 3-3" />
+    </Icon>
+  )
+}
+
+/** Magnifier: search an object or group by name. */
+export function SearchIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </Icon>
+  )
+}

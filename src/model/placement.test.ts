@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getSize } from './graph'
+import { getAbsolutePosition, getSize } from './graph'
 import { addNodeAtPoint, findFreePosition, placeNewNode } from './placement'
 import { box, content, counterIds, group } from '../test/fixtures'
 import { NODE_SIZE } from './types'
@@ -125,6 +125,44 @@ describe('placeNewNode', () => {
     expect(placed.position.y).toBeGreaterThanOrEqual(100)
     expect(placed.position.x + NODE_SIZE.width).toBeLessThanOrEqual(500)
     expect(placed.position.y + NODE_SIZE.height).toBeLessThanOrEqual(400)
+  })
+})
+
+describe('a full group', () => {
+  // 3 columns x 1 row of members fill the inner area exactly: 24 + 3 * 160 + 2 * 24 + 24 = 576 wide.
+  const full = () => [
+    group('g', 0, 0, 576, 136),
+    box('m1', 24, 56, 'g'),
+    box('m2', 208, 56, 'g'),
+    box('m3', 392, 56, 'g'),
+  ]
+
+  it('places a new object just beyond its edge instead of on top of the members', () => {
+    const nodes = full()
+    const placed = placeNewNode(nodes, { x: 300, y: 84 })
+
+    expect(placed.parentId).toBe('g')
+    for (const member of ['m1', 'm2', 'm3']) {
+      const at = getAbsolutePosition(nodes, member)
+      expect(overlaps(placed.position, NODE_SIZE, at, NODE_SIZE)).toBe(false)
+    }
+  })
+
+  it('grows when the object is added, as a single change', () => {
+    const result = addNodeAtPoint(content(full()), { x: 300, y: 84 }, counterIds())
+    const added = result.content.nodes.find((n) => n.id === result.nodeId)!
+    const g = result.content.nodes.find((n) => n.id === 'g')!
+
+    expect(added.parentId).toBe('g')
+    expect(added.position.x + NODE_SIZE.width).toBeLessThanOrEqual(g.size!.width - 24)
+    expect(added.position.y + NODE_SIZE.height).toBeLessThanOrEqual(g.size!.height - 24)
+    expect(g.size!.width * g.size!.height).toBeGreaterThan(576 * 136)
+  })
+
+  it('does not grow while there is room', () => {
+    const result = addNodeAtPoint(content([group('g', 0, 0, 600, 400)]), { x: 300, y: 200 }, counterIds())
+
+    expect(result.content.nodes.find((n) => n.id === 'g')!.size).toEqual({ width: 600, height: 400 })
   })
 })
 

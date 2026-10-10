@@ -34,7 +34,7 @@ npm run preview    # gebauten Stand lokal ansehen
 5. Die **UUID** ist dort als **`disabled`**-Feld zu sehen (nicht editierbar).
 6. **Weitere Felder** lassen sich einfach hinzufügen und eintragen. Der **Feldname** (Attribut des Metadatums) ist **frei wählbar**.
 7. **Felder ohne Attributnamen werden ignoriert.** **Leere Werte sind erlaubt.** Feldnamen und Werte werden **getrimmt** (Leerzeichen am Rand entfallen).
-8. **Es gibt kein „Save“.** Jede Änderung in der Sidebar (Name, Farbe, Status, freie Felder hinzufügen/ändern/entfernen, Verbindungs-Label) wird **sofort** ins Modell übernommen und ist im Graph sichtbar (und damit gespeichert, siehe 23.). Übernommen wird der normalisierte Stand (getrimmt, Zeilen ohne Feldnamen entfallen); das Formular behält dabei, was getippt wurde (z. B. ein Leerzeichen am Ende, eine neue Zeile mit noch leerem Feldnamen) und lädt sich nur neu, wenn sich das Modell von außen ändert (Rückgängig/Wiederholen, Import). **Doppelte Feldnamen** sind ein Fehler: Er wird am Feld angezeigt, solange er besteht, bleibt das Modell auf dem letzten gültigen Stand. Nur in diesem Fall werden Änderungen **nie stillschweigend verworfen**: Wechselt die Auswahl oder wird die Sidebar (×) geschlossen, fragt ein Dialog „Ungültige Änderungen an „<Name>“ verwerfen? (doppelter Feldname)“ (*Verwerfen* / *Abbrechen*; bei *Abbrechen* bleibt alles unverändert). Bei gültigem Formular gibt es keine Rückfrage.
+8. **Es gibt kein „Save“.** Jede Änderung in der Sidebar (Name, Farbe, Status, freie Felder hinzufügen/ändern/entfernen, Verbindungsname) wird **sofort** ins Modell übernommen und ist im Graph sichtbar (und damit gespeichert, siehe 23.). Übernommen wird der normalisierte Stand (getrimmt, Zeilen ohne Feldnamen entfallen); das Formular behält dabei, was getippt wurde (z. B. ein Leerzeichen am Ende, eine neue Zeile mit noch leerem Feldnamen) und lädt sich nur neu, wenn sich das Modell von außen ändert (Rückgängig/Wiederholen, Import). **Doppelte Feldnamen** sind ein Fehler: Er wird am Feld angezeigt, solange er besteht, bleibt das Modell auf dem letzten gültigen Stand. Nur in diesem Fall werden Änderungen **nie stillschweigend verworfen**: Wechselt die Auswahl oder wird die Sidebar (×) geschlossen, fragt ein Dialog „Ungültige Änderungen an „<Name>“ verwerfen? (doppelter Feldname)“ (*Verwerfen* / *Abbrechen*; bei *Abbrechen* bleibt alles unverändert). Bei gültigem Formular gibt es keine Rückfrage.
 
 ### Gruppen (Sub-Graphen)
 
@@ -50,7 +50,7 @@ npm run preview    # gebauten Stand lokal ansehen
 
 ### Beschriftung von Pfeilen
 
-15. Auch **Pfeile (Verbindungen)** lassen sich beschriften. Ein **Klick auf den Pfeil** zeigt in derselben Sidebar wie bei Objekten (sie folgt der Auswahl); sie zeigt die UUID der Verbindung (nicht editierbar) und genau ein Feld **„Label"**, das anfangs leer ist. Das Label (getrimmt) erscheint mittig auf dem Pfeil, schon während des Tippens; ein leeres Label entfernt die Beschriftung. Änderungen sind rückgängig machbar.
+15. Auch **Pfeile (Verbindungen)** lassen sich beschriften. Ein **Klick auf den Pfeil** zeigt in derselben Sidebar wie bei Objekten (sie folgt der Auswahl); sie zeigt die UUID der Verbindung (nicht editierbar) und genau ein Feld **„Name"** – der Metadateneintrag `name`, derselbe wie bei Objekten und Gruppen (in der Datei als `metadata` der Verbindung, Format-Version 2) –, das anfangs leer ist. Der Name (getrimmt) erscheint mittig auf dem Pfeil, schon während des Tippens; ein leerer Name entfernt die Beschriftung. Änderungen sind rückgängig machbar.
 
 ### Zyklen
 
@@ -102,7 +102,8 @@ Die Toolbar hat oben links einen Umschalter **Editieren | Analysieren**. Welche 
 |---|---|
 | Modus wechseln | Toolbar → **Editieren** / **Analysieren** (der Modus wird pro Browser gemerkt) |
 | Metadaten bearbeiten | Objekt/Gruppe anklicken → die Sidebar zeigt es; Änderungen gelten **sofort** (kein Save). Anderes Element anklicken ⇒ Sidebar wechselt; mehrere markiert ⇒ Hinweis; ins Leere klicken, Esc oder × ⇒ Sidebar schließt. Nur bei einem ungültigen Entwurf (doppelter Feldname) fragt ein Dialog vor dem Wechsel/Schließen („Verwerfen“ / „Abbrechen“) |
-| Pfeil beschriften | Pfeil anklicken → Feld **Label** (wirkt sofort) |
+| Pfeil beschriften | Pfeil anklicken → Feld **Name** (wirkt sofort); es ist derselbe Metadateneintrag `name` wie bei Objekten und Gruppen |
+| Pfeil umhängen | Das Ende eines markierten Pfeils (an Quelle oder Ziel) auf einen anderen Konnektor ziehen – desselben oder eines anderen Objekts/einer anderen Gruppe. So lässt sich die Pfeilführung optisch ändern; Beschriftung und ID bleiben. Nicht erlaubte Ziele (Duplikat, Gruppe mit eigenem Mitglied) erklärt ein Hinweis. Im Modus *Editieren*, ein Undo-Schritt |
 | Farbe ändern | Element anklicken → Sidebar → Feld **Farbe (color)** (wirkt sofort) |
 | Status setzen | Objekt anklicken → Sidebar → Feld **Status** (offen / in Arbeit / blockiert / fertig), wirkt sofort. Marke unten rechts am Objekt: ✓ fertig · ◐ in Arbeit · ○ offen · ? unbekannter Wert (zählt als offen) |
 | Objekt blockieren | Status **„blockiert“** wählen (Sidebar oder Analyse-Panel), optional das Feld **Grund** ausfüllen. Das Objekt trägt eine rote Flagge (Tooltip „Blockiert: <Grund>“). Flagge entfernen: anderen Status wählen (der Grund entfällt dabei) |
@@ -110,8 +111,16 @@ Die Toolbar hat oben links einen Umschalter **Editieren | Analysieren**. Welche 
 | Zyklen finden | Toolbar → Warn-Button **⟳ n Zyklen** (nur sichtbar, wenn es Zyklen gibt): wählt den nächsten Zyklus aus und zeigt ihn; Zyklus-Verbindungen sind violett gestrichelt |
 | Rückgängig / Wiederholen | Strg/Cmd + Z bzw. Strg/Cmd + Umschalt + Z (oder Strg + Y), oder die Icon-Buttons ↶ ↷ der Toolbar |
 | Projekt umbenennen | Doppelklick auf den Projektnamen in der Toolbar, Enter übernimmt, Esc bricht ab |
+| Objekt/Gruppe umbenennen | **Doppelklick auf den Namen** im Graph (Werkzeug *Auswählen*): Der Name wird zum Eingabefeld (vorausgewählt), Enter oder Klick daneben übernimmt, Esc verwirft; ein Undo-Schritt. Die Sidebar öffnet sich dabei nicht zusätzlich und zeigt den neuen Namen sofort |
+| Suchen | Toolbar → **Lupe** (beide Modi): Über dem Graph erscheint ein Suchfeld. Gesucht wird über den Metadateneintrag **name** von Objekten und Gruppen, einfach „beginnt mit“ und ohne Beachtung der Groß-/Kleinschreibung. **Enter** wählt den ersten Treffer aus und zeigt ihn im Graph, jedes weitere **Enter** (bei gleichem Text) springt zum nächsten Treffer und nach dem letzten wieder zum ersten; „Treffer 2 von 5“ bzw. „Kein Treffer“ steht neben dem Feld. Ein geänderter Text beginnt wieder beim ersten Treffer. **Esc**, **×** oder die Lupe schließen das Feld |
+| Verbindung auf einen Knoten ziehen | Im Modus *Editieren* einen Konnektor eines Objekts oder einer Gruppe ziehen und **irgendwo auf dem Körper** eines anderen Objekts/einer anderen Gruppe loslassen (nicht nur auf dessen kleinem Konnektor): Die Verbindung wird dorthin gelegt, an der gezogenen Seite beginnend und an der zugewandten Seite endend. Das Ziel zeigt beim Darüberfahren einen gestrichelten Rahmen. Nicht erlaubte Verbindungen (Duplikat, Gruppe mit eigenem Mitglied) erklärt ein Hinweis; Loslassen auf der Fläche oder auf dem Ausgangsobjekt tut nichts |
+| Kopieren / Einfügen | Im Modus *Editieren* Toolbar-Bereich **Zwischenablage** (Strg/Cmd + C und V, nicht in Textfeldern): **Kopieren** merkt die markierten Objekte und Gruppen samt dem Inhalt der Gruppen, **Einfügen** legt Kopien mit **neuen UUIDs** an (leicht nach unten rechts versetzt, jede weitere Wiederholung ein Stück weiter) und markiert sie; sie landen wieder in ihrer Gruppe (die bei Bedarf mitwächst), sonst auf der obersten Ebene. **Verbindungen werden weder kopiert noch eingefügt.** Ein Undo-Schritt; im Modus *Analysieren* nicht verfügbar. Die Zwischenablage gilt nur in dieser Sitzung (nicht gespeichert, nicht die System-Zwischenablage) |
+| Gruppe wächst mit | Legt man ein Objekt in einer Gruppe an (Werkzeug *Objekt*) oder zieht eines hinein, vergrößert sich die Gruppe von selbst (auch nach links/oben, ohne dass sich etwas auf dem Bildschirm verschiebt, und bei verschachtelten Gruppen die Elterngruppen mit), sobald das Objekt nicht mehr hineinpasst. Ist eine Gruppe voll, entsteht das neue Objekt am Rand und die Gruppe wächst darum. Ein Undo-Schritt |
+| Farbe mehrerer Elemente | Mehrere Objekte/Gruppen markieren (Strg/Cmd-Klick oder Aufziehrechteck): Die Sidebar zeigt das Feld **Farbe (color) für alle n Elemente** (Anzeige „verschieden“, wenn die Farben abweichen) und **Zurücksetzen** (entfernt die Farbe bei allen). Ein Undo-Schritt |
 | Export | Toolbar → **Export** (lädt `<Projektname>_<Datum>_<Uhrzeit>.json` herunter und merkt sich den Stand als „exportiert“) |
 | Import | Toolbar → **Import** → Dialog „Projekt ersetzen?“: **Exportieren und importieren**, **Ohne Export importieren** oder **Abbrechen** (Esc). Bei Änderungen seit dem letzten Export steht dort eine hervorgehobene Warnung |
+| JSON anzeigen / kopieren | Toolbar → Klammer-Icon **JSON anzeigen**: Dialog „Projekt als JSON“ mit dem Inhalt der Export-Datei in einem schreibgeschützten Textfeld (vorausgewählt) und **In Zwischenablage kopieren** (zählt als exportiert) |
+| JSON als Text importieren | Toolbar → Zwischenablage-Icon **JSON einfügen**: Dialog „JSON einfügen“ (nennt das zu ersetzende Projekt, warnt vor nicht exportierten Änderungen), Text einfügen → **Importieren**. Ungültiger Text bleibt im Dialog stehen und nennt die Fehler, das Projekt bleibt unverändert. In beiden Modi verfügbar, per „Rückgängig“ zurücknehmbar |
 | Hilfe zur Toolbar | Mit der Maus über einen Button fahren (oder per Tab fokussieren): Ein Tooltip erklärt die Funktion, nennt das Tastenkürzel und sagt bei deaktivierten Buttons, was fehlt |
 
 ### Editieren
@@ -142,7 +151,7 @@ Der Export entspricht exakt dem im `localStorage` abgelegten Modell (Schlüssel 
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "projectName": "Release-Management",
   "nodes": [
     {
@@ -169,7 +178,8 @@ Der Export entspricht exakt dem im `localStorage` abgelegten Modell (Schlüssel 
     }
   ],
   "edges": [
-    { "id": "c4e8…", "source": "7d2a91f0-…", "target": "…", "sourceHandle": "right", "targetHandle": "left" }
+    { "id": "c4e8…", "source": "7d2a91f0-…", "target": "…", "sourceHandle": "right", "targetHandle": "left",
+      "metadata": [{ "key": "name", "value": "braucht" }] }
   ]
 }
 ```
@@ -178,7 +188,8 @@ Der Export entspricht exakt dem im `localStorage` abgelegten Modell (Schlüssel 
 - `kind`: `node` (blauer Kasten) oder `group` (Gruppe/Sub-Graph).
 - `parentId` (optional) verweist auf eine Gruppe; `position` ist dann relativ zu dieser Gruppe.
 - `metadata` ist eine geordnete Liste; der Eintrag `name` steht immer an erster Stelle.
-- Kanten sind gerichtet: von `source` nach `target`; „`source` hängt von `target` ab"; bei Gruppen gilt die Kante für alle Mitglieder. `label` ist optional (Beschriftung). `sourceHandle`/`targetHandle` (`top`, `right`, `bottom`, `left`) sind optional; fehlen sie (ältere Dateien), werden die einander zugewandten Seiten gezeichnet.
+- **Version 2** ersetzt das frühere `label` einer Kante durch `metadata` mit dem Eintrag `name`. Dateien und gespeicherte Stände der Version 1 werden weiter geladen: Das `label` wird zum Namen der Verbindung.
+- Kanten sind gerichtet: von `source` nach `target`; „`source` hängt von `target` ab"; bei Gruppen gilt die Kante für alle Mitglieder. Eine Kante hat optional `metadata` wie ein Objekt; der Eintrag `name` ist ihre Beschriftung (ohne Namen entfällt das Feld). `sourceHandle`/`targetHandle` (`top`, `right`, `bottom`, `left`) sind optional; fehlen sie (ältere Dateien), werden die einander zugewandten Seiten gezeichnet.
 - `color` ist ein optionaler Metadateneintrag der Form `#rrggbb`; andere Werte werden wie „keine Farbe" behandelt.
 - `status` ist ein optionaler Metadateneintrag mit einem der vier Werte `offen`, `in Arbeit`, `blockiert`, `fertig` (nur bei Objekten); fehlt er, gilt `offen`, ein unbekannter Wert zählt als `offen` und bleibt erhalten. `blockiert_grund` ist ein optionaler Freitext, der nur zusammen mit dem Status `blockiert` gilt (die App entfernt ihn beim Wechsel auf einen anderen Status). Reihenfolge der Sondereinträge: `name`, `color`, `status`, `blockiert_grund`, danach die freien Felder. Ältere Dateien ohne diese Einträge bleiben gültig, das Schema ist weiter `version: 1`.
 
@@ -195,5 +206,9 @@ src/flow/        Anbindung an React Flow (Canvas, Mapping)
 src/components/  Toolbar, Sidebar, Knoten, Dialoge
 docs/superpowers/specs/   Konzept und Entscheidungen
 ```
+
+Das Austauschformat ist als **JSON Schema** (Draft 2020-12) beschrieben: [public/graph.schema.json](public/graph.schema.json), im Build unter `<Basis-URL>/graph.schema.json` ausgeliefert (z. B. `https://georgstach.de/release-management/graph.schema.json`). Es prüft Struktur und Typen; Querverweise (eindeutige ids, `parentId`, Kanten zu vorhandenen Elementen, doppelte Metadaten-Schlüssel) prüft erst der Import der App.
+
+Für Automatisierungs-Agenten gibt es unter `#/agent-hilfe` (z. B. `http://localhost:5173/#/agent-hilfe`) eine statische Hilfeseite zu Datenmodell, Massenänderung per `localStorage` und UI-Bedienung.
 
 Das ausführliche Konzept steht in [docs/superpowers/specs/2026-10-10-release-management-design.md](docs/superpowers/specs/2026-10-10-release-management-design.md).

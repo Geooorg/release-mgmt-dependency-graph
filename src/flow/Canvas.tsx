@@ -13,14 +13,16 @@ import {
   type EdgeChange,
   type NodeChange,
 } from '@xyflow/react'
-import { useCallback, useEffect, useMemo, type MouseEvent as ReactMouseEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from 'react'
+import { NodeNameEditContext } from '../components/nodeNameEdit'
 import { nodeTypes } from '../components/nodeTypes'
 import type { CycleResult } from '../model/cycles'
 import { findDependencies } from '../model/dependency'
-import { checkConnection } from '../model/graph'
+import { checkConnection, checkReconnection } from '../model/graph'
 import type { ProjectAnalysis } from '../model/releaseAnalysis'
 import { HANDLE_SIDES, type HandleSide } from '../model/types'
 import { graphStore, useGraph } from '../store/appStore'
+import { nodeIdAtPoint, pointOfEvent } from './dropTarget'
 import { toFlowEdges, toFlowNodes } from './mapping'
 import { viewportToReveal } from './reveal'
 import type { AppFlowNode } from './types'
@@ -168,9 +170,14 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
     if (selection.length > 0) graphStore.getState().applyEdgeSelection(selection)
   }, [])
 
+  // The edge whose end is being dragged: it must not count as a duplicate of itself (moving it to another connector).
+  const reconnectingId = useRef<string | null>(null)
   const isValidConnection = useCallback((connection: EdgeLike) => {
     const { nodes: current, edges: currentEdges } = graphStore.getState()
-    return checkConnection({ nodes: current, edges: currentEdges }, connection.source, connection.target).ok
+    const content = { nodes: current, edges: currentEdges }
+    return reconnectingId.current === null
+      ? checkConnection(content, connection.source, connection.target).ok
+      : checkReconnection(content, reconnectingId.current, connection.source, connection.target).ok
   }, [])
 
   // The create tool adds an object where the click landed, centred on it.
@@ -204,48 +211,82 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
     [createAt],
   )
 
+  // Renaming by double click needs the plain select tool: the other tools use the clicks themselves.
+  const nameEdit = useMemo(
+    () => ({
+      enabled: tool === 'select',
+      onRename: (id: string, name: string) => graphStore.getState().renameElement(id, name),
+    }),
+    [tool],
+  )
+
   return (
-    <ReactFlow
-      nodes={flowNodes}
-      edges={flowEdges}
-      nodeTypes={nodeTypes}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      connectionMode={ConnectionMode.Loose}
-      onConnect={(c: Connection) =>
-        graphStore
-          .getState()
-          .connect(c.source, c.target, asSide(c.sourceHandle), asSide(c.targetHandle))
-      }
-      isValidConnection={isValidConnection}
-      onNodeClick={onNodeClick}
-      onPaneClick={onPaneClick}
-      onNodeDoubleClick={(_, node) => graphStore.getState().openSidebar(node.id)}
-      onEdgeDoubleClick={(_, edge) => graphStore.getState().openEdgeSidebar(edge.id)}
-      onNodeDragStart={() => graphStore.getState().beginGesture()}
-      onSelectionDragStart={() => graphStore.getState().beginGesture()}
-      onNodeDrag={(_, __, dragged) =>
-        graphStore.getState().updateDropTarget(dragged.map((n) => n.id))
-      }
-      onNodeDragStop={(_, __, dragged) => endDragGesture(dragged.map((n) => n.id))}
-      onSelectionDragStop={(_, dragged) => endDragGesture(dragged.map((n) => n.id))}
-      deleteKeyCode={null}
-      // The structure is locked while analysing: no connecting (connectors are hidden too).
-      nodesConnectable={!analyzing}
-      className={[analyzing && 'flow--locked', tool === 'create' && 'flow--create'].filter(Boolean).join(' ') || undefined}
-      zoomOnDoubleClick={false}
-      fitView
-      fitViewOptions={{ padding: 0.3 }}
-      minZoom={0.2}
-      maxZoom={2}
-    >
-      <Background gap={20} />
-      <Controls showInteractive={false} />
-      <MiniMap
-        pannable
-        zoomable
-        nodeColor={(node) => (node.data as { color?: string }).color ?? '#2563eb'}
-      />
-    </ReactFlow>
+    <NodeNameEditContext value={nameEdit}>
+      <ReactFlow
+        nodes={flowNodes}
+        edges={flowEdges}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        connectionMode={ConnectionMode.Loose}
+        onConnect={(c: Connection) =>
+          graphStore
+            .getState()
+            .connect(c.source, c.target, asSide(c.sourceHandle), asSide(c.targetHandle))
+        }
+        // Dropped beside a connector but on a node: connect to that node (not only to its small connectors).
+        onConnectEnd={(event, state) => {
+          if (state.isValid === true || !state.fromNode) return
+          const target = nodeIdAtPoint(pointOfEvent(event), state.fromNode.id)
+          if (target) graphStore.getState().connectToNode(state.fromNode.id, target, asSide(state.fromHandle?.id))
+        }}
+        isValidConnection={isValidConnection}
+        // Dragging the end of a connection to another connector changes how it is drawn (or where it points to).
+        edgesReconnectable={!analyzing}
+        reconnectRadius={16}
+        onReconnectStart={(_, edge) => {
+          reconnectingId.current = edge.id
+        }}
+        onReconnectEnd={() => {
+          reconnectingId.current = null
+        }}
+        onReconnect={(edge, c) =>
+          graphStore.getState().reconnectEdge(edge.id, {
+            source: c.source,
+            target: c.target,
+            sourceHandle: asSide(c.sourceHandle),
+            targetHandle: asSide(c.targetHandle),
+          })
+        }
+        onNodeClick={onNodeClick}
+        onPaneClick={onPaneClick}
+        onNodeDoubleClick={(_, node) => graphStore.getState().openSidebar(node.id)}
+        onEdgeDoubleClick={(_, edge) => graphStore.getState().openEdgeSidebar(edge.id)}
+        onNodeDragStart={() => graphStore.getState().beginGesture()}
+        onSelectionDragStart={() => graphStore.getState().beginGesture()}
+        onNodeDrag={(_, __, dragged) =>
+          graphStore.getState().updateDropTarget(dragged.map((n) => n.id))
+        }
+        onNodeDragStop={(_, __, dragged) => endDragGesture(dragged.map((n) => n.id))}
+        onSelectionDragStop={(_, dragged) => endDragGesture(dragged.map((n) => n.id))}
+        deleteKeyCode={null}
+        // The structure is locked while analysing: no connecting (connectors are hidden too).
+        nodesConnectable={!analyzing}
+        className={[analyzing && 'flow--locked', tool === 'create' && 'flow--create'].filter(Boolean).join(' ') || undefined}
+        zoomOnDoubleClick={false}
+        fitView
+        fitViewOptions={{ padding: 0.3 }}
+        minZoom={0.2}
+        maxZoom={2}
+      >
+        <Background gap={20} />
+        <Controls showInteractive={false} />
+        <MiniMap
+          pannable
+          zoomable
+          nodeColor={(node) => (node.data as { color?: string }).color ?? '#2563eb'}
+        />
+      </ReactFlow>
+    </NodeNameEditContext>
   )
 }
