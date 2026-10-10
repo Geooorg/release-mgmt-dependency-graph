@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { useEffect, useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import type { MetadataEntry } from '../model/types'
+import { setTestLocale } from '../test/locale'
 import { Sidebar } from './Sidebar'
 import type { SidebarElement, SidebarProps } from './props'
 
@@ -1053,6 +1054,99 @@ describe('Sidebar', () => {
       rerender(<Sidebar {...makeProps({ element: { ...edgeElement('zweite'), id: ID_A } })} />)
 
       expect(screen.getByLabelText('Name')).toHaveValue('zweite')
+    })
+  })
+
+  describe('languages', () => {
+    const bulk = { count: 3, color: '', mixed: true, onChange: vi.fn() }
+    const edge: SidebarElement = { id: ID_B, kind: 'edge', metadata: [{ key: 'name', value: '' }] }
+
+    it.each([
+      ['en', 'Metadata', 'Object', 'Group', 'Connection', 'Colour (color)', 'Reset', 'Close'],
+      ['fr', 'Métadonnées', 'Objet', 'Groupe', 'Liaison', 'Couleur (color)', 'Réinitialiser', 'Fermer'],
+    ] as const)('labels the form in %s', (locale, aside, node, group, connection, color, reset, close) => {
+      setTestLocale(locale)
+      const { rerender } = render(<Sidebar {...makeProps()} />)
+      expect(screen.getByRole('complementary', { name: aside })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: node })).toBeInTheDocument()
+      expect(screen.getByLabelText(color)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: reset })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: close })).toBeInTheDocument()
+
+      rerender(<Sidebar {...makeProps({ element: makeElement({ kind: 'group' }) })} />)
+      expect(screen.getByRole('heading', { name: group })).toBeInTheDocument()
+
+      rerender(<Sidebar {...makeProps({ element: edge })} />)
+      expect(screen.getByRole('heading', { name: connection })).toBeInTheDocument()
+    })
+
+    it.each([
+      ['en', 'Field name', 'Value', 'Remove field', 'Add field', 'Not editable'],
+      ['fr', 'Nom du champ', 'Valeur', 'Supprimer le champ', 'Ajouter un champ', 'non modifiable'],
+    ] as const)('labels the free fields in %s', (locale, key, value, remove, add, readonly) => {
+      setTestLocale(locale)
+      render(<Sidebar {...makeProps({ element: makeElement({ metadata: [{ key: 'name', value: 'A' }, { key: 'k', value: 'v' }] }) })} />)
+      expect(screen.getByLabelText(key)).toHaveValue('k')
+      expect(screen.getByLabelText(value)).toHaveValue('v')
+      expect(screen.getByRole('button', { name: remove })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: add })).toBeInTheDocument()
+      expect(screen.getByText(readonly)).toBeInTheDocument()
+    })
+
+    it.each([
+      ['en', '3 elements selected – select exactly one to edit.', 'Colour (color) for all 3 elements', 'mixed'],
+      ['fr', '3 éléments sélectionnés – n’en choisissez qu’un seul pour le modifier.', 'Couleur (color) pour les 3 éléments', 'différentes'],
+    ] as const)('explains a multi-selection in %s', (locale, hint, color, mixed) => {
+      setTestLocale(locale)
+      render(<Sidebar {...makeProps({ element: null, selectionCount: 3, bulkColor: bulk })} />)
+      expect(screen.getByText(hint)).toBeInTheDocument()
+      expect(screen.getByLabelText(color)).toBeInTheDocument()
+      expect(screen.getByText(mixed)).toBeInTheDocument()
+    })
+
+    it.each([
+      ['en', 'Colour (color) for 1 element'],
+      ['fr', 'Couleur (color) pour 1 élément'],
+    ] as const)('uses the singular for one element in %s', (locale, color) => {
+      setTestLocale(locale)
+      render(<Sidebar {...makeProps({ element: null, selectionCount: 2, bulkColor: { ...bulk, count: 1 } })} />)
+      expect(screen.getByLabelText(color)).toBeInTheDocument()
+    })
+
+    it.each([
+      ['en', 'Duplicate field names: owner', 'Only applied once every field name occurs just once.'],
+      ['fr', 'Noms de champ en double : owner', 'Appliqué dès que chaque nom de champ n’apparaît qu’une fois.'],
+    ] as const)('reports duplicate field names in %s', async (locale, error, hint) => {
+      setTestLocale(locale)
+      const user = userEvent.setup()
+      render(<Sidebar {...makeProps()} />)
+      await user.click(screen.getByRole('button', { name: locale === 'en' ? 'Add field' : 'Ajouter un champ' }))
+      await user.type(screen.getAllByRole('textbox', { name: locale === 'en' ? 'Field name' : 'Nom du champ' })[1], 'owner')
+
+      expect(screen.getByRole('alert')).toHaveTextContent(error)
+      expect(screen.getByText(hint)).toBeInTheDocument()
+    })
+
+    it.each([
+      ['en', 'Status from members: 2 of 5 done', 'Status from members: no members'],
+      ['fr', 'Statut des membres : 2 sur 5 terminés', 'Statut des membres : aucun membre'],
+    ] as const)('summarises the group progress in %s', (locale, some, none) => {
+      setTestLocale(locale)
+      const group = makeElement({ kind: 'group', progress: { done: 2, total: 5 } })
+      const { rerender } = render(<Sidebar {...makeProps({ element: group })} />)
+      expect(screen.getByText(some)).toBeInTheDocument()
+      rerender(<Sidebar {...makeProps({ element: { ...group, progress: { done: 0, total: 0 } } })} />)
+      expect(screen.getByText(none)).toBeInTheDocument()
+    })
+
+    it.each([
+      ['en', 'Why is the object blocked? (optional)', 'Reason'],
+      ['fr', 'Pourquoi l’objet est-il bloqué ? (facultatif)', 'Motif'],
+    ] as const)('labels the block reason in %s', (locale, placeholder, label) => {
+      setTestLocale(locale)
+      const blocked = makeElement({ metadata: [{ key: 'name', value: 'A' }, { key: 'status', value: 'blockiert' }] })
+      render(<Sidebar {...makeProps({ element: blocked })} />)
+      expect(screen.getByLabelText(label)).toHaveAttribute('placeholder', placeholder)
     })
   })
 })

@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { useT } from '../i18n/react'
 import { DEFAULT_COLOR } from '../model/types'
 import type { BulkColor } from './props'
 import { useEditGesture } from './useSidebarEffects'
@@ -11,13 +12,14 @@ interface SidebarBulkColorProps extends BulkColor {
 
 /** One colour for every selected object and group; dragging in the picker is a single undo step. */
 export function SidebarBulkColor({ count, color, mixed, onChange, onEditStart, onEditEnd }: SidebarBulkColorProps) {
+  const t = useT()
   const id = useId()
   const gesture = useEditGesture(onEditStart, onEditEnd)
 
   return (
     <div className="sidebar__field">
       <label className="sidebar__label" htmlFor={id}>
-        {`Farbe (color) für ${count === 1 ? '1 Element' : `alle ${count} Elemente`}`}
+        {t.plural('sidebar.bulkColor', count)}
       </label>
       <div className="sidebar__color">
         <input
@@ -31,7 +33,7 @@ export function SidebarBulkColor({ count, color, mixed, onChange, onEditStart, o
           }}
           onBlur={gesture.end}
         />
-        <span className="sidebar__color-value">{mixed ? 'verschieden' : color || 'Standard'}</span>
+        <span className="sidebar__color-value">{mixed ? t('sidebar.color.mixed') : color || t('sidebar.color.default')}</span>
         <button
           type="button"
           className="ui-button ui-button--secondary"
@@ -41,7 +43,7 @@ export function SidebarBulkColor({ count, color, mixed, onChange, onEditStart, o
             onChange(undefined)
           }}
         >
-          Zurücksetzen
+          {t('sidebar.color.reset')}
         </button>
       </div>
     </div>

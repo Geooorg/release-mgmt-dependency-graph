@@ -10,6 +10,7 @@ import {
   STATUS_KEY,
   STATUS_VALUES,
 } from '../model/status'
+import { useT } from '../i18n/react'
 import { COLOR_KEY, DEFAULT_COLOR, NAME_KEY } from '../model/types'
 import type { MetadataEntry } from '../model/types'
 import type { SidebarElement, SidebarProps } from './props'
@@ -23,7 +24,7 @@ interface Row {
   rid: string
   key: string
   value: string
-  /** Focus the key input on mount (set for rows added via "Feld hinzufügen"). */
+  /** Focus the key input on mount (set for rows added via "add field"). */
   autoFocus?: boolean
 }
 
@@ -113,6 +114,7 @@ function SidebarForm({
   onClose,
   onInvalidChange,
 }: SidebarFormProps) {
+  const t = useT()
   const formId = useId()
   const withStatus = element.kind === 'node'
   const [received, setReceived] = useState(element.metadata)
@@ -172,7 +174,7 @@ function SidebarForm({
     event.preventDefault()
   }
 
-  const title = element.kind === 'group' ? 'Gruppe' : 'Objekt'
+  const title = element.kind === 'group' ? t('sidebar.title.group') : t('sidebar.title.node')
 
   return (
     <form className="sidebar__form" onSubmit={handleSubmit}>
@@ -181,7 +183,7 @@ function SidebarForm({
         <button
           type="button"
           className="ui-button ui-button--icon"
-          aria-label="Schließen"
+          aria-label={t('common.close')}
           onClick={onClose}
         >
           ×
@@ -190,9 +192,9 @@ function SidebarForm({
 
       <div className="sidebar__field">
         <label className="sidebar__label" htmlFor={`${formId}-uuid`}>
-          UUID
+          {t('sidebar.field.uuid')}
         </label>
-        <span className="sidebar__readonly">nicht editierbar</span>
+        <span className="sidebar__readonly">{t('sidebar.field.readonly')}</span>
         <input
           id={`${formId}-uuid`}
           className="ui-input sidebar__uuid"
@@ -204,7 +206,7 @@ function SidebarForm({
 
       <div className="sidebar__field">
         <label className="sidebar__label" htmlFor={`${formId}-name`}>
-          Name
+          {t('sidebar.field.name')}
         </label>
         <input
           id={`${formId}-name`}
@@ -217,7 +219,7 @@ function SidebarForm({
 
       <div className="sidebar__field">
         <label className="sidebar__label" htmlFor={`${formId}-color`}>
-          Farbe (color)
+          {t('sidebar.field.color')}
         </label>
         <div className="sidebar__color">
           <input
@@ -228,14 +230,14 @@ function SidebarForm({
             onChange={(event) => edit({ ...draft, color: event.target.value.toLowerCase() })}
             onBlur={gesture.end}
           />
-          <span className="sidebar__color-value">{shown.color || 'Standard'}</span>
+          <span className="sidebar__color-value">{shown.color || t('sidebar.color.default')}</span>
           <button
             type="button"
             className="ui-button ui-button--secondary"
             disabled={shown.color === ''}
             onClick={() => edit({ ...draft, color: '' }, true)}
           >
-            Zurücksetzen
+            {t('sidebar.color.reset')}
           </button>
         </div>
       </div>
@@ -243,7 +245,7 @@ function SidebarForm({
       {withStatus && (
         <div className="sidebar__field">
           <label className="sidebar__label" htmlFor={`${formId}-status`}>
-            Status
+            {t('sidebar.field.status')}
           </label>
           <select
             id={`${formId}-status`}
@@ -257,7 +259,7 @@ function SidebarForm({
               </option>
             ))}
             {shown.status !== '' && parseStatus(shown.status) === undefined && (
-              <option value={shown.status}>{shown.status} (unbekannt)</option>
+              <option value={shown.status}>{t('sidebar.status.unknown', { value: shown.status })}</option>
             )}
           </select>
         </div>
@@ -266,12 +268,12 @@ function SidebarForm({
       {withStatus && blocked && (
         <div className="sidebar__field">
           <label className="sidebar__label" htmlFor={`${formId}-reason`}>
-            Grund
+            {t('sidebar.field.reason')}
           </label>
           <input
             id={`${formId}-reason`}
             className="ui-input"
-            placeholder="Warum ist das Objekt blockiert? (optional)"
+            placeholder={t('sidebar.reason.placeholder')}
             value={shown.reason}
             onChange={(event) => edit({ ...draft, reason: event.target.value })}
             onBlur={gesture.end}
@@ -282,8 +284,8 @@ function SidebarForm({
       {element.kind === 'group' && element.progress && (
         <p className="sidebar__info">
           {element.progress.total === 0
-            ? 'Status aus Mitgliedern: keine Mitglieder'
-            : `Status aus Mitgliedern: ${element.progress.done} von ${element.progress.total} fertig`}
+            ? t('sidebar.progress.none')
+            : t('sidebar.progress.some', { done: element.progress.done, total: element.progress.total })}
         </p>
       )}
 
@@ -293,8 +295,8 @@ function SidebarForm({
             <li key={row.rid} className="sidebar__row">
               <input
                 className="ui-input"
-                placeholder="Feldname"
-                aria-label="Feldname"
+                placeholder={t('sidebar.field.key')}
+                aria-label={t('sidebar.field.key')}
                 value={row.key}
                 autoFocus={row.autoFocus}
                 onChange={(event) => updateRow(row.rid, { key: event.target.value })}
@@ -302,8 +304,8 @@ function SidebarForm({
               />
               <input
                 className="ui-input"
-                placeholder="Wert"
-                aria-label="Wert"
+                placeholder={t('sidebar.field.value')}
+                aria-label={t('sidebar.field.value')}
                 value={row.value}
                 onChange={(event) => updateRow(row.rid, { value: event.target.value })}
                 onBlur={gesture.end}
@@ -311,7 +313,7 @@ function SidebarForm({
               <button
                 type="button"
                 className="ui-button ui-button--icon"
-                aria-label="Feld entfernen"
+                aria-label={t('sidebar.field.remove')}
                 onClick={() => removeRow(row.rid)}
               >
                 ×
@@ -322,15 +324,15 @@ function SidebarForm({
       )}
 
       <button type="button" className="ui-button ui-button--secondary sidebar__add" onClick={addRow}>
-        Feld hinzufügen
+        {t('sidebar.field.add')}
       </button>
 
       {duplicates.length > 0 && (
         <div className="sidebar__footer">
           <p className="sidebar__error" role="alert">
-            Doppelte Feldnamen: {duplicates.join(', ')}
+            {t('sidebar.duplicates', { names: duplicates.join(', ') })}
           </p>
-          <p className="sidebar__hint">Wird erst übernommen, wenn jeder Feldname nur einmal vorkommt.</p>
+          <p className="sidebar__hint">{t('sidebar.duplicates.hint')}</p>
         </div>
       )}
     </form>
@@ -338,24 +340,25 @@ function SidebarForm({
 }
 
 export function Sidebar({ element, selectionCount, bulkColor, hidden, ...handlers }: SidebarProps) {
+  const t = useT()
   if (element === null) {
     if (selectionCount < 2) return null
     return (
-      <aside className="sidebar" aria-label="Metadaten" hidden={hidden}>
+      <aside className="sidebar" aria-label={t('sidebar.label')} hidden={hidden}>
         <div className="sidebar__form">
           <div className="sidebar__header">
-            <h2 className="sidebar__title">Auswahl</h2>
+            <h2 className="sidebar__title">{t('sidebar.title.selection')}</h2>
             <button
               type="button"
               className="ui-button ui-button--icon"
-              aria-label="Schließen"
+              aria-label={t('common.close')}
               onClick={handlers.onClose}
             >
               ×
             </button>
           </div>
           <p className="sidebar__info" role="status">
-            {selectionCount} Elemente markiert – zum Bearbeiten genau eines auswählen.
+            {t.plural('sidebar.selection', selectionCount)}
           </p>
           {bulkColor && (
             <SidebarBulkColor {...bulkColor} onEditStart={handlers.onEditStart} onEditEnd={handlers.onEditEnd} />
@@ -366,7 +369,7 @@ export function Sidebar({ element, selectionCount, bulkColor, hidden, ...handler
   }
 
   return (
-    <aside className="sidebar" aria-label="Metadaten" hidden={hidden}>
+    <aside className="sidebar" aria-label={t('sidebar.label')} hidden={hidden}>
       {/* Keyed by id: opening a different element starts with a fresh draft. */}
       {element.kind === 'edge' ? (
         <SidebarEdgeForm key={element.id} element={element} {...handlers} />

@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
+import { useT } from '../i18n/react'
 import { NAME_KEY } from '../model/types'
 import type { SidebarElement, SidebarProps } from './props'
 import { useEditGesture } from './useSidebarEffects'
@@ -25,6 +26,7 @@ export function SidebarEdgeForm({
   onEditEnd,
   onClose,
 }: SidebarEdgeFormProps) {
+  const t = useT()
   const formId = useId()
   const [received, setReceived] = useState(element.metadata)
   const [applied, setApplied] = useState(() => labelOf(element).trim())
@@ -58,11 +60,11 @@ export function SidebarEdgeForm({
   return (
     <form className="sidebar__form" onSubmit={handleSubmit}>
       <div className="sidebar__header">
-        <h2 className="sidebar__title">Verbindung</h2>
+        <h2 className="sidebar__title">{t('sidebar.title.edge')}</h2>
         <button
           type="button"
           className="ui-button ui-button--icon"
-          aria-label="Schließen"
+          aria-label={t('common.close')}
           onClick={onClose}
         >
           ×
@@ -71,9 +73,9 @@ export function SidebarEdgeForm({
 
       <div className="sidebar__field">
         <label className="sidebar__label" htmlFor={`${formId}-uuid`}>
-          UUID
+          {t('sidebar.field.uuid')}
         </label>
-        <span className="sidebar__readonly">nicht editierbar</span>
+        <span className="sidebar__readonly">{t('sidebar.field.readonly')}</span>
         <input
           id={`${formId}-uuid`}
           className="ui-input sidebar__uuid"
@@ -85,7 +87,7 @@ export function SidebarEdgeForm({
 
       <div className="sidebar__field">
         <label className="sidebar__label" htmlFor={`${formId}-name`}>
-          Name
+          {t('sidebar.field.name')}
         </label>
         <input
           id={`${formId}-name`}
