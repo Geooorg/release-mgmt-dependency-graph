@@ -1,0 +1,412 @@
+/* Presentational components. Everything is scoped by class name; the app shell owns the layout. */
+
+/* ---------- Shared controls ---------- */
+
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: var(--blue-600);
+  color: #fff;
+  font: inherit;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ui-button:hover:not(:disabled) {
+  background: var(--blue-700);
+}
+
+.ui-button[aria-pressed='true'],
+.ui-button[aria-pressed='true']:hover:not(:disabled) {
+  background: var(--blue-900);
+}
+
+.ui-button:disabled {
+  background: var(--gray-200);
+  color: var(--gray-400);
+  cursor: not-allowed;
+}
+
+.ui-button--secondary {
+  background: #fff;
+  border-color: var(--gray-400);
+  color: var(--gray-900);
+}
+
+.ui-button--secondary:hover:not(:disabled) {
+  background: var(--blue-50);
+  border-color: var(--blue-600);
+  color: var(--gray-900);
+}
+
+.ui-button--icon {
+  min-width: 32px;
+  padding: 0;
+  background: transparent;
+  color: var(--gray-600);
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.ui-button--icon:hover:not(:disabled) {
+  background: var(--gray-100);
+  color: var(--gray-900);
+}
+
+.ui-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--gray-400);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--gray-900);
+  font: inherit;
+}
+
+.ui-input:disabled {
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+.toolbar button:focus-visible,
+.sidebar :is(button, input):focus-visible,
+.confirm-dialog button:focus-visible,
+.banner button:focus-visible {
+  outline: 2px solid var(--blue-500);
+  outline-offset: 2px;
+}
+
+/* ---------- Toolbar ---------- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--toolbar-height);
+  overflow-x: auto;
+  padding: 8px 16px;
+  background: #fff;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.toolbar > * {
+  flex: none;
+}
+
+/* Keep the toolbar on one row on narrow windows. */
+@media (max-width: 960px) {
+  .toolbar__title {
+    display: none;
+  }
+}
+
+.toolbar__title {
+  margin: 0 16px 0 0;
+  color: var(--blue-900);
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.toolbar__separator {
+  align-self: stretch;
+  width: 1px;
+  margin: 4px 4px;
+  background: var(--gray-200);
+}
+
+.toolbar__hint {
+  color: var(--blue-700);
+  font-style: italic;
+}
+
+/* ---------- Sidebar ---------- */
+
+.sidebar {
+  width: var(--sidebar-width);
+  flex: none;
+  height: 100%;
+  overflow-y: auto;
+  background: #fff;
+  border-left: 1px solid var(--gray-200);
+}
+
+.sidebar__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 100%;
+  padding: 16px;
+}
+
+.sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sidebar__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar__label {
+  color: var(--gray-600);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sidebar__uuid {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.sidebar__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sidebar__row {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.sidebar__add {
+  align-self: flex-start;
+}
+
+.sidebar__footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+  padding: 12px 0 0;
+  background: #fff;
+  border-top: 1px solid var(--gray-200);
+}
+
+.sidebar__footer .ui-button[type='submit'] {
+  align-self: flex-start;
+}
+
+.sidebar__footer p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.sidebar__hint {
+  color: var(--gray-600);
+}
+
+.sidebar__saved {
+  color: #15803d;
+}
+
+.sidebar__error {
+  color: var(--danger-600);
+  font-weight: 600;
+}
+
+/* ---------- Confirm dialog ---------- */
+
+.confirm-dialog {
+  width: min(420px, calc(100vw - 32px));
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--gray-900);
+  box-shadow: 0 20px 40px rgb(17 24 39 / 0.3);
+}
+
+.confirm-dialog::backdrop {
+  background: rgb(17 24 39 / 0.5);
+}
+
+.confirm-dialog__content {
+  padding: 20px 24px;
+}
+
+.confirm-dialog__title {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.confirm-dialog__message {
+  margin: 0 0 20px;
+  color: var(--gray-600);
+  white-space: pre-line;
+}
+
+.confirm-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ---------- Banner ---------- */
+
+.banner {
+  --banner-accent: var(--blue-600);
+  --banner-bg: var(--blue-50);
+
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 8px 8px 16px;
+  background: var(--banner-bg);
+  border-left: 4px solid var(--banner-accent);
+  color: var(--gray-900);
+}
+
+.banner--success {
+  --banner-accent: var(--success-600);
+  --banner-bg: #f0fdf4;
+}
+
+.banner--error {
+  --banner-accent: var(--danger-600);
+  --banner-bg: #fef2f2;
+}
+
+.banner__body {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 0;
+}
+
+.banner__message {
+  margin: 0;
+  font-weight: 600;
+}
+
+.banner__details {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
+/* ---------- Flow nodes ---------- */
+
+.box-node,
+.group-node {
+  --connect-source-color: #d97706;
+
+  position: relative;
+  font-family: inherit;
+}
+
+.box-node .node-handle,
+.group-node .node-handle {
+  width: 10px;
+  height: 10px;
+  background: #fff;
+  border: 2px solid var(--blue-700);
+}
+
+.box-node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: var(--blue-600);
+  color: #fff;
+  box-shadow: 0 1px 3px rgb(17 24 39 / 0.25);
+}
+
+.box-node--selected {
+  outline: 3px solid var(--blue-900);
+  outline-offset: 2px;
+}
+
+.box-node--connect-source,
+.group-node--connect-source {
+  outline: 3px solid var(--connect-source-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 7px rgb(217 119 6 / 0.25);
+}
+
+.box-node__label {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.box-node__label--empty {
+  color: var(--blue-200);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.group-node {
+  width: 100%;
+  height: 100%;
+  border: 2px solid var(--blue-600);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--blue-50) 70%, transparent);
+}
+
+.group-node--drop-target {
+  border-color: var(--blue-700);
+  background: color-mix(in srgb, var(--blue-200) 65%, transparent);
+  box-shadow: inset 0 0 0 2px var(--blue-500);
+}
+
+.group-node__header {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  overflow: hidden;
+}
+
+.group-node__label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--blue-700);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-node__label--empty {
+  color: var(--gray-600);
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* React Flow ships default styles for the built-in node type named "group" (border, padding,
+   shadow). Our GroupNode draws its own chrome, so neutralize the wrapper. */
+.react-flow .react-flow__node-group,
+.react-flow .react-flow__node-group.selected {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
