@@ -5,6 +5,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AppFlowNode, FlowNodeData } from '../flow/types'
 import { NodeNameEditContext, type NodeNameEdit } from './nodeNameEdit'
 import { nodeTypes } from './nodeTypes'
+import { setTestLocale } from '../test/locale'
 
 beforeAll(() => {
   class ResizeObserverStub {
@@ -141,5 +142,17 @@ describe('inline name editing', () => {
     fireEvent.doubleClick(screen.getByText('Projekt A'))
 
     expect(editor()).toHaveClass('nodrag', 'nopan')
+  })
+})
+
+describe('NodeName language', () => {
+  it.each([
+    ['en', 'Name'],
+    ['fr', 'Nom'],
+  ] as const)('labels the editor in %s', async (locale, label) => {
+    setTestLocale(locale)
+    setup()
+    fireEvent.doubleClick(screen.getByText('Projekt A'))
+    expect(screen.getByLabelText(label)).toBeInTheDocument()
   })
 })

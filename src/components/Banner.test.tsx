@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { Banner } from './Banner'
+import { setTestLocale } from '../test/locale'
 
 describe('Banner', () => {
   it('renders nothing without a message', () => {
@@ -55,5 +56,16 @@ describe('Banner', () => {
     await user.click(screen.getByRole('button', { name: 'Meldung schließen' }))
 
     expect(onDismiss).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('Banner language', () => {
+  it.each([
+    ['en', 'Close message'],
+    ['fr', 'Fermer le message'],
+  ] as const)('labels the close button in %s', (locale, name) => {
+    setTestLocale(locale)
+    render(<Banner message="x" kind="info" onDismiss={vi.fn()} />)
+    expect(screen.getByRole('button', { name })).toBeInTheDocument()
   })
 })

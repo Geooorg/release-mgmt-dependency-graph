@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import type { AppFlowNode, FlowNodeData } from '../flow/types'
 import { NODE_SIZE } from '../model/types'
 import { nodeTypes } from './nodeTypes'
+import { setTestLocale } from '../test/locale'
 
 // React Flow needs a few browser APIs jsdom does not provide.
 beforeAll(() => {
@@ -292,5 +293,25 @@ describe('node components', () => {
 
     expect(container.querySelector('.box-node')).toHaveClass('box-node--revealed')
     expect(container.querySelector('.group-node')).toHaveClass('group-node--revealed')
+  })
+})
+
+describe('node components language', () => {
+  it.each([
+    ['en', 'Part of a cycle'],
+    ['fr', 'Fait partie d’un cycle'],
+  ] as const)('labels the cycle badge in %s', (locale, label) => {
+    setTestLocale(locale)
+    renderNodes([box({ data: makeData({ isInCycle: true }) })])
+    expect(screen.getAllByLabelText(label)).toHaveLength(1)
+  })
+
+  it.each([
+    ['en', 'Status “erledigt” unknown – counts as open'],
+    ['fr', 'Statut « erledigt » inconnu – compte comme ouvert'],
+  ] as const)('explains an unknown status in %s', (locale, label) => {
+    setTestLocale(locale)
+    renderNodes([box({ data: makeData({ status: 'offen', statusRaw: 'erledigt', statusKnown: false }) })])
+    expect(screen.getByLabelText(label)).toBeInTheDocument()
   })
 })

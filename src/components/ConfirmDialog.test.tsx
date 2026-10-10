@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ConfirmDialog } from './ConfirmDialog'
 import type { ConfirmDialogProps } from './props'
+import { setTestLocale } from '../test/locale'
 
 function makeProps(overrides: Partial<ConfirmDialogProps> = {}): ConfirmDialogProps {
   return {
@@ -110,5 +111,16 @@ describe('ConfirmDialog', () => {
     expect(props.onCancel).toHaveBeenCalledTimes(1)
     expect(props.onConfirm).not.toHaveBeenCalled()
     expect(cancelEvent.defaultPrevented).toBe(true)
+  })
+})
+
+describe('ConfirmDialog language', () => {
+  it.each([
+    ['en', 'Cancel'],
+    ['fr', 'Annuler'],
+  ] as const)('labels the default cancel button in %s', (locale, name) => {
+    setTestLocale(locale)
+    render(<ConfirmDialog {...makeProps()} />)
+    expect(screen.getByRole('button', { name, hidden: true })).toBeInTheDocument()
   })
 })

@@ -3,6 +3,7 @@ import type { SyntheticEvent } from 'react'
 import type { ImportDialogProps } from './props'
 import { projectSummary } from './projectSummary'
 import { useNativeDialog } from './useNativeDialog'
+import { useT } from '../i18n/react'
 import './components.css'
 
 /** Asks before an import replaces the project, and warns when that would lose changes never exported. */
@@ -15,6 +16,7 @@ export function ImportDialog({
   onImportWithoutExport,
   onCancel,
 }: ImportDialogProps) {
+  const t = useT()
   const dialogRef = useNativeDialog(open)
   const primaryRef = useRef<HTMLButtonElement>(null)
   const titleId = useId()
@@ -30,7 +32,7 @@ export function ImportDialog({
     onCancel()
   }
 
-  const summary = projectSummary(counts)
+  const summary = projectSummary(counts, t)
 
   return (
     <dialog
@@ -42,25 +44,22 @@ export function ImportDialog({
     >
       <div className="confirm-dialog__content">
         <h2 className="confirm-dialog__title" id={titleId}>
-          Projekt ersetzen?
+          {t('import.title')}
         </h2>
         <p className="confirm-dialog__message" id={messageId}>
-          {`Der Import ersetzt das aktuelle Projekt „${projectName}“ (${summary}).`}
+          {t('import.message', { name: projectName, summary })}
         </p>
         {unsaved ? (
           <p className="import-dialog__warning" role="alert">
-            Es gibt Änderungen, die noch nicht exportiert wurden. Sie gehen verloren, wenn ohne Export importiert
-            wird.
+            {t('import.warning')}
           </p>
         ) : (
-          <p className="import-dialog__ok">Der aktuelle Stand wurde bereits exportiert.</p>
+          <p className="import-dialog__ok">{t('import.exported')}</p>
         )}
-        <p className="import-dialog__note">
-          In dieser Sitzung lässt sich der Import mit „Rückgängig“ zurücknehmen.
-        </p>
+        <p className="import-dialog__note">{t('import.note')}</p>
         <div className="confirm-dialog__actions">
           <button type="button" className="ui-button ui-button--secondary" onClick={onCancel}>
-            Abbrechen
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -68,7 +67,7 @@ export function ImportDialog({
             ref={unsaved ? undefined : primaryRef}
             onClick={onImportWithoutExport}
           >
-            Ohne Export importieren
+            {t('import.withoutExport')}
           </button>
           <button
             type="button"
@@ -76,7 +75,7 @@ export function ImportDialog({
             ref={unsaved ? primaryRef : undefined}
             onClick={onExportAndImport}
           >
-            Exportieren und importieren
+            {t('import.exportAndImport')}
           </button>
         </div>
       </div>

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ImportDialog } from './ImportDialog'
 import type { ImportDialogProps } from './props'
+import { setTestLocale } from '../test/locale'
 
 function makeProps(overrides: Partial<ImportDialogProps> = {}): ImportDialogProps {
   return {
@@ -103,5 +104,48 @@ describe('ImportDialog', () => {
 
     rerender(<ImportDialog {...makeProps({ unsaved: false })} />)
     expect(screen.getByRole('button', { name: 'Ohne Export importieren' })).not.toHaveClass('ui-button--danger')
+  })
+})
+
+describe('ImportDialog language', () => {
+  it.each([
+    [
+      'en',
+      'Replace project?',
+      'The import replaces the current project “Release-Management” (5 objects, 2 groups, 7 connections).',
+      ['Cancel', 'Import without exporting', 'Export and import'],
+    ],
+    [
+      'fr',
+      'Remplacer le projet ?',
+      'L’import remplace le projet actuel « Release-Management » (5 objets, 2 groupes, 7 liaisons).',
+      ['Annuler', 'Importer sans exporter', 'Exporter et importer'],
+    ],
+  ] as const)('translates the dialog in %s', (locale, title, message, buttons) => {
+    setTestLocale(locale)
+    render(<ImportDialog {...makeProps()} />)
+
+    expect(screen.getByRole('dialog', { name: title, hidden: true })).toBeInTheDocument()
+    expect(screen.getByText(message)).toBeInTheDocument()
+    for (const name of buttons) expect(screen.getByRole('button', { name, hidden: true })).toBeInTheDocument()
+    expect(screen.getByRole('alert', { hidden: true })).not.toHaveTextContent(/Änderungen/)
+  })
+
+  it('uses the singular forms of the summary in en and fr', () => {
+    setTestLocale('en')
+    const { unmount } = render(<ImportDialog {...makeProps({ counts: { objects: 1, groups: 1, connections: 1 } })} />)
+    expect(screen.getByText(/\(1 object, 1 group, 1 connection\)/)).toBeInTheDocument()
+    unmount()
+
+    setTestLocale('fr')
+    render(<ImportDialog {...makeProps({ counts: { objects: 0, groups: 1, connections: 1 } })} />)
+    expect(screen.getByText(/\(0 objet, 1 groupe, 1 liaison\)/)).toBeInTheDocument()
+  })
+
+  it('translates the saved state in en', () => {
+    setTestLocale('en')
+    render(<ImportDialog {...makeProps({ unsaved: false })} />)
+    expect(screen.getByText('The current state has already been exported.')).toBeInTheDocument()
+    expect(screen.getByText(/can be reverted with “Undo”/)).toBeInTheDocument()
   })
 })

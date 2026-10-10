@@ -1,6 +1,7 @@
 import { useContext, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { NodeNameEditContext } from './nodeNameEdit'
+import { useT } from '../i18n/react'
 import './components.css'
 
 interface NodeNameProps {
@@ -12,6 +13,7 @@ interface NodeNameProps {
 
 /** The name on an object or group; a double click turns it into an inline editor. */
 export function NodeName({ id, name, className }: NodeNameProps) {
+  const t = useT()
   const { enabled, onRename } = useContext(NodeNameEditContext)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name)
@@ -50,7 +52,7 @@ export function NodeName({ id, name, className }: NodeNameProps) {
       <input
         // nodrag/nopan: selecting text must not move the node or pan the canvas.
         className="node-name-input nodrag nopan"
-        aria-label="Name"
+        aria-label={t('node.name')}
         value={draft}
         autoFocus
         spellCheck={false}

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { SearchBar } from './SearchBar'
 import type { SearchBarProps } from './props'
+import { setTestLocale } from '../test/locale'
 
 function makeProps(overrides: Partial<SearchBarProps> = {}): SearchBarProps {
   return { onSearch: vi.fn(() => ({ count: 3, position: 1 })), onClose: vi.fn(), ...overrides }
@@ -91,5 +92,25 @@ describe('SearchBar', () => {
 
     expect(screen.getByRole('search')).toBeInTheDocument()
     fireEvent.keyDown(field(), { key: 'a' })
+  })
+})
+
+describe('SearchBar language', () => {
+  it.each([
+    ['en', 'Search by name', 'Name starts with … (Enter)', 'Match 2 of 3', 'No match', 'Close search'],
+    ['fr', 'Rechercher par nom', 'Le nom commence par … (Entrée)', 'Résultat 2 sur 3', 'Aucun résultat', 'Fermer la recherche'],
+  ] as const)('translates the field and the status in %s', async (locale, label, placeholder, hit, none, close) => {
+    setTestLocale(locale)
+    const onSearch = vi.fn().mockReturnValueOnce({ count: 3, position: 2 }).mockReturnValueOnce({ count: 0, position: 0 })
+    render(<SearchBar {...makeProps({ onSearch })} />)
+
+    const input = screen.getByRole('textbox', { name: label })
+    expect(input).toHaveAttribute('placeholder', placeholder)
+    expect(screen.getByRole('button', { name: close })).toBeInTheDocument()
+
+    await userEvent.type(input, 'a{Enter}')
+    expect(screen.getByRole('status')).toHaveTextContent(hit)
+    await userEvent.type(input, 'b{Enter}')
+    expect(screen.getByRole('status')).toHaveTextContent(none)
   })
 })

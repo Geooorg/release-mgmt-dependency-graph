@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ProjectTitle } from './ProjectTitle'
+import { setTestLocale } from '../test/locale'
 
 function setup(name = 'Release-Management') {
   const onRename = vi.fn()
@@ -170,5 +171,33 @@ describe('ProjectTitle', () => {
     rerender(<ProjectTitle name="Neu" onRename={vi.fn()} />)
 
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Neu')
+  })
+})
+
+describe('ProjectTitle language', () => {
+  it.each([
+    ['en', 'Project name', 'Allowed: A-Z a-z 0-9 - _ .', 'The name must not be empty.', 'Disallowed character removed.'],
+    ['fr', 'Nom du projet', 'Autorisé : A-Z a-z 0-9 - _ .', 'Le nom ne doit pas être vide.', 'Caractère non autorisé supprimé.'],
+  ] as const)('translates the editor in %s', async (locale, label, rule, empty, removed) => {
+    setTestLocale(locale)
+    setup()
+    await openEditor()
+
+    const field = screen.getByRole('textbox', { name: label })
+    expect(screen.getByText(rule)).toBeInTheDocument()
+
+    await userEvent.type(field, 'a!')
+    expect(screen.getByRole('alert')).toHaveTextContent(removed)
+
+    await userEvent.clear(field)
+    await userEvent.keyboard('{Enter}')
+    expect(screen.getByRole('alert')).toHaveTextContent(empty)
+  })
+
+  it('translates the tooltip in en', async () => {
+    setTestLocale('en')
+    setup()
+    await userEvent.hover(screen.getByRole('button', { name: /Release-Management/ }))
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('double-click (or press Enter) to rename')
   })
 })

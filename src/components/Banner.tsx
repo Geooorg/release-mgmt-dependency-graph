@@ -1,7 +1,9 @@
 import type { BannerProps } from './props'
+import { useT } from '../i18n/react'
 import './components.css'
 
 export function Banner({ message, kind, details, onDismiss }: BannerProps) {
+  const t = useT()
   if (message === null) return null
 
   return (
@@ -19,7 +21,7 @@ export function Banner({ message, kind, details, onDismiss }: BannerProps) {
       <button
         type="button"
         className="ui-button ui-button--icon"
-        aria-label="Meldung schließen"
+        aria-label={t('banner.close')}
         onClick={onDismiss}
       >
         ×

@@ -1,15 +1,15 @@
+import { useT } from '../i18n/react'
 import './components.css'
-
-const LABEL = 'Teil eines Zyklus'
 
 /** Small purple circle with a "loop" arrow, shown on elements that are part of a dependency cycle. */
 export function CycleBadge({ onGroup = false }: { onGroup?: boolean }) {
+  const label = useT()('cycleBadge.label')
   return (
     <span
       className={onGroup ? 'cycle-badge cycle-badge--group' : 'cycle-badge'}
       role="img"
-      aria-label={LABEL}
-      title={LABEL}
+      aria-label={label}
+      title={label}
     >
       <svg
         viewBox="0 0 24 24"

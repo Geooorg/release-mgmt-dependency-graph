@@ -1,5 +1,7 @@
 import type { Status } from '../model/status'
 import { CheckIcon, FlagIcon, HourglassIcon, OpenCircleIcon, QuestionIcon } from './icons'
+import { useT } from '../i18n/react'
+import type { Translate } from '../i18n/translate'
 import './components.css'
 
 /** Red flag on elements with the status `blockiert`; `title` names the reason (also the accessible name). */
@@ -41,9 +43,9 @@ interface StatusMarkProps {
   inline?: boolean
 }
 
-function markOf({ status, raw, known = true }: StatusMarkProps & { status: Status }) {
+function markOf({ status, raw, known = true }: StatusMarkProps & { status: Status }, t: Translate) {
   if (!known) {
-    return { modifier: 'unknown', title: `Status „${raw}“ unbekannt – zählt als offen`, icon: <QuestionIcon size={12} /> }
+    return { modifier: 'unknown', title: t('status.unknown', { value: raw ?? '' }), icon: <QuestionIcon size={12} /> }
   }
   if (status === 'fertig') return { modifier: 'done', title: 'Status: fertig', icon: <CheckIcon size={11} /> }
   if (status === 'in Arbeit') {
@@ -70,8 +72,9 @@ function markOf({ status, raw, known = true }: StatusMarkProps & { status: Statu
  * circle = offen, amber question mark = unknown value (counts as offen).
  */
 export function StatusMark(props: StatusMarkProps) {
+  const t = useT()
   if (props.status === undefined || props.status === 'blockiert') return null
-  const { modifier, title, icon } = markOf({ ...props, status: props.status })
+  const { modifier, title, icon } = markOf({ ...props, status: props.status }, t)
   const className = `status-mark status-mark--${modifier}${props.inline ? ' status-mark--inline' : ''}`
   return (
     <span className={className} role="img" aria-label={title} title={title}>

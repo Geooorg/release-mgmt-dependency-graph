@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { JsonExportDialog } from './JsonExportDialog'
 import type { JsonExportDialogProps } from './props'
+import { setTestLocale } from '../test/locale'
 
 const JSON_TEXT = '{\n  "version": 1\n}'
 
@@ -64,5 +65,29 @@ describe('JsonExportDialog', () => {
 
     expect(props.onClose).toHaveBeenCalledTimes(2)
     expect(event.defaultPrevented).toBe(true)
+  })
+})
+
+describe('JsonExportDialog language', () => {
+  it.each([
+    ['en', 'Project as JSON', 'Project JSON (read-only)', 'Copy to clipboard', 'Copied to the clipboard.', 'Close'],
+    ['fr', 'Projet au format JSON', 'JSON du projet (lecture seule)', 'Copier dans le presse-papiers', 'Copié dans le presse-papiers.', 'Fermer'],
+  ] as const)('translates the dialog in %s', async (locale, title, label, copy, copied, close) => {
+    setTestLocale(locale)
+    render(<JsonExportDialog {...makeProps()} />)
+
+    expect(screen.getByRole('dialog', { name: title, hidden: true })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: label })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: close, hidden: true })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: copy, hidden: true }))
+    expect(await screen.findByText(copied)).toBeInTheDocument()
+  })
+
+  it('translates the copy failure in en', async () => {
+    setTestLocale('en')
+    render(<JsonExportDialog {...makeProps({ onCopy: vi.fn(() => Promise.resolve(false)) })} />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Copy to clipboard', hidden: true }))
+    expect(await screen.findByText(/Copying is not possible/)).toBeInTheDocument()
   })
 })

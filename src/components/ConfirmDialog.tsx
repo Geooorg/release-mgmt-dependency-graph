@@ -2,6 +2,7 @@ import { useId } from 'react'
 import type { SyntheticEvent } from 'react'
 import type { ConfirmDialogProps } from './props'
 import { useNativeDialog } from './useNativeDialog'
+import { useT } from '../i18n/react'
 import './components.css'
 
 export function ConfirmDialog({
@@ -9,10 +10,11 @@ export function ConfirmDialog({
   title,
   message,
   confirmLabel,
-  cancelLabel = 'Abbrechen',
+  cancelLabel,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const t = useT()
   const dialogRef = useNativeDialog(open)
   const titleId = useId()
   const messageId = useId()
@@ -41,7 +43,7 @@ export function ConfirmDialog({
         </p>
         <div className="confirm-dialog__actions">
           <button type="button" className="ui-button ui-button--secondary" onClick={onCancel}>
-            {cancelLabel}
+            {cancelLabel ?? t('common.cancel')}
           </button>
           <button type="button" className="ui-button" onClick={onConfirm}>
             {confirmLabel}

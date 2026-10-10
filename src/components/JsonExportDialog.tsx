@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type { SyntheticEvent } from 'react'
 import type { JsonExportDialogProps } from './props'
 import { useNativeDialog } from './useNativeDialog'
+import { useT } from '../i18n/react'
 import './components.css'
 
 type CopyState = 'idle' | 'done' | 'failed'
@@ -34,6 +35,7 @@ interface ExportContentProps extends Pick<JsonExportDialogProps, 'json' | 'onCop
 
 // Only mounted while open, so the copy feedback starts fresh every time.
 function ExportContent({ json, titleId, onCopy, onClose }: ExportContentProps) {
+  const t = useT()
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const areaId = useId()
   const [copy, setCopy] = useState<CopyState>('idle')
@@ -56,10 +58,10 @@ function ExportContent({ json, titleId, onCopy, onClose }: ExportContentProps) {
   return (
     <div className="confirm-dialog__content">
       <h2 className="confirm-dialog__title" id={titleId}>
-        Projekt als JSON
+        {t('jsonExport.title')}
       </h2>
       <label className="json-dialog__label" htmlFor={areaId}>
-        Projekt-JSON (schreibgeschützt)
+        {t('jsonExport.label')}
       </label>
       <textarea
         id={areaId}
@@ -71,15 +73,15 @@ function ExportContent({ json, titleId, onCopy, onClose }: ExportContentProps) {
         value={json}
       />
       <p className="json-dialog__status" role="status">
-        {copy === 'done' && 'In die Zwischenablage kopiert.'}
-        {copy === 'failed' && 'Kopieren nicht möglich – der Text ist markiert, bitte mit Strg/Cmd + C kopieren.'}
+        {copy === 'done' && t('jsonExport.copied')}
+        {copy === 'failed' && t('jsonExport.copyFailed')}
       </p>
       <div className="confirm-dialog__actions">
         <button type="button" className="ui-button ui-button--secondary" onClick={onClose}>
-          Schließen
+          {t('common.close')}
         </button>
         <button type="button" className="ui-button" onClick={() => void handleCopy()}>
-          In Zwischenablage kopieren
+          {t('jsonExport.copy')}
         </button>
       </div>
     </div>

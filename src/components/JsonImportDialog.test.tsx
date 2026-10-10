@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { JsonImportDialog } from './JsonImportDialog'
 import type { JsonImportDialogProps } from './props'
+import { setTestLocale } from '../test/locale'
 
 function makeProps(overrides: Partial<JsonImportDialogProps> = {}): JsonImportDialogProps {
   return {
@@ -102,5 +103,33 @@ describe('JsonImportDialog', () => {
     expect(props.onCancel).toHaveBeenCalledTimes(2)
     expect(event.defaultPrevented).toBe(true)
     expect(props.onImport).not.toHaveBeenCalled()
+  })
+})
+
+describe('JsonImportDialog language', () => {
+  it.each([
+    ['en', 'Paste JSON', 'JSON text', 'Import', 'Cancel', 'The import replaces the current project “Release-Management” (5 objects, 2 groups, 7 connections).'],
+    ['fr', 'Coller du JSON', 'Texte JSON', 'Importer', 'Annuler', 'L’import remplace le projet actuel « Release-Management » (5 objets, 2 groupes, 7 liaisons).'],
+  ] as const)('translates the dialog in %s', (locale, title, label, submit, cancel, message) => {
+    setTestLocale(locale)
+    render(<JsonImportDialog {...makeProps()} />)
+
+    expect(screen.getByRole('dialog', { name: title, hidden: true })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: label })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: submit, hidden: true })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: cancel, hidden: true })).toBeInTheDocument()
+    expect(screen.getByText(message)).toBeInTheDocument()
+  })
+
+  it.each([
+    ['en', 'The text is not a valid model.'],
+    ['fr', 'Le texte n’est pas un modèle valide.'],
+  ] as const)('translates the error heading in %s', async (locale, heading) => {
+    setTestLocale(locale)
+    render(<JsonImportDialog {...makeProps({ errors: ['x'] })} />)
+
+    await userEvent.type(screen.getByRole('textbox'), '{{')
+    await userEvent.click(screen.getByRole('button', { name: /^(Import|Importer)$/, hidden: true }))
+    expect(screen.getAllByRole('alert', { hidden: true }).map((el) => el.textContent).join(' ')).toContain(heading)
   })
 })

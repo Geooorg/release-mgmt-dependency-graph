@@ -3,6 +3,7 @@ import type { SyntheticEvent } from 'react'
 import { projectSummary } from './projectSummary'
 import type { JsonImportDialogProps } from './props'
 import { useNativeDialog } from './useNativeDialog'
+import { useT } from '../i18n/react'
 import './components.css'
 
 /** Replaces the project by pasted JSON text (the counterpart of the file import, without a file). */
@@ -37,6 +38,7 @@ function ImportContent({
   onCancel,
   titleId,
 }: JsonImportDialogProps & { titleId: string }) {
+  const t = useT()
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const areaId = useId()
   const [text, setText] = useState('')
@@ -57,20 +59,20 @@ function ImportContent({
   return (
     <div className="confirm-dialog__content">
       <h2 className="confirm-dialog__title" id={titleId}>
-        JSON einfügen
+        {t('jsonImport.title')}
       </h2>
       <p className="confirm-dialog__message">
-        {`Der Import ersetzt das aktuelle Projekt „${projectName}“ (${projectSummary(counts)}).`}
+        {t('import.message', { name: projectName, summary: projectSummary(counts, t) })}
       </p>
       {unsaved ? (
         <p className="import-dialog__warning" role="alert">
-          Es gibt Änderungen, die noch nicht exportiert oder kopiert wurden. Sie gehen verloren, wenn jetzt importiert wird.
+          {t('jsonImport.warning')}
         </p>
       ) : (
-        <p className="import-dialog__ok">Der aktuelle Stand wurde bereits exportiert.</p>
+        <p className="import-dialog__ok">{t('import.exported')}</p>
       )}
       <label className="json-dialog__label" htmlFor={areaId}>
-        JSON-Text
+        {t('jsonImport.label')}
       </label>
       <textarea
         id={areaId}
@@ -84,7 +86,7 @@ function ImportContent({
       />
       {shownErrors.length > 0 && (
         <div className="json-dialog__errors" role="alert">
-          <p>Der Text ist kein gültiges Modell. Das aktuelle Projekt blieb unverändert.</p>
+          <p>{t('jsonImport.invalid')}</p>
           <ul>
             {shownErrors.map((error, index) => (
               <li key={index}>{error}</li>
@@ -92,10 +94,10 @@ function ImportContent({
           </ul>
         </div>
       )}
-      <p className="import-dialog__note">In dieser Sitzung lässt sich der Import mit „Rückgängig“ zurücknehmen.</p>
+      <p className="import-dialog__note">{t('import.note')}</p>
       <div className="confirm-dialog__actions">
         <button type="button" className="ui-button ui-button--secondary" onClick={onCancel}>
-          Abbrechen
+          {t('common.cancel')}
         </button>
         <button
           type="button"
@@ -103,7 +105,7 @@ function ImportContent({
           disabled={text.trim() === ''}
           onClick={submit}
         >
-          Importieren
+          {t('jsonImport.submit')}
         </button>
       </div>
     </div>
