@@ -651,11 +651,11 @@ describe('Sidebar', () => {
         ],
       })
 
-    it('offers the three values and shows "offen" when no status is set', () => {
+    it('offers the four values and shows "offen" when no status is set', () => {
       render(<Sidebar {...makeProps()} />)
 
       expect(statusSelect().value).toBe('offen')
-      expect([...statusSelect().options].map((o) => o.value)).toEqual(['offen', 'in Arbeit', 'fertig'])
+      expect([...statusSelect().options].map((o) => o.value)).toEqual(['offen', 'in Arbeit', 'blockiert', 'fertig'])
     })
 
     it('does not write a status entry as long as it is untouched', async () => {
@@ -698,6 +698,7 @@ describe('Sidebar', () => {
       expect([...statusSelect().options].map((o) => o.textContent)).toEqual([
         'offen',
         'in Arbeit',
+        'blockiert',
         'fertig',
         'bald (unbekannt)',
       ])
@@ -772,6 +773,114 @@ describe('Sidebar', () => {
 
       expect(screen.queryByLabelText('Status')).not.toBeInTheDocument()
       expect(screen.getByText('Status aus Mitgliedern: 2 von 5 fertig')).toBeInTheDocument()
+    })
+
+    describe('reason for a blocked object', () => {
+      const reasonField = () => screen.queryByLabelText<HTMLInputElement>('Grund')
+      const blocked = (reason?: string): MetadataEntry[] => [
+        { key: 'name', value: 'A' },
+        { key: 'status', value: 'blockiert' },
+        ...(reason === undefined ? [] : [{ key: 'blockiert_grund', value: reason }]),
+        { key: 'owner', value: 'Team 1' },
+      ]
+
+      it('shows the field "Grund" right under the status only while the status is blockiert', () => {
+        const { rerender } = render(<Sidebar {...makeProps({ element: makeElement({ metadata: blocked('Freigabe fehlt') }) })} />)
+        expect(statusSelect().value).toBe('blockiert')
+        expect(reasonField()).toHaveValue('Freigabe fehlt')
+        expect(statusSelect().closest('.sidebar__field')!.nextElementSibling).toContainElement(reasonField())
+        // neither the reason nor the key shows up as a free-form row
+        expect(keyInputs().map((input) => input.value)).toEqual(['owner'])
+
+        rerender(<Sidebar {...makeProps({ element: makeElement({ id: ID_B, metadata: withStatus('in Arbeit').metadata }) })} />)
+        expect(reasonField()).toBeNull()
+      })
+
+      it('has no reason field on groups', () => {
+        render(<Sidebar {...makeProps({ element: makeElement({ kind: 'group', metadata: blocked('x') }) })} />)
+        expect(reasonField()).toBeNull()
+      })
+
+      it('appears when blockiert is chosen and takes the reason live, right after the status', async () => {
+        const { onChange } = renderControlled([
+          { key: 'name', value: 'A' },
+          { key: 'owner', value: 'Team 1' },
+        ])
+        expect(reasonField()).toBeNull()
+
+        await userEvent.selectOptions(statusSelect(), 'blockiert')
+        expect(onChange).toHaveBeenLastCalledWith([
+          { key: 'name', value: 'A' },
+          { key: 'status', value: 'blockiert' },
+          { key: 'owner', value: 'Team 1' },
+        ])
+
+        await userEvent.type(reasonField()!, 'Freigabe fehlt')
+        expect(onChange).toHaveBeenLastCalledWith([
+          { key: 'name', value: 'A' },
+          { key: 'status', value: 'blockiert' },
+          { key: 'blockiert_grund', value: 'Freigabe fehlt' },
+          { key: 'owner', value: 'Team 1' },
+        ])
+        // typing keeps the blanks the user typed, although the model holds the trimmed text
+        expect(reasonField()).toHaveValue('Freigabe fehlt')
+      })
+
+      it('bundles typing into one edit and does not write an empty reason', async () => {
+        const props = makeProps({ element: makeElement({ metadata: blocked() }) })
+        const { onChange } = renderControlled(blocked(), props)
+        const field = reasonField()!
+
+        await userEvent.click(field)
+        await userEvent.type(field, 'ab')
+        expect(props.onEditStart).toHaveBeenCalled()
+        expect(props.onEditEnd).not.toHaveBeenCalled()
+        await userEvent.tab()
+        expect(props.onEditEnd).toHaveBeenCalledTimes(1)
+
+        await userEvent.clear(field)
+        expect(onChange).toHaveBeenLastCalledWith(blocked())
+      })
+
+      it('removes the reason together with the status when another status is chosen (one change)', async () => {
+        const { onChange } = renderControlled(blocked('Freigabe fehlt'))
+
+        await userEvent.selectOptions(statusSelect(), 'in Arbeit')
+        expect(onChange).toHaveBeenCalledTimes(1)
+        expect(onChange).toHaveBeenLastCalledWith([
+          { key: 'name', value: 'A' },
+          { key: 'status', value: 'in Arbeit' },
+          { key: 'owner', value: 'Team 1' },
+        ])
+        expect(reasonField()).toBeNull()
+      })
+
+      it('reloads the reason after a change from outside (undo)', () => {
+        const { setMetadata } = renderControlled(blocked('alt'))
+        expect(reasonField()).toHaveValue('alt')
+        setMetadata(blocked('neu'))
+        expect(reasonField()).toHaveValue('neu')
+        setMetadata([{ key: 'name', value: 'A' }, { key: 'status', value: 'offen' }])
+        expect(reasonField()).toBeNull()
+      })
+
+      it('recognises the key in any case', () => {
+        render(
+          <Sidebar
+            {...makeProps({
+              element: makeElement({
+                metadata: [
+                  { key: 'name', value: 'A' },
+                  { key: 'status', value: 'blockiert' },
+                  { key: ' Blockiert_Grund ', value: 'Lizenz' },
+                ],
+              }),
+            })}
+          />,
+        )
+        expect(reasonField()).toHaveValue('Lizenz')
+        expect(keyInputs()).toHaveLength(0)
+      })
     })
 
     it('says so for a group without members', () => {

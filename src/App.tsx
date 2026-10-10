@@ -14,7 +14,7 @@ import { canGroup } from './model/graph'
 import { contentFingerprint } from './model/fingerprint'
 import { displayName } from './model/metadata'
 import { sidebarTarget } from './model/sidebarTarget'
-import { getStatusInfo } from './model/status'
+import { getBlockReason, getStatusInfo } from './model/status'
 import type { Tool } from './model/workMode'
 import {
   analyzeProject,
@@ -50,19 +50,25 @@ function toPanelProps(
   content: GraphContent,
   project: ProjectAnalysis,
   selection: SelectionAnalysis,
-): Omit<AnalysisPanelProps, 'selected' | 'onStatusChange' | 'onReveal' | 'onCopy' | 'onClose'> {
+): Omit<
+  AnalysisPanelProps,
+  'selected' | 'onStatusChange' | 'onBlockReasonChange' | 'onEditStart' | 'onEditEnd' | 'onReveal' | 'onCopy' | 'onClose'
+> {
   const byId = new Map(content.nodes.map((n) => [n.id, n]))
   const nameOf = (id: string) => {
     const node = byId.get(id)
     return node ? displayName(node) : id.slice(0, 8)
   }
-  const entry = (id: string, ready: boolean): AnalysisEntry => ({
+  const entry = (id: string): AnalysisEntry => ({
     id,
     name: nameOf(id),
     status: project.statusById.get(id) ?? 'offen',
-    ready,
+    ready: project.readyIds.has(id),
     blocked: project.blockedIds.has(id),
+    waiting: project.waitingIds.has(id),
     inconsistent: project.inconsistentIds.has(id),
+    reason: project.blockReasons.get(id),
+    waitingFor: (project.waitingFor.get(id) ?? []).map(nameOf),
   })
   const { counts } = project
   const path = selection.criticalPath
@@ -74,14 +80,16 @@ function toPanelProps(
       inProgress: counts.inProgress,
       open: counts.open,
       blocked: counts.blocked,
+      waiting: counts.waiting,
       ready: counts.ready,
     },
+    selfBlocked: selection.selectedBlocked.map((id) => ({ id, name: nameOf(id), reason: project.blockReasons.get(id) })),
     criticalPath: path && {
-      steps: path.nodeIds.map((id) => entry(id, project.readyIds.has(id))),
+      steps: path.nodeIds.map(entry),
       length: path.length,
     },
     cycleNames: selection.cycleIds.map(nameOf),
-    blockers: selection.blockers.map((b) => entry(b.id, b.ready)),
+    unfinished: selection.unfinished.map((u) => entry(u.id)),
     inconsistent: selection.inconsistent.map((item) => ({
       id: item.id,
       name: nameOf(item.id),
@@ -161,6 +169,7 @@ function AppShell() {
       name: displayName(sidebarNode),
       kind: sidebarNode.kind,
       status: sidebarNode.kind === 'node' ? (getStatusInfo(sidebarNode.metadata).raw ?? '') : '',
+      reason: sidebarNode.kind === 'node' ? (getBlockReason(sidebarNode.metadata) ?? '') : '',
       progress: sidebarNode.kind === 'group' ? analysis.groupProgress.get(sidebarNode.id) : undefined,
     }
   }, [sidebarNode, analysis])
@@ -331,6 +340,11 @@ function AppShell() {
             onStatusChange={(status) => {
               if (panelSelected) graphStore.getState().setStatus(panelSelected.id, status)
             }}
+            onBlockReasonChange={(reason) => {
+              if (panelSelected) graphStore.getState().setBlockReason(panelSelected.id, reason)
+            }}
+            onEditStart={beginSidebarEdit}
+            onEditEnd={endSidebarEdit}
             onReveal={(id) => graphStore.getState().revealNode(id)}
             onCopy={() => void copyAnalysis()}
             onClose={() => graphStore.getState().setAnalysisPanelVisible(false)}

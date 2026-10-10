@@ -926,6 +926,50 @@ describe('graphStore', () => {
       s().undo()
       expect(s().nodes[0].metadata).toEqual([{ key: 'name', value: 'a' }])
     })
+
+    it('blocks with a reason and removes the reason with the next status in a single undo step', () => {
+      const store = createGraphStore(twoNodes(), counterIds(), null, { mode: 'analyze' })
+      const s = () => store.getState()
+      s().setBlockReason('a', 'ignored: not blocked yet')
+      expect(s().history.past).toHaveLength(0)
+      s().setStatus('a', 'blockiert')
+      s().setBlockReason('a', ' Freigabe fehlt ')
+      expect(s().nodes[0].metadata).toEqual([
+        { key: 'name', value: 'a' },
+        { key: 'status', value: 'blockiert' },
+        { key: 'blockiert_grund', value: 'Freigabe fehlt' },
+      ])
+      expect(s().history.past).toHaveLength(2)
+      s().setStatus('a', 'in Arbeit')
+      expect(s().nodes[0].metadata).toEqual([
+        { key: 'name', value: 'a' },
+        { key: 'status', value: 'in Arbeit' },
+      ])
+      expect(s().history.past).toHaveLength(3)
+      s().undo()
+      expect(s().nodes[0].metadata).toEqual([
+        { key: 'name', value: 'a' },
+        { key: 'status', value: 'blockiert' },
+        { key: 'blockiert_grund', value: 'Freigabe fehlt' },
+      ])
+    })
+
+    it('bundles typing a reason into one undo step with a gesture', () => {
+      const store = createGraphStore(twoNodes(), counterIds())
+      const s = () => store.getState()
+      s().setStatus('a', 'blockiert')
+      s().beginGesture()
+      s().setBlockReason('a', 'F')
+      s().setBlockReason('a', 'Fr')
+      s().setBlockReason('a', 'Fre')
+      s().endGesture()
+      expect(s().history.past).toHaveLength(2)
+      s().undo()
+      expect(s().nodes[0].metadata).toEqual([
+        { key: 'name', value: 'a' },
+        { key: 'status', value: 'blockiert' },
+      ])
+    })
   })
 
   describe('work mode', () => {

@@ -8,6 +8,7 @@ import {
   deleteElements,
   findDropTargetGroup,
   findGroupAtPoint,
+  setBlockReason,
   setStatus,
   getAbsolutePosition,
   getAncestorIds,
@@ -1006,6 +1007,38 @@ describe('setStatus', () => {
     expect(setStatus(c, 'nope', 'fertig')).toBe(c)
   })
 
+  it('keeps the reason when it is already blocked and drops it for any other status (one change)', () => {
+    const a = node('a', 0, 0, {
+      metadata: [
+        { key: 'name', value: 'A' },
+        { key: 'status', value: 'blockiert' },
+        { key: 'blockiert_grund', value: 'Freigabe fehlt' },
+        { key: 'owner', value: 'X' },
+      ],
+    })
+    const c = content([a])
+    expect(setStatus(c, 'a', 'blockiert')).toBe(c)
+    expect(find(setStatus(c, 'a', 'in Arbeit'), 'a').metadata).toEqual([
+      { key: 'name', value: 'A' },
+      { key: 'status', value: 'in Arbeit' },
+      { key: 'owner', value: 'X' },
+    ])
+  })
+
+  it('removes a stray reason even when the status itself is unchanged', () => {
+    const a = node('a', 0, 0, {
+      metadata: [
+        { key: 'name', value: 'A' },
+        { key: 'status', value: 'offen' },
+        { key: 'blockiert_grund', value: 'alt' },
+      ],
+    })
+    expect(find(setStatus(content([a]), 'a', 'offen'), 'a').metadata).toEqual([
+      { key: 'name', value: 'A' },
+      { key: 'status', value: 'offen' },
+    ])
+  })
+
   it('does not mutate its input', () => {
     const c = deepFreeze(content([node('a', 0, 0)]))
     const result = setStatus(c, 'a', 'fertig')
@@ -1209,5 +1242,56 @@ describe('updateEdgeLabel', () => {
     const before = JSON.stringify(base)
     updateEdgeLabel(base, 'e1', 'x')
     expect(JSON.stringify(base)).toBe(before)
+  })
+})
+
+describe('setBlockReason', () => {
+  const blocked = (extra: { key: string; value: string }[] = []) =>
+    node('a', 0, 0, {
+      metadata: [{ key: 'name', value: 'A' }, { key: 'status', value: 'blockiert' }, ...extra],
+    })
+
+  it('writes the trimmed reason right after the status', () => {
+    const a = node('a', 0, 0, {
+      metadata: [
+        { key: 'name', value: 'A' },
+        { key: 'status', value: 'blockiert' },
+        { key: 'owner', value: 'X' },
+      ],
+    })
+    expect(find(setBlockReason(content([a]), 'a', '  Freigabe fehlt '), 'a').metadata).toEqual([
+      { key: 'name', value: 'A' },
+      { key: 'status', value: 'blockiert' },
+      { key: 'blockiert_grund', value: 'Freigabe fehlt' },
+      { key: 'owner', value: 'X' },
+    ])
+  })
+
+  it('replaces an existing reason (written canonically) and removes it for a blank one', () => {
+    const c = content([blocked([{ key: ' Blockiert_Grund', value: 'alt' }])])
+    expect(find(setBlockReason(c, 'a', 'neu'), 'a').metadata).toEqual([
+      { key: 'name', value: 'A' },
+      { key: 'status', value: 'blockiert' },
+      { key: 'blockiert_grund', value: 'neu' },
+    ])
+    expect(find(setBlockReason(c, 'a', '  '), 'a').metadata).toEqual([
+      { key: 'name', value: 'A' },
+      { key: 'status', value: 'blockiert' },
+    ])
+  })
+
+  it('returns the same reference when nothing changes', () => {
+    const c = content([blocked([{ key: 'blockiert_grund', value: 'Freigabe' }])])
+    expect(setBlockReason(c, 'a', ' Freigabe ')).toBe(c)
+    const without = content([blocked()])
+    expect(setBlockReason(without, 'a', '')).toBe(without)
+  })
+
+  it('only applies to objects that are blocked', () => {
+    const open = content([node('a', 0, 0)])
+    expect(setBlockReason(open, 'a', 'x')).toBe(open)
+    const g = content([group('g', 0, 0, 100, 100)])
+    expect(setBlockReason(g, 'g', 'x')).toBe(g)
+    expect(setBlockReason(g, 'nope', 'x')).toBe(g)
   })
 })

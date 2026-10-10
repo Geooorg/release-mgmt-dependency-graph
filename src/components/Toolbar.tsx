@@ -241,7 +241,7 @@ export function Toolbar({
               Objekt markieren …
             </span>
           )}
-          <Tooltip text="Das Release-Analyse-Panel ein- oder ausblenden: Status-Zähler, Zu klären, kritischer Pfad und Blocker der Auswahl bzw. des Projekts.">
+          <Tooltip text="Das Release-Analyse-Panel ein- oder ausblenden: Status-Zähler, Zu klären, kritischer Pfad und offene Voraussetzungen der Auswahl bzw. des Projekts.">
             <button type="button" className="ui-button" aria-pressed={panelVisible} onClick={onTogglePanel}>
               Panel
             </button>

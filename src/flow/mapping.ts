@@ -1,7 +1,7 @@
 import { MarkerType, type Edge } from '@xyflow/react'
 import { getSize, pickSides, sortParentsFirst } from '../model/graph'
 import { displayName, getColor, getContrastColor, getName } from '../model/metadata'
-import type { ProjectAnalysis } from '../model/releaseAnalysis'
+import { joinNames, type ProjectAnalysis } from '../model/releaseAnalysis'
 import type { ModelEdge, ModelNode } from '../model/types'
 import type { AppFlowNode } from './types'
 
@@ -27,12 +27,10 @@ const EDGE_COLOR_CYCLE = '#9333ea'
 const EDGE_COLOR_CYCLE_SELECTED = '#6b21a8'
 const CYCLE_DASH = '6 4'
 const NO_IDS: ReadonlySet<string> = new Set()
-const MAX_LISTED_NAMES = 5
 
 /** "Prefix: A, B, …" with at most five names. */
 function listNames(prefix: string, names: readonly string[]): string {
-  const shown = names.slice(0, MAX_LISTED_NAMES).join(', ')
-  return `${prefix}: ${shown}${names.length > MAX_LISTED_NAMES ? ', …' : ''}`
+  return `${prefix}: ${joinNames(names)}`
 }
 
 /** Model nodes -> React Flow nodes (parents first, sizes fixed from the model). */
@@ -41,12 +39,25 @@ export function toFlowNodes(nodes: readonly ModelNode[], ui: FlowUiState): AppFl
   const namesOf = (ids: readonly string[]) => ids.map((id) => names.get(id) ?? id.slice(0, 8))
   const { analysis } = ui
 
+  // Red flag: status `blockiert` (a group: a member has it). It wins over the hourglass.
   const blockedTitle = (node: ModelNode): string | undefined => {
     if (!analysis?.blockedIds.has(node.id)) return undefined
     if (node.kind === 'group') {
       return listNames('Enthält blockierte Objekte', namesOf(analysis.blockedMembers.get(node.id) ?? []))
     }
-    return listNames('Blockiert durch', namesOf(analysis.blockingDirect.get(node.id) ?? []))
+    const reason = analysis.blockReasons.get(node.id)
+    const title = reason === undefined ? 'Blockiert (kein Grund angegeben)' : `Blockiert: ${reason}`
+    const waiting = analysis.waitingFor.get(node.id) ?? []
+    return waiting.length > 0 ? `${title} – ${listNames('wartet außerdem auf', namesOf(waiting))}` : title
+  }
+
+  // Hourglass: unfinished, not blocked, with an unfinished prerequisite (a group: a member waits).
+  const waitingTitle = (node: ModelNode): string | undefined => {
+    if (!analysis?.waitingIds.has(node.id)) return undefined
+    if (node.kind === 'group') {
+      return listNames('Enthält wartende Objekte', namesOf(analysis.waitingMembers.get(node.id) ?? []))
+    }
+    return listNames('Wartet auf', namesOf(analysis.waitingFor.get(node.id) ?? []))
   }
 
   const inconsistentTitle = (node: ModelNode): string | undefined => {
@@ -55,7 +66,7 @@ export function toFlowNodes(nodes: readonly ModelNode[], ui: FlowUiState): AppFl
       return members && listNames('Enthält fertige Objekte mit nicht fertiger Voraussetzung', namesOf(members))
     }
     if (!analysis?.inconsistentIds.has(node.id)) return undefined
-    return listNames('Fertig, aber Voraussetzung nicht fertig', namesOf(analysis.blockingDirect.get(node.id) ?? []))
+    return listNames('Fertig, aber Voraussetzung nicht fertig', namesOf(analysis.waitingFor.get(node.id) ?? []))
   }
 
   return sortParentsFirst(nodes).map((node) => {
@@ -81,6 +92,7 @@ export function toFlowNodes(nodes: readonly ModelNode[], ui: FlowUiState): AppFl
         statusRaw: analysis?.statusInfoById.get(node.id)?.raw,
         statusKnown: analysis?.statusInfoById.get(node.id)?.known,
         blockedTitle: blockedTitle(node),
+        waitingTitle: waitingTitle(node),
         inconsistentTitle: inconsistentTitle(node),
         color,
         textColor: color && getContrastColor(color),

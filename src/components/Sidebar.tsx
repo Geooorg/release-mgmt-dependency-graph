@@ -1,7 +1,15 @@
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { findDuplicateKeys, isValidColor, normalizeMetadata } from '../model/metadata'
-import { DEFAULT_STATUS, isStatusKey, parseStatus, STATUS_KEY, STATUS_VALUES } from '../model/status'
+import {
+  BLOCK_REASON_KEY,
+  DEFAULT_STATUS,
+  isBlockReasonKey,
+  isStatusKey,
+  parseStatus,
+  STATUS_KEY,
+  STATUS_VALUES,
+} from '../model/status'
 import { COLOR_KEY, DEFAULT_COLOR, NAME_KEY } from '../model/types'
 import type { MetadataEntry } from '../model/types'
 import type { SidebarElement, SidebarProps } from './props'
@@ -18,13 +26,15 @@ interface Row {
   autoFocus?: boolean
 }
 
-/** Local edit state: the fixed `name`, `color` and `status` fields plus the free-form rows. */
+/** Local edit state: the fixed `name`, `color`, `status` and `blockiert_grund` fields plus the free-form rows. */
 interface Draft {
   name: string
   /** `#rrggbb`, or '' = no colour set (default blue). */
   color: string
   /** Raw (trimmed) value of the `status` entry, '' = none; objects only (a group keeps `status` as a free row). */
   status: string
+  /** Reason of the status `blockiert` (objects only, and only while blocked); '' = none. */
+  reason: string
   rows: Row[]
 }
 
@@ -45,14 +55,20 @@ function toDraft(entries: readonly MetadataEntry[], withStatus: boolean): Draft 
   // The status key is matched trimmed and case-insensitively; it is written back as `status`.
   const statusIndex = withStatus ? entries.findIndex((entry) => isStatusKey(entry.key)) : -1
   const color = colorIndex >= 0 ? entries[colorIndex].value.trim().toLowerCase() : ''
+  const status = statusIndex >= 0 ? entries[statusIndex].value.trim() : ''
+  // Only a blocked object has a reason field; for any other status the key is an ordinary row.
+  const reasonIndex = parseStatus(status) === 'blockiert' ? entries.findIndex((entry) => isBlockReasonKey(entry.key)) : -1
   return {
     name: nameIndex >= 0 ? entries[nameIndex].value : '',
     // An unusable colour value counts as "not set" and is dropped on the next edit.
     color: isValidColor(color) ? color : '',
     // An unknown value is kept as it is (and offered as an extra option), never silently replaced.
-    status: statusIndex >= 0 ? entries[statusIndex].value.trim() : '',
+    status,
+    reason: reasonIndex >= 0 ? entries[reasonIndex].value : '',
     rows: toRows(
-      entries.filter((_, index) => index !== nameIndex && index !== colorIndex && index !== statusIndex),
+      entries.filter(
+        (_, index) => index !== nameIndex && index !== colorIndex && index !== statusIndex && index !== reasonIndex,
+      ),
     ),
   }
 }
@@ -62,6 +78,7 @@ function toEntries(draft: Draft): MetadataEntry[] {
     { key: NAME_KEY, value: draft.name },
     ...(draft.color ? [{ key: COLOR_KEY, value: draft.color }] : []),
     ...(draft.status ? [{ key: STATUS_KEY, value: draft.status }] : []),
+    ...(draft.reason.trim() ? [{ key: BLOCK_REASON_KEY, value: draft.reason }] : []),
     ...draft.rows.map(({ key, value }) => ({ key, value })),
   ]
 }
@@ -116,6 +133,7 @@ function SidebarForm({
   useReportInvalid(duplicates.length > 0, onInvalidChange)
   // The fixed fields show what the model will hold, e.g. also for a free row typed as "Status".
   const shown = toDraft(toEntries(draft), withStatus)
+  const blocked = parseStatus(shown.status) === 'blockiert'
 
   /** `discrete`: a click or choice that is one undo step of its own; otherwise typing, bundled until the field is left. */
   function edit(next: Draft, discrete = false) {
@@ -131,6 +149,12 @@ function SidebarForm({
 
   function updateRow(rid: string, patch: Partial<Pick<Row, 'key' | 'value'>>) {
     edit({ ...draft, rows: draft.rows.map((row) => (row.rid === rid ? { ...row, ...patch } : row)) })
+  }
+
+  /** A status other than `blockiert` also drops the reason, in the same change (also a stray reason row). */
+  function chooseStatus(status: string) {
+    const rows = status === 'blockiert' ? draft.rows : draft.rows.filter((row) => !isBlockReasonKey(row.key))
+    edit({ ...draft, status, reason: status === 'blockiert' ? shown.reason : '', rows }, true)
   }
 
   function removeRow(rid: string) {
@@ -224,7 +248,7 @@ function SidebarForm({
             id={`${formId}-status`}
             className="ui-input"
             value={parseStatus(shown.status) ?? (shown.status || DEFAULT_STATUS)}
-            onChange={(event) => edit({ ...draft, status: event.target.value }, true)}
+            onChange={(event) => chooseStatus(event.target.value)}
           >
             {STATUS_VALUES.map((status) => (
               <option key={status} value={status}>
@@ -235,6 +259,22 @@ function SidebarForm({
               <option value={shown.status}>{shown.status} (unbekannt)</option>
             )}
           </select>
+        </div>
+      )}
+
+      {withStatus && blocked && (
+        <div className="sidebar__field">
+          <label className="sidebar__label" htmlFor={`${formId}-reason`}>
+            Grund
+          </label>
+          <input
+            id={`${formId}-reason`}
+            className="ui-input"
+            placeholder="Warum ist das Objekt blockiert? (optional)"
+            value={shown.reason}
+            onChange={(event) => edit({ ...draft, reason: event.target.value })}
+            onBlur={gesture.end}
+          />
         </div>
       )}
 

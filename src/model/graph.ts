@@ -1,5 +1,14 @@
 import { normalizeMetadata } from './metadata'
-import { STATUS_KEY, findStatusEntry, withStatusEntry, type Status } from './status'
+import {
+  BLOCK_REASON_KEY,
+  STATUS_KEY,
+  findBlockReasonEntry,
+  findStatusEntry,
+  getStatus,
+  withBlockReasonEntry,
+  withStatusEntry,
+  type Status,
+} from './status'
 import {
   GROUP_DEFAULT_SIZE,
   GROUP_HEADER_HEIGHT,
@@ -454,14 +463,30 @@ export function updateMetadata(
 
 /**
  * Sets the status of an object (not of a group, which has none) the way the sidebar does: the
- * entry is written as `status` and the metadata normalized. Already set / unknown id / group -> unchanged.
+ * entry is written as `status` and the metadata normalized. Any status other than `blockiert`
+ * also removes the block reason. Already set / unknown id / group -> unchanged.
  */
 export function setStatus(content: GraphContent, id: string, status: Status): GraphContent {
   const target = content.nodes.find((n) => n.id === id)
   if (target === undefined || target.kind !== 'node') return content
   const current = findStatusEntry(target.metadata)
-  if (current !== undefined && current.key === STATUS_KEY && current.value === status) return content
+  const reasonStays = status === 'blockiert' || findBlockReasonEntry(target.metadata) === undefined
+  if (current !== undefined && current.key === STATUS_KEY && current.value === status && reasonStays) return content
   return updateMetadata(content, id, withStatusEntry(target.metadata, status))
+}
+
+/**
+ * Sets the reason of a blocked object (trimmed, canonical key right after `status`; blank removes
+ * it). Only objects with the status `blockiert` have a reason. No actual change / unknown id /
+ * group / not blocked -> unchanged.
+ */
+export function setBlockReason(content: GraphContent, id: string, reason: string): GraphContent {
+  const target = content.nodes.find((n) => n.id === id)
+  if (target === undefined || target.kind !== 'node' || getStatus(target.metadata) !== 'blockiert') return content
+  const text = reason.trim()
+  const current = findBlockReasonEntry(target.metadata)
+  if (current === undefined ? text === '' : current.key === BLOCK_REASON_KEY && current.value === text) return content
+  return updateMetadata(content, id, withBlockReasonEntry(target.metadata, text))
 }
 
 /** Sets the (relative) position of one element. Unknown id -> unchanged. */

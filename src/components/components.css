@@ -750,9 +750,11 @@
   color: var(--danger-600);
 }
 
-/* ---------- Status marks and blocked flag ---------- */
+/* ---------- Status marks, blocked flag and waiting hourglass ---------- */
 
-.blocked-flag {
+/* Same corner and shape; red = blocked by hand, indigo = waits for a prerequisite. */
+.blocked-flag,
+.waiting-mark {
   position: absolute;
   top: -9px;
   left: -9px;
@@ -769,8 +771,14 @@
   box-shadow: 0 1px 3px rgb(17 24 39 / 0.35);
 }
 
+.waiting-mark {
+  border-color: var(--waiting-600);
+  color: var(--waiting-600);
+}
+
 /* In a group title or a list row the flag is part of the text flow. */
-.blocked-flag--inline {
+.blocked-flag--inline,
+.waiting-mark--inline {
   position: static;
   flex: none;
   width: 18px;
@@ -779,7 +787,8 @@
   box-shadow: none;
 }
 
-.blocked-flag .icon {
+.blocked-flag .icon,
+.waiting-mark .icon {
   display: block;
 }
 
@@ -812,7 +821,7 @@
   color: #d97706;
 }
 
-/* Same corner as the red flag: an object is either blocked (unfinished) or inconsistent (finished). */
+/* Same corner as the red flag: an object is either blocked or waiting (unfinished) or inconsistent (finished). */
 .inconsistent-mark {
   position: absolute;
   top: -11px;
@@ -832,6 +841,12 @@
 
 .inconsistent-mark .icon {
   display: block;
+}
+
+.status-mark--inline {
+  position: static;
+  flex: none;
+  box-shadow: none;
 }
 
 .status-mark--open {
@@ -1025,8 +1040,9 @@ ol.analysis-list > li::before {
 
 .analysis-item {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 2px 6px;
   width: 100%;
   min-width: 0;
   padding: 4px 6px;
@@ -1059,6 +1075,14 @@ ol.analysis-list > li::before {
   white-space: nowrap;
 }
 
+/* Second line of an entry: the reason of a blocked object, or what a waiting one waits for. */
+.analysis-item__note {
+  flex: 1 0 100%;
+  color: var(--gray-600);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .analysis-chip {
   flex: none;
   padding: 1px 7px;
@@ -1078,6 +1102,11 @@ ol.analysis-list > li::before {
   color: #92400e;
 }
 
+.analysis-chip--blocked {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 .analysis-chip--done {
   background: #dcfce7;
   color: #166534;
@@ -1086,6 +1115,80 @@ ol.analysis-list > li::before {
 .analysis-chip--ready {
   background: var(--success-600);
   color: #fff;
+}
+
+/* The selection is blocked itself: red, at the very top. */
+.analysis-self-blocked {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  border: 1px solid #fecaca;
+  border-left: 4px solid var(--danger-600);
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #7f1d1d;
+  font-size: 13px;
+}
+
+.analysis-self-blocked__row {
+  display: flex;
+  align-items: flex-start;
+  margin: 0;
+}
+
+.analysis-self-blocked__row > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* "Zeichen erklärt" at the end of the panel. */
+.analysis-legend {
+  margin-top: 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--gray-200);
+  font-size: 12px;
+}
+
+.analysis-legend__summary {
+  color: var(--gray-600);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.analysis-legend__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.analysis-legend__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gray-900);
+}
+
+/* A fixed slot so that the texts line up whatever the shape of the mark. */
+.analysis-legend__icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+}
+
+.analysis-legend__icon .blocked-flag--inline,
+.analysis-legend__icon .waiting-mark--inline {
+  margin-right: 0;
+}
+
+.analysis-legend__icon .inconsistent-mark--inline {
+  margin-right: 0;
 }
 
 /* The selected object's status at the top of the panel. */

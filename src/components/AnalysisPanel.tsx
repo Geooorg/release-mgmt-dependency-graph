@@ -1,12 +1,14 @@
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
+import { joinNames } from '../model/releaseAnalysis'
 import { DEFAULT_STATUS, parseStatus, STATUS_VALUES, type Status } from '../model/status'
-import { BlockedFlag, InconsistentMark } from './StatusMarks'
+import { BlockedFlag, InconsistentMark, StatusMark, WaitingMark } from './StatusMarks'
 import type { AnalysisEntry, AnalysisPanelProps, AnalysisSelected } from './props'
+import { useEditGesture } from './useSidebarEffects'
 import './components.css'
 
 const MAX_TITLE_NAMES = 3
-const BLOCKED_TITLE = 'Blockiert: hat noch nicht fertige Voraussetzungen'
+const NO_REASON = 'kein Grund angegeben'
 const INCONSISTENT_TITLE = 'Fertig, aber Voraussetzung nicht fertig'
 
 function titleOf(names: readonly string[]): string {
@@ -19,12 +21,37 @@ function stepsText(count: number): string {
   return count === 1 ? '1 Schritt' : `${count} Schritte`
 }
 
-function StatusChip({ status }: { status: AnalysisEntry['status'] }) {
-  const modifier = status === 'fertig' ? 'done' : status === 'in Arbeit' ? 'progress' : 'open'
-  return <span className={`analysis-chip analysis-chip--${modifier}`}>{status}</span>
+const STATUS_CHIP: Record<Status, string> = {
+  offen: 'open',
+  'in Arbeit': 'progress',
+  blockiert: 'blocked',
+  fertig: 'done',
 }
 
-function Entry({ entry, onReveal }: { entry: AnalysisEntry; onReveal: (id: string) => void }) {
+function StatusChip({ status }: { status: AnalysisEntry['status'] }) {
+  return <span className={`analysis-chip analysis-chip--${STATUS_CHIP[status]}`}>{status}</span>
+}
+
+/** "Blockiert: <reason>" / "Blockiert (kein Grund angegeben)": tooltip and accessible name of the flag. */
+function blockedTitle(reason: string | undefined): string {
+  return reason === undefined ? `Blockiert (${NO_REASON})` : `Blockiert: ${reason}`
+}
+
+function waitingText(entry: AnalysisEntry): string {
+  return `wartet auf ${joinNames(entry.waitingFor ?? [])}`
+}
+
+/** `note`: a second line with the reason (blocked) or what the entry waits for (waiting). */
+function Entry({
+  entry,
+  onReveal,
+  note,
+}: {
+  entry: AnalysisEntry
+  onReveal: (id: string) => void
+  note: boolean
+}) {
+  const noteText = entry.blocked ? (entry.reason ?? NO_REASON) : entry.waiting ? waitingText(entry) : undefined
   return (
     <button
       type="button"
@@ -33,10 +60,13 @@ function Entry({ entry, onReveal }: { entry: AnalysisEntry; onReveal: (id: strin
       onClick={() => onReveal(entry.id)}
     >
       <span className="analysis-item__name">{entry.name}</span>
-      <StatusChip status={entry.status} />
+      {/* The flag says "blockiert" already. */}
+      {!entry.blocked && <StatusChip status={entry.status} />}
       {entry.ready && <span className="analysis-chip analysis-chip--ready">jetzt umsetzbar</span>}
-      {entry.blocked && <BlockedFlag title={BLOCKED_TITLE} inline />}
+      {entry.blocked && <BlockedFlag title={blockedTitle(entry.reason)} inline />}
+      {entry.waiting && <WaitingMark title={`Wartet auf: ${joinNames(entry.waitingFor ?? [])}`} inline />}
       {entry.inconsistent && <InconsistentMark title={INCONSISTENT_TITLE} inline />}
+      {note && noteText !== undefined && <span className="analysis-item__note">{noteText}</span>}
     </button>
   )
 }
@@ -48,6 +78,7 @@ function EntryList({
 }: {
   entries: readonly AnalysisEntry[]
   onReveal: (id: string) => void
+  /** The critical path: numbered, compact (flags only, no second line). */
   numbered?: boolean
 }) {
   const Tag = numbered ? 'ol' : 'ul'
@@ -55,7 +86,7 @@ function EntryList({
     <Tag className="analysis-list">
       {entries.map((entry) => (
         <li key={entry.id}>
-          <Entry entry={entry} onReveal={onReveal} />
+          <Entry entry={entry} onReveal={onReveal} note={!numbered} />
         </li>
       ))}
     </Tag>
@@ -82,13 +113,64 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
-/** "Auswahl": the status of the selected object (or the read-only progress of a group). */
+/**
+ * The reason of a blocked object. The field keeps what was typed (e.g. a trailing blank) and is only
+ * reloaded when the reason changes from outside (undo/redo), recognised by not being what it applied last.
+ */
+function BlockReasonField({
+  reason,
+  onChange,
+  onEditStart,
+  onEditEnd,
+}: {
+  reason: string
+  onChange: (reason: string) => void
+  onEditStart: () => void
+  onEditEnd: () => void
+}) {
+  const fieldId = useId()
+  const [applied, setApplied] = useState(reason)
+  const [draft, setDraft] = useState(reason)
+  const gesture = useEditGesture(onEditStart, onEditEnd)
+  if (reason !== applied) {
+    setApplied(reason)
+    setDraft(reason)
+  }
+  return (
+    <div className="analysis-selected__field">
+      <label className="analysis-selected__label" htmlFor={fieldId}>
+        Grund
+      </label>
+      <input
+        id={fieldId}
+        className="ui-input"
+        placeholder="Warum ist das Objekt blockiert? (optional)"
+        value={draft}
+        onChange={(event) => {
+          setDraft(event.target.value)
+          setApplied(event.target.value.trim())
+          gesture.start()
+          onChange(event.target.value)
+        }}
+        onBlur={gesture.end}
+      />
+    </div>
+  )
+}
+
+/** "Auswahl": status (and reason) of the selected object, or the read-only progress of a group. */
 function SelectedStatus({
   selected,
   onStatusChange,
+  onBlockReasonChange,
+  onEditStart,
+  onEditEnd,
 }: {
   selected: AnalysisSelected
   onStatusChange: (status: Status) => void
+  onBlockReasonChange: (reason: string) => void
+  onEditStart: () => void
+  onEditEnd: () => void
 }) {
   const selectId = useId()
   const known = parseStatus(selected.status)
@@ -99,26 +181,37 @@ function SelectedStatus({
         Auswahl: <strong>{selected.name}</strong>
       </p>
       {selected.kind === 'node' ? (
-        <div className="analysis-selected__field">
-          <label className="analysis-selected__label" htmlFor={selectId}>
-            Status
-          </label>
-          <select
-            id={selectId}
-            className="ui-input"
-            value={known ?? (selected.status || DEFAULT_STATUS)}
-            onChange={(event) => onStatusChange(event.target.value as Status)}
-          >
-            {STATUS_VALUES.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-            {selected.status !== '' && known === undefined && (
-              <option value={selected.status}>{selected.status} (unbekannt)</option>
-            )}
-          </select>
-        </div>
+        <>
+          <div className="analysis-selected__field">
+            <label className="analysis-selected__label" htmlFor={selectId}>
+              Status
+            </label>
+            <select
+              id={selectId}
+              className="ui-input"
+              value={known ?? (selected.status || DEFAULT_STATUS)}
+              onChange={(event) => onStatusChange(event.target.value as Status)}
+            >
+              {STATUS_VALUES.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+              {selected.status !== '' && known === undefined && (
+                <option value={selected.status}>{selected.status} (unbekannt)</option>
+              )}
+            </select>
+          </div>
+          {known === 'blockiert' && (
+            <BlockReasonField
+              key={selected.id}
+              reason={selected.reason}
+              onChange={onBlockReasonChange}
+              onEditStart={onEditStart}
+              onEditEnd={onEditEnd}
+            />
+          )}
+        </>
       ) : (
         progress && (
           <p className="analysis-selected__progress">
@@ -132,25 +225,110 @@ function SelectedStatus({
   )
 }
 
+/** "Zeichen erklärt": the marks of the graph, drawn with the same components as on the boxes. */
+function Legend() {
+  const rows: { icon: ReactNode; text: string }[] = [
+    {
+      icon: <BlockedFlag title="Blockiert" inline />,
+      text: 'Rote Flagge: blockiert – manuell gesetzt (Status „blockiert“), z. B. weil eine Freigabe fehlt. Entfernen: anderen Status wählen.',
+    },
+    {
+      icon: <WaitingMark title="Wartet" inline />,
+      text: 'Sanduhr: wartet – nicht fertig und von einer noch nicht fertigen Voraussetzung abhängig.',
+    },
+    {
+      icon: <InconsistentMark title="Zu klären" inline />,
+      text: 'Dreieck: fertig trotz offener Voraussetzung – zu klären.',
+    },
+    { icon: <StatusMark status="fertig" inline />, text: 'Häkchen: fertig' },
+    { icon: <StatusMark status="in Arbeit" inline />, text: 'Halbkreis: in Arbeit' },
+    { icon: <StatusMark status="offen" raw="offen" inline />, text: 'Grauer Kreis: offen (auch ohne gesetzten Status)' },
+    { icon: <StatusMark status="offen" raw="…" known={false} inline />, text: '„?“: unbekannter Status – zählt als offen' },
+  ]
+  return (
+    <details className="analysis-legend">
+      <summary className="analysis-legend__summary">Zeichen erklärt</summary>
+      <ul className="analysis-legend__list">
+        {rows.map((row) => (
+          <li key={row.text} className="analysis-legend__row">
+            <span aria-hidden="true" className="analysis-legend__icon">
+              {row.icon}
+            </span>
+            <span>{row.text}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="analysis-hint">Bei Gruppen stehen Flagge, Sanduhr und Dreieck im Titel, wenn ein Mitglied betroffen ist.</p>
+    </details>
+  )
+}
+
+/** The selected objects that are blocked themselves, prominent at the top. */
+function SelfBlocked({ entries }: { entries: AnalysisPanelProps['selfBlocked'] }) {
+  return (
+    <section className="analysis-self-blocked" aria-label="Auswahl ist blockiert">
+      {entries.map((entry) => (
+        <p key={entry.id} className="analysis-self-blocked__row">
+          <BlockedFlag title={blockedTitle(entry.reason)} inline />
+          <span>
+            <strong>{entry.name}</strong> ist blockiert – {entry.reason ?? NO_REASON}
+          </span>
+        </p>
+      ))}
+    </section>
+  )
+}
+
 export function AnalysisPanel({
   selected,
   onStatusChange,
+  onBlockReasonChange,
+  onEditStart,
+  onEditEnd,
+  selfBlocked,
   scope,
   selectionNames,
   counts,
   criticalPath,
   cycleNames,
-  blockers,
+  unfinished,
   inconsistent,
   unknownStatus,
   onReveal,
   onCopy,
   onClose,
 }: AnalysisPanelProps) {
-  const ready = blockers.filter((entry) => entry.ready)
-  const blocked = blockers.filter((entry) => !entry.ready)
+  const blocked = unfinished.filter((entry) => entry.blocked)
+  const ready = unfinished.filter((entry) => entry.ready)
+  const waiting = unfinished.filter((entry) => entry.waiting)
   const title = titleOf(selectionNames)
   const clarifyCount = inconsistent.length + unknownStatus.length
+
+  const pathSection =
+    criticalPath === null ? (
+      <Section title="Kritischer Pfad">
+        <p className="analysis-warning" role="alert">
+          Kritischer Pfad nicht berechenbar – Zyklus zwischen {cycleNames.join(', ')}.
+        </p>
+      </Section>
+    ) : (
+      <Section title={`Kritischer Pfad (${stepsText(criticalPath.length)})`}>
+        {criticalPath.steps.length === 0 ? (
+          <p className="analysis-empty">Kein offener Schritt.</p>
+        ) : (
+          <>
+            <p className="analysis-hint">Zuerst zu erledigen steht oben; der Pfad ist im Graph rot markiert.</p>
+            <EntryList entries={criticalPath.steps} onReveal={onReveal} numbered />
+          </>
+        )}
+      </Section>
+    )
+
+  const listSection = (heading: string, entries: readonly AnalysisEntry[], empty: string) => (
+    <Section title={`${heading} (${entries.length})`}>
+      {entries.length === 0 ? <p className="analysis-empty">{empty}</p> : <EntryList entries={entries} onReveal={onReveal} />}
+    </Section>
+  )
 
   return (
     <aside className="analysis-panel" aria-label="Release-Analyse">
@@ -164,7 +342,17 @@ export function AnalysisPanel({
       </div>
 
       <div className="analysis-panel__body">
-        {selected && <SelectedStatus selected={selected} onStatusChange={onStatusChange} />}
+        {selfBlocked.length > 0 && <SelfBlocked entries={selfBlocked} />}
+
+        {selected && (
+          <SelectedStatus
+            selected={selected}
+            onStatusChange={onStatusChange}
+            onBlockReasonChange={onBlockReasonChange}
+            onEditStart={onEditStart}
+            onEditEnd={onEditEnd}
+          />
+        )}
 
         <ul className="analysis-counts" aria-label="Projektstand">
           <li>
@@ -178,6 +366,9 @@ export function AnalysisPanel({
           </li>
           <li>
             <strong>{counts.blocked}</strong> blockiert
+          </li>
+          <li>
+            <strong>{counts.waiting}</strong> wartet
           </li>
           <li>
             <strong>{counts.ready}</strong> jetzt umsetzbar
@@ -224,51 +415,25 @@ export function AnalysisPanel({
           </Section>
         )}
 
-        {criticalPath === null ? (
-          <Section title="Kritischer Pfad">
-            <p className="analysis-warning" role="alert">
-              Kritischer Pfad nicht berechenbar – Zyklus zwischen {cycleNames.join(', ')}.
-            </p>
-          </Section>
-        ) : (
-          <Section title={`Kritischer Pfad (${stepsText(criticalPath.length)})`}>
-            {criticalPath.steps.length === 0 ? (
-              <p className="analysis-empty">Kein offener Schritt.</p>
-            ) : (
-              <>
-                <p className="analysis-hint">Zuerst zu erledigen steht oben; der Pfad ist im Graph rot markiert.</p>
-                <EntryList entries={criticalPath.steps} onReveal={onReveal} numbered />
-              </>
-            )}
-          </Section>
-        )}
-
         {scope === 'selection' ? (
-          <Section title={`Blockierende Objekte (${blockers.length})`}>
-            {blockers.length === 0 ? (
-              <p className="analysis-empty">Keine offenen Voraussetzungen – kann released werden.</p>
-            ) : (
-              <EntryList entries={blockers} onReveal={onReveal} />
+          <>
+            {pathSection}
+            {listSection(
+              'Offene Voraussetzungen',
+              unfinished,
+              'Keine offenen Voraussetzungen – kann released werden.',
             )}
-          </Section>
+          </>
         ) : (
           <>
-            <Section title={`Jetzt umsetzbar (${ready.length})`}>
-              {ready.length === 0 ? (
-                <p className="analysis-empty">Keine umsetzbaren Objekte.</p>
-              ) : (
-                <EntryList entries={ready} onReveal={onReveal} />
-              )}
-            </Section>
-            <Section title={`Blockiert (${blocked.length})`}>
-              {blocked.length === 0 ? (
-                <p className="analysis-empty">Keine blockierten Objekte.</p>
-              ) : (
-                <EntryList entries={blocked} onReveal={onReveal} />
-              )}
-            </Section>
+            {listSection('Blockiert', blocked, 'Keine blockierten Objekte.')}
+            {listSection('Jetzt umsetzbar', ready, 'Keine umsetzbaren Objekte.')}
+            {listSection('Wartet', waiting, 'Keine wartenden Objekte.')}
+            {pathSection}
           </>
         )}
+
+        <Legend />
       </div>
 
       <div className="analysis-panel__footer">

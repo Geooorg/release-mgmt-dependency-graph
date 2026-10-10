@@ -103,6 +103,8 @@ export interface GraphState {
   updateMetadata: (id: string, entries: readonly MetadataEntry[]) => void
   /** Sets the status of an object (also in analysis mode); one undo step. */
   setStatus: (id: string, status: Status) => void
+  /** Sets the reason of a blocked object (trimmed, blank removes it); no-op for other objects. Also in analysis mode. */
+  setBlockReason: (id: string, reason: string) => void
 
   applyNodeSelection: (changes: readonly Selection[]) => void
   applyEdgeSelection: (changes: readonly Selection[]) => void
@@ -338,6 +340,7 @@ export function createGraphStore(
       resizeNode: (id, size) => apply(graph.resizeNode(content(), id, size)),
       updateMetadata: (id, entries) => apply(graph.updateMetadata(content(), id, entries)),
       setStatus: (id, status) => apply(graph.setStatus(content(), id, status)),
+      setBlockReason: (id, reason) => apply(graph.setBlockReason(content(), id, reason)),
 
       // The selection is frozen while connecting: clicks pick source and target there and must not
       // switch the sidebar. A change that is held back (see `requestSelection`) is extended, not replaced:

@@ -184,16 +184,42 @@ describe('node components', () => {
     expect(container.querySelector('.group-node .cycle-badge')).not.toBeNull()
   })
 
-  it('shows the red flag with the blockers on blocked boxes only', () => {
+  it('shows the red flag with the reason on blocked boxes only', () => {
     const { container } = renderNodes([
-      box({ data: makeData({ blockedTitle: 'Blockiert durch: Dienst B' }) }),
+      box({ data: makeData({ blockedTitle: 'Blockiert: Freigabe fehlt', status: 'blockiert' }) }),
       box({ id: 'b2', position: { x: 300, y: 0 } }),
     ])
 
-    const flags = screen.getAllByLabelText('Blockiert durch: Dienst B')
+    const flags = screen.getAllByLabelText('Blockiert: Freigabe fehlt')
     expect(flags).toHaveLength(1)
-    expect(flags[0]).toHaveAttribute('title', 'Blockiert durch: Dienst B')
+    expect(flags[0]).toHaveAttribute('title', 'Blockiert: Freigabe fehlt')
     expect(container.querySelectorAll('.blocked-flag')).toHaveLength(1)
+    // the flag is the mark of this status: no second mark in the lower corner
+    expect(container.querySelectorAll('.status-mark')).toHaveLength(0)
+  })
+
+  it('shows the hourglass, not the flag, on a box that waits for a prerequisite', () => {
+    const { container } = renderNodes([
+      box({ data: makeData({ waitingTitle: 'Wartet auf: Dienst B, Dienst C', status: 'offen', statusKnown: true }) }),
+      box({ id: 'b2', position: { x: 300, y: 0 } }),
+    ])
+
+    const mark = screen.getByLabelText('Wartet auf: Dienst B, Dienst C')
+    expect(mark).toHaveClass('waiting-mark')
+    expect(mark).toHaveAttribute('title', 'Wartet auf: Dienst B, Dienst C')
+    expect(container.querySelectorAll('.waiting-mark')).toHaveLength(1)
+    expect(container.querySelectorAll('.blocked-flag')).toHaveLength(0)
+    // the status mark of a waiting object stays
+    expect(container.querySelectorAll('.status-mark')).toHaveLength(1)
+  })
+
+  it('puts the hourglass of a group into its title', () => {
+    const { container } = renderNodes([group({ data: makeData({ waitingTitle: 'Enthält wartende Objekte: X' }) })])
+
+    expect(container.querySelector('.group-node__header .waiting-mark')).toHaveAttribute(
+      'aria-label',
+      'Enthält wartende Objekte: X',
+    )
   })
 
   it('puts the flag of a group into its title', () => {
@@ -238,23 +264,25 @@ describe('node components', () => {
     expect(container.querySelectorAll('.blocked-flag')).toHaveLength(0)
   })
 
-  it('puts flag and triangle of a group side by side into its title', () => {
+  it('puts flag, hourglass and triangle of a group side by side into its title', () => {
     const { container } = renderNodes([
       group({
         data: makeData({
           blockedTitle: 'Enthält blockierte Objekte: X',
+          waitingTitle: 'Enthält wartende Objekte: Z',
           inconsistentTitle: 'Enthält fertige Objekte mit nicht fertiger Voraussetzung: Y',
         }),
       }),
     ])
 
     expect(container.querySelector('.group-node__header .blocked-flag')).not.toBeNull()
+    expect(container.querySelector('.group-node__header .waiting-mark')).not.toBeNull()
     expect(container.querySelector('.group-node__header .inconsistent-mark')).not.toBeNull()
   })
 
   it('keeps flag, status mark and cycle badge apart on one box', () => {
     const { container } = renderNodes([
-      box({ data: makeData({ blockedTitle: 'Blockiert durch: X', isInCycle: true, status: 'fertig' }) }),
+      box({ data: makeData({ blockedTitle: 'Blockiert: X', isInCycle: true, status: 'fertig' }) }),
     ])
 
     expect(container.querySelector('.box-node .blocked-flag')).not.toBeNull()

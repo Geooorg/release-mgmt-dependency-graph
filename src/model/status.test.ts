@@ -1,12 +1,25 @@
 import { describe, expect, it } from 'vitest'
-import { findStatusEntry, getStatus, getStatusInfo, isStatusKey, parseStatus, STATUS_VALUES } from './status'
+import {
+  findBlockReasonEntry,
+  findStatusEntry,
+  getBlockReason,
+  getStatus,
+  getStatusInfo,
+  isBlockReasonKey,
+  isStatusKey,
+  parseStatus,
+  STATUS_VALUES,
+  withBlockReasonEntry,
+  withStatusEntry,
+} from './status'
 
 describe('parseStatus', () => {
-  it('accepts the three values, trimmed and case-insensitive', () => {
-    expect(STATUS_VALUES).toEqual(['offen', 'in Arbeit', 'fertig'])
+  it('accepts the four values in this order, trimmed and case-insensitive', () => {
+    expect(STATUS_VALUES).toEqual(['offen', 'in Arbeit', 'blockiert', 'fertig'])
     expect(parseStatus('offen')).toBe('offen')
     expect(parseStatus('  FERTIG ')).toBe('fertig')
     expect(parseStatus('In arbeit')).toBe('in Arbeit')
+    expect(parseStatus(' Blockiert')).toBe('blockiert')
   })
 
   it('returns undefined for anything else', () => {
@@ -88,5 +101,101 @@ describe('getStatusInfo', () => {
       raw: 'erledigt',
       known: false,
     })
+  })
+})
+
+describe('block reason', () => {
+  it('recognises the key trimmed and case-insensitive, first entry wins', () => {
+    expect(isBlockReasonKey('blockiert_grund')).toBe(true)
+    expect(isBlockReasonKey('  Blockiert_Grund ')).toBe(true)
+    expect(isBlockReasonKey('blockiert')).toBe(false)
+    expect(isBlockReasonKey('blockiert_grund2')).toBe(false)
+    const entries = [
+      { key: 'name', value: 'A' },
+      { key: 'BLOCKIERT_GRUND', value: 'x' },
+      { key: 'blockiert_grund', value: 'y' },
+    ]
+    expect(findBlockReasonEntry(entries)).toBe(entries[1])
+    expect(getBlockReason(entries)).toBe('x')
+  })
+
+  it('returns the trimmed reason, undefined when missing or blank', () => {
+    expect(getBlockReason([{ key: 'blockiert_grund', value: '  Freigabe fehlt ' }])).toBe('Freigabe fehlt')
+    expect(getBlockReason([{ key: 'blockiert_grund', value: '   ' }])).toBeUndefined()
+    expect(getBlockReason([{ key: 'name', value: 'A' }])).toBeUndefined()
+  })
+})
+
+describe('withStatusEntry', () => {
+  const base = [
+    { key: 'name', value: 'A' },
+    { key: 'color', value: '#16a34a' },
+    { key: 'owner', value: 'X' },
+  ]
+
+  it('inserts a new entry after name and colour', () => {
+    expect(withStatusEntry(base, 'in Arbeit')).toEqual([base[0], base[1], { key: 'status', value: 'in Arbeit' }, base[2]])
+  })
+
+  it('replaces the first status entry in place, canonically', () => {
+    const entries = [base[0], { key: ' Status ', value: 'x' }, base[2]]
+    expect(withStatusEntry(entries, 'fertig')).toEqual([base[0], { key: 'status', value: 'fertig' }, base[2]])
+  })
+
+  it('keeps the reason while blocked', () => {
+    const entries = [base[0], { key: 'status', value: 'blockiert' }, { key: 'blockiert_grund', value: 'Freigabe' }]
+    expect(withStatusEntry(entries, 'blockiert')).toEqual(entries)
+  })
+
+  it('drops every block reason when the status becomes anything else', () => {
+    const entries = [
+      base[0],
+      { key: 'status', value: 'blockiert' },
+      { key: 'blockiert_grund', value: 'Freigabe' },
+      base[2],
+      { key: ' Blockiert_Grund', value: 'doppelt' },
+    ]
+    expect(withStatusEntry(entries, 'in Arbeit')).toEqual([base[0], { key: 'status', value: 'in Arbeit' }, base[2]])
+  })
+})
+
+describe('withBlockReasonEntry', () => {
+  const blocked = [
+    { key: 'name', value: 'A' },
+    { key: 'color', value: '#16a34a' },
+    { key: 'status', value: 'blockiert' },
+    { key: 'owner', value: 'X' },
+  ]
+
+  it('inserts the reason right after the status entry', () => {
+    expect(withBlockReasonEntry(blocked, 'Freigabe fehlt')).toEqual([
+      blocked[0],
+      blocked[1],
+      blocked[2],
+      { key: 'blockiert_grund', value: 'Freigabe fehlt' },
+      blocked[3],
+    ])
+  })
+
+  it('replaces the first reason in place with the canonical key and removes later ones', () => {
+    const entries = [
+      blocked[0],
+      blocked[2],
+      blocked[3],
+      { key: ' Blockiert_Grund ', value: 'alt' },
+      { key: 'blockiert_grund', value: 'noch einer' },
+    ]
+    expect(withBlockReasonEntry(entries, ' neu ')).toEqual([
+      blocked[0],
+      blocked[2],
+      blocked[3],
+      { key: 'blockiert_grund', value: 'neu' },
+    ])
+  })
+
+  it('removes the entry for a blank reason', () => {
+    const entries = [...blocked, { key: 'blockiert_grund', value: 'alt' }]
+    expect(withBlockReasonEntry(entries, '   ')).toEqual(blocked)
+    expect(withBlockReasonEntry(blocked, '')).toEqual(blocked)
   })
 })

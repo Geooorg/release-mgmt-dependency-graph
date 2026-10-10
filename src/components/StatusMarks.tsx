@@ -1,8 +1,8 @@
 import type { Status } from '../model/status'
-import { CheckIcon, FlagIcon, OpenCircleIcon, QuestionIcon, WarningIcon } from './icons'
+import { CheckIcon, FlagIcon, HourglassIcon, OpenCircleIcon, QuestionIcon, WarningIcon } from './icons'
 import './components.css'
 
-/** Red flag on blocked elements; `title` says what blocks (also the accessible name). */
+/** Red flag on elements with the status `blockiert`; `title` names the reason (also the accessible name). */
 export function BlockedFlag({ title, inline = false }: { title: string; inline?: boolean }) {
   return (
     <span
@@ -12,6 +12,20 @@ export function BlockedFlag({ title, inline = false }: { title: string; inline?:
       title={title}
     >
       <FlagIcon size={12} />
+    </span>
+  )
+}
+
+/** Hourglass on unfinished elements that wait for an unfinished prerequisite; `title` names them. */
+export function WaitingMark({ title, inline = false }: { title: string; inline?: boolean }) {
+  return (
+    <span
+      className={inline ? 'waiting-mark waiting-mark--inline' : 'waiting-mark'}
+      role="img"
+      aria-label={title}
+      title={title}
+    >
+      <HourglassIcon size={12} />
     </span>
   )
 }
@@ -31,12 +45,14 @@ export function InconsistentMark({ title, inline = false }: { title: string; inl
 }
 
 interface StatusMarkProps {
-  /** Effective status; undefined = no mark (groups). */
+  /** Effective status; undefined = no mark (groups). `blockiert` has none either: the red flag is its mark. */
   status: Status | undefined
   /** Trimmed raw status value; undefined = not set. */
   raw?: string
-  /** False = the raw value is none of the three statuses. */
+  /** False = the raw value is none of the four statuses. */
   known?: boolean
+  /** In the text flow instead of the lower right corner of an element (legend). */
+  inline?: boolean
 }
 
 function markOf({ status, raw, known = true }: StatusMarkProps & { status: Status }) {
@@ -68,10 +84,11 @@ function markOf({ status, raw, known = true }: StatusMarkProps & { status: Statu
  * circle = offen, amber question mark = unknown value (counts as offen).
  */
 export function StatusMark(props: StatusMarkProps) {
-  if (props.status === undefined) return null
+  if (props.status === undefined || props.status === 'blockiert') return null
   const { modifier, title, icon } = markOf({ ...props, status: props.status })
+  const className = `status-mark status-mark--${modifier}${props.inline ? ' status-mark--inline' : ''}`
   return (
-    <span className={`status-mark status-mark--${modifier}`} role="img" aria-label={title} title={title}>
+    <span className={className} role="img" aria-label={title} title={title}>
       {icon}
     </span>
   )

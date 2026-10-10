@@ -118,12 +118,18 @@ export interface AnalysisEntry {
   id: string
   name: string
   status: Status
-  /** Unfinished and not blocked: can be worked on right now. */
+  /** Unfinished, not blocked and without an unfinished prerequisite: can be worked on right now. */
   ready: boolean
-  /** Unfinished with an unfinished transitive prerequisite. */
+  /** Status `blockiert` (set by hand): red flag. */
   blocked: boolean
+  /** Unfinished, not blocked, with an unfinished transitive prerequisite: hourglass. */
+  waiting: boolean
   /** Finished although a prerequisite is not. */
   inconsistent?: boolean
+  /** Blocked entries: the reason; undefined = none given. */
+  reason?: string
+  /** Names of the direct prerequisites a waiting entry waits for, in release order. */
+  waitingFor?: string[]
 }
 
 /** A finished object that waits for unfinished prerequisites. */
@@ -133,7 +139,7 @@ export interface InconsistentEntry {
   waitingFor: { name: string; status: Status }[]
 }
 
-/** An object whose status value is none of the three (it counts as `offen`). */
+/** An object whose status value is none of the four (it counts as `offen`). */
 export interface UnknownStatusEntry {
   id: string
   name: string
@@ -144,8 +150,18 @@ export interface AnalysisCounts {
   done: number
   inProgress: number
   open: number
+  /** Status `blockiert` (set by hand). */
   blocked: number
+  /** Unfinished, not blocked, with an unfinished prerequisite. */
+  waiting: number
   ready: number
+}
+
+/** A selected object that is blocked itself. */
+export interface SelfBlockedEntry {
+  id: string
+  name: string
+  reason?: string
 }
 
 /** The single selected element, shown at the top of the panel for its status. */
@@ -153,8 +169,10 @@ export interface AnalysisSelected {
   id: string
   name: string
   kind: 'node' | 'group'
-  /** Objects: trimmed raw value of the status entry, '' = none. May be none of the three statuses. */
+  /** Objects: trimmed raw value of the status entry, '' = none. May be none of the four statuses. */
   status: string
+  /** Objects with the status `blockiert`: the trimmed reason, '' = none. */
+  reason: string
   /** Groups: finished and total objects inside (read-only). */
   progress?: { done: number; total: number }
 }
@@ -164,6 +182,13 @@ export interface AnalysisPanelProps {
   selected: AnalysisSelected | null
   /** Sets the status of the selected object. */
   onStatusChange: (status: Status) => void
+  /** Sets the reason of the selected blocked object (live: called with every change of the field). */
+  onBlockReasonChange: (reason: string) => void
+  /** A reason edit begins / ends (first change to leaving the field); the owner bundles it into one undo step. */
+  onEditStart: () => void
+  onEditEnd: () => void
+  /** Selected objects that are blocked themselves; shown prominently at the top. */
+  selfBlocked: SelfBlockedEntry[]
   /** `project`: nothing selected, the figures cover the whole project. */
   scope: 'selection' | 'project'
   /** Names of the selected elements (empty for the whole project). */
@@ -173,8 +198,11 @@ export interface AnalysisPanelProps {
   criticalPath: { steps: AnalysisEntry[]; length: number } | null
   /** Names of the objects in the cycles that make the critical path undefined. */
   cycleNames: string[]
-  /** Unfinished prerequisites of the selection, ready ones first (scope `project`: all unfinished objects). */
-  blockers: AnalysisEntry[]
+  /**
+   * Unfinished prerequisites of the selection (scope `project`: all unfinished objects): blocked
+   * ones first, then ready ones, then waiting ones.
+   */
+  unfinished: AnalysisEntry[]
   /** Section "Zu klären": finished objects with unfinished prerequisites ... */
   inconsistent: InconsistentEntry[]
   /** ... and objects with an unknown status value (selection and its prerequisites, or the whole project). */

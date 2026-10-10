@@ -701,4 +701,68 @@ describe('App: analysis mode layout', () => {
 
     expect(within(panel()!).queryByRole('region', { name: 'Auswahl' })).toBeNull()
   })
+
+  describe('blocking by hand', () => {
+    const metadataOf = (index: number) => graphStore.getState().nodes[index].metadata
+    const steps = () => graphStore.getState().history.past.length
+
+    it('blocks from the panel with a reason, flags the selection and undoes status and reason as steps', async () => {
+      render(<App />)
+      const [first] = graphStore.getState().nodes
+      select(first.id)
+      await switchTo('Analysieren')
+      const block = within(panel()!).getByRole('region', { name: 'Auswahl' })
+
+      expect(within(block).queryByLabelText('Grund')).toBeNull()
+      await userEvent.selectOptions(within(block).getByLabelText('Status'), 'blockiert')
+      await userEvent.type(within(block).getByLabelText('Grund'), 'Freigabe fehlt')
+      await userEvent.tab()
+
+      expect(metadataOf(0)).toEqual([
+        { key: 'name', value: 'Projekt A' },
+        { key: 'status', value: 'blockiert' },
+        { key: 'blockiert_grund', value: 'Freigabe fehlt' },
+      ])
+      expect(steps()).toBe(2)
+      const banner = within(panel()!).getByRole('region', { name: 'Auswahl ist blockiert' })
+      expect(banner).toHaveTextContent('Projekt A ist blockiert – Freigabe fehlt')
+      // the first object also depends on the second one, which is not finished: the flag says so as well
+      expect(document.querySelector('.box-node .blocked-flag')).toHaveAttribute(
+        'aria-label',
+        'Blockiert: Freigabe fehlt – wartet außerdem auf: Projekt B',
+      )
+      const counts = within(within(panel()!).getByRole('list', { name: 'Projektstand' }))
+      expect(counts.getByText('blockiert').closest('li')).toHaveTextContent('1 blockiert')
+
+      // another status removes the reason; one undo step brings both back
+      await userEvent.selectOptions(within(block).getByLabelText('Status'), 'in Arbeit')
+      expect(metadataOf(0)).toEqual([
+        { key: 'name', value: 'Projekt A' },
+        { key: 'status', value: 'in Arbeit' },
+      ])
+      expect(within(panel()!).queryByRole('region', { name: 'Auswahl ist blockiert' })).toBeNull()
+      act(() => graphStore.getState().undo())
+      expect(metadataOf(0)).toContainEqual({ key: 'blockiert_grund', value: 'Freigabe fehlt' })
+      expect(within(block).getByLabelText('Grund')).toHaveValue('Freigabe fehlt')
+    })
+
+    it('makes the object that depends on a blocked one wait, with an hourglass', async () => {
+      render(<App />)
+      // the default project has an edge from the first to the second object
+      const [first, second] = graphStore.getState().nodes
+      const edge = graphStore.getState().edges[0]
+      const [dependent, prerequisite] = edge.source === first.id ? [first, second] : [second, first]
+      act(() => graphStore.getState().setStatus(prerequisite.id, 'blockiert'))
+      await switchTo('Analysieren')
+
+      const marks = [...document.querySelectorAll('.box-node .waiting-mark')]
+      expect(marks).toHaveLength(1)
+      expect(marks[0].getAttribute('aria-label')).toMatch(/^Wartet auf: /)
+      expect(document.querySelectorAll('.box-node .blocked-flag')).toHaveLength(1)
+      const counts = within(within(panel()!).getByRole('list', { name: 'Projektstand' }))
+      expect(counts.getByText('wartet').closest('li')).toHaveTextContent('1 wartet')
+      expect(counts.getByText('jetzt umsetzbar').closest('li')).toHaveTextContent('0 jetzt umsetzbar')
+      expect(dependent.id).not.toBe(prerequisite.id)
+    })
+  })
 })

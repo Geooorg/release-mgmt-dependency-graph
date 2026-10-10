@@ -130,7 +130,7 @@ describe('toFlowEdges labels', () => {
   })
 })
 
-describe('toFlowNodes status and blockers', () => {
+describe('toFlowNodes status, waiting and blocked', () => {
   const ui = (analysis: ReturnType<typeof analyzeProject>, revealedId: string | null = null) => ({
     selectedIds: new Set<string>(),
     connectSourceId: null,
@@ -142,7 +142,7 @@ describe('toFlowNodes status and blockers', () => {
     revealedId,
   })
 
-  it('carries the status and the blockers of an object', () => {
+  it('carries the status and what an object waits for', () => {
     const model = content(
       [withStatus(box('a', 0, 0), 'fertig'), box('b', 1, 0), withStatus(box('c', 2, 0), 'in Arbeit')],
       [edge('ab', 'a', 'b'), edge('bc', 'b', 'c')],
@@ -150,12 +150,13 @@ describe('toFlowNodes status and blockers', () => {
     const [a, b, c] = toFlowNodes(model.nodes, ui(analyzeProject(model)))
     expect([a.data.status, b.data.status, c.data.status]).toEqual(['fertig', 'offen', 'in Arbeit'])
     // a is finished but waits for b: a contradiction, not a blockade
-    expect(a.data.blockedTitle).toBeUndefined()
+    expect(a.data.waitingTitle).toBeUndefined()
     expect(a.data.inconsistentTitle).toBe('Fertig, aber Voraussetzung nicht fertig: b')
-    expect(b.data.blockedTitle).toBe('Blockiert durch: c')
+    expect(b.data.waitingTitle).toBe('Wartet auf: c')
     expect(b.data.inconsistentTitle).toBeUndefined()
-    expect(c.data.blockedTitle).toBeUndefined()
+    expect(c.data.waitingTitle).toBeUndefined()
     expect(c.data.inconsistentTitle).toBeUndefined()
+    expect([a, b, c].map((n) => n.data.blockedTitle)).toEqual([undefined, undefined, undefined])
   })
 
   it('tells an unset, an unknown and a real status apart', () => {
@@ -182,7 +183,7 @@ describe('toFlowNodes status and blockers', () => {
     expect(a.data.inconsistentTitle).toBe('Fertig, aber Voraussetzung nicht fertig: p1, p2, p3, p4, p5, …')
   })
 
-  it('marks a group that contains an inconsistent object, besides the blocked flag if there is one', () => {
+  it('marks a group that contains an inconsistent object, besides the hourglass if there is one', () => {
     const model = content(
       [
         group('g', 0, 0, 300, 200),
@@ -198,29 +199,30 @@ describe('toFlowNodes status and blockers', () => {
     const g = flows.find((n) => n.id === 'g')!
     const h = flows.find((n) => n.id === 'h')!
     expect(g.data.inconsistentTitle).toBe('Enthält fertige Objekte mit nicht fertiger Voraussetzung: m')
-    expect(g.data.blockedTitle).toBe('Enthält blockierte Objekte: n')
+    expect(g.data.waitingTitle).toBe('Enthält wartende Objekte: n')
+    expect(g.data.blockedTitle).toBeUndefined()
     expect(h.data.inconsistentTitle).toBe('Enthält fertige Objekte mit nicht fertiger Voraussetzung: o')
-    expect(h.data.blockedTitle).toBeUndefined()
+    expect(h.data.waitingTitle).toBeUndefined()
   })
 
-  it('lists at most five blockers, then an ellipsis', () => {
+  it('lists at most five prerequisites, then an ellipsis', () => {
     const blockers = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map((id, i) => box(id, i + 1, 0))
     const model = content(
       [box('a', 0, 0), ...blockers],
       blockers.map((b) => edge(`e-${b.id}`, 'a', b.id)),
     )
     const [a] = toFlowNodes(model.nodes, ui(analyzeProject(model)))
-    expect(a.data.blockedTitle).toBe('Blockiert durch: p1, p2, p3, p4, p5, …')
+    expect(a.data.waitingTitle).toBe('Wartet auf: p1, p2, p3, p4, p5, …')
   })
 
-  it('names the blocked members on a group and gives it no status', () => {
+  it('names the waiting members on a group and gives it no status', () => {
     const model = content(
       [group('g', 0, 0, 300, 200), box('m', 1, 1, 'g'), box('y', 5, 5)],
       [edge('my', 'm', 'y')],
     )
     const flows = toFlowNodes(model.nodes, ui(analyzeProject(model)))
     const g = flows.find((n) => n.id === 'g')!
-    expect(g.data.blockedTitle).toBe('Enthält blockierte Objekte: m')
+    expect(g.data.waitingTitle).toBe('Enthält wartende Objekte: m')
     expect(g.data.status).toBeUndefined()
   })
 
@@ -232,5 +234,47 @@ describe('toFlowNodes status and blockers', () => {
     const [plain] = toFlowNodes(nodes, { ...ui(analyzeProject(content(nodes))), analysis: undefined })
     expect(plain.data.status).toBeUndefined()
     expect(plain.data.blockedTitle).toBeUndefined()
+    expect(plain.data.waitingTitle).toBeUndefined()
+  })
+
+  describe('blocked by hand', () => {
+    const blocked = (id: string, x: number, reason?: string, parentId?: string) => {
+      const node = withStatus(box(id, x, 0, parentId), 'blockiert')
+      return reason === undefined ? node : { ...node, metadata: [...node.metadata, { key: 'blockiert_grund', value: reason }] }
+    }
+
+    it('gives a blocked object the red flag with its reason, or says that there is none', () => {
+      const model = content([blocked('a', 0, 'Freigabe fehlt'), blocked('b', 1), box('c', 2, 0)])
+      const [a, b, c] = toFlowNodes(model.nodes, ui(analyzeProject(model)))
+      expect(a.data.blockedTitle).toBe('Blockiert: Freigabe fehlt')
+      expect(b.data.blockedTitle).toBe('Blockiert (kein Grund angegeben)')
+      expect(c.data.blockedTitle).toBeUndefined()
+      expect([a, b, c].map((n) => n.data.waitingTitle)).toEqual([undefined, undefined, undefined])
+      expect(a.data.status).toBe('blockiert')
+    })
+
+    it('lets the flag win over the hourglass but names what the object also waits for', () => {
+      const model = content(
+        [blocked('a', 0, 'Freigabe fehlt'), blocked('b', 1), box('p', 2, 0), box('q', 3, 0)],
+        [edge('ap', 'a', 'p'), edge('bq', 'b', 'q')],
+      )
+      const [a, b] = toFlowNodes(model.nodes, ui(analyzeProject(model)))
+      expect(a.data.blockedTitle).toBe('Blockiert: Freigabe fehlt – wartet außerdem auf: p')
+      expect(b.data.blockedTitle).toBe('Blockiert (kein Grund angegeben) – wartet außerdem auf: q')
+      expect(a.data.waitingTitle).toBeUndefined()
+    })
+
+    it('makes the dependents wait for the blocked object', () => {
+      const model = content([box('a', 0, 0), blocked('b', 1)], [edge('ab', 'a', 'b')])
+      const [a] = toFlowNodes(model.nodes, ui(analyzeProject(model)))
+      expect(a.data.waitingTitle).toBe('Wartet auf: b')
+    })
+
+    it('flags a group by its blocked members', () => {
+      const model = content([group('g', 0, 0, 300, 200), blocked('m', 1, 'x', 'g'), blocked('n', 2, undefined, 'g')])
+      const g = toFlowNodes(model.nodes, ui(analyzeProject(model))).find((n) => n.id === 'g')!
+      expect(g.data.blockedTitle).toBe('Enthält blockierte Objekte: m, n')
+      expect(g.data.waitingTitle).toBeUndefined()
+    })
   })
 })

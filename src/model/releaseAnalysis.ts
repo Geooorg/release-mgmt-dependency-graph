@@ -2,7 +2,7 @@ import { findCycles } from './cycles'
 import { buildEffectiveGraph, type EffectiveGraph } from './effectiveGraph'
 import { displayName } from './metadata'
 import { DEFAULT_PROJECT_NAME } from './projectName'
-import { getStatusInfo, type Status, type StatusInfo } from './status'
+import { getBlockReason, getStatusInfo, type Status, type StatusInfo } from './status'
 import type { GraphContent, ModelNode } from './types'
 
 /**
@@ -11,9 +11,16 @@ import type { GraphContent, ModelNode } from './types'
  * Everything is pure, deterministic (ties are broken by node order) and iterative, so large
  * graphs cannot overflow the stack.
  *
+ * Terms: an unfinished object (any status but `fertig`) is
+ *  - *blocked* when its status is `blockiert` (set by hand, with an optional reason),
+ *  - *waiting* when it is not blocked but has an unfinished transitive prerequisite (computed),
+ *  - *ready* otherwise ("jetzt umsetzbar").
+ * A blocked object counts as unfinished, so everything that depends on it waits. A finished object
+ * with an unfinished prerequisite is a contradiction ("inconsistent"), neither blocked nor waiting.
+ *
  * Only objects (`kind: 'node'`) carry a status and count as work. A group without objects is a
  * vertex of the graph (its edges must not get lost) but has no work of its own, so it is
- * transparent: never open, never a blocker, not counted.
+ * transparent: never unfinished, never blocked or waiting, not counted.
  */
 
 export interface StatusCounts {
@@ -22,13 +29,15 @@ export interface StatusCounts {
   done: number
   inProgress: number
   open: number
-  /** Unfinished objects with an unfinished transitive prerequisite. */
+  /** Objects with the status `blockiert` (set by hand), whatever their prerequisites. */
   blocked: number
+  /** Unfinished, not blocked objects with an unfinished transitive prerequisite. */
+  waiting: number
   /** Finished objects with an unfinished transitive prerequisite (a contradiction). */
   inconsistent: number
-  /** Objects whose status value is none of the three (counted as `offen`). */
+  /** Objects whose status value is none of the four (counted as `offen`). */
   unknownStatus: number
-  /** Unfinished objects that can be worked on right now. */
+  /** Unfinished, not blocked objects without an unfinished prerequisite: can be worked on right now. */
   ready: number
 }
 
@@ -39,31 +48,40 @@ export interface ProjectAnalysis {
   statusInfoById: Map<string, StatusInfo>
   /** Objects whose status value is unknown, with the raw value, in node order. */
   unknownStatusIds: Map<string, string>
-  /** Unfinished objects with an unfinished transitive prerequisite, plus groups containing such an object. */
+  /** Objects with the status `blockiert`, plus groups containing such an object. */
   blockedIds: Set<string>
+  /** Reason of every blocked object that has one (trimmed). */
+  blockReasons: Map<string, string>
+  /** Unfinished, not blocked objects with an unfinished transitive prerequisite, plus groups containing such an object. */
+  waitingIds: Set<string>
   /** Finished objects with an unfinished transitive prerequisite (objects only; groups are in `inconsistentMembers`). */
   inconsistentIds: Set<string>
   /**
-   * Per blocked or inconsistent object: the direct prerequisites through which the waiting comes
-   * (unfinished, or finished but themselves waiting), in node order.
+   * Per waiting, inconsistent or blocked object that has unfinished prerequisites: the direct
+   * prerequisites through which it waits (unfinished, or finished but themselves waiting), in node order.
    */
-  blockingDirect: Map<string, string[]>
+  waitingFor: Map<string, string[]>
   /** Per group: the blocked objects inside (any depth), in node order. */
   blockedMembers: Map<string, string[]>
+  /** Per group: the waiting objects inside (any depth), in node order. */
+  waitingMembers: Map<string, string[]>
   /** Per group: the inconsistent objects inside (any depth), in node order. */
   inconsistentMembers: Map<string, string[]>
-  /** Unfinished objects without any unfinished transitive prerequisite. */
+  /** Unfinished, not blocked objects without any unfinished transitive prerequisite. */
   readyIds: Set<string>
   /** Per group: finished and total objects inside (any depth). */
   groupProgress: Map<string, { done: number; total: number }>
   counts: StatusCounts
 }
 
-export interface Blocker {
+export type WorkState = 'blocked' | 'waiting' | 'ready'
+
+/** An unfinished object in the scope of an analysis. */
+export interface UnfinishedObject {
   id: string
   status: Status
-  /** Not blocked itself: can be worked on right now. */
-  ready: boolean
+  /** `blocked`: status `blockiert`; `waiting`: unfinished prerequisite; `ready`: can be worked on right now. */
+  state: WorkState
   /** Shortest number of steps from the selection (0 for the whole project). */
   distance: number
 }
@@ -82,8 +100,13 @@ export interface SelectionAnalysis {
   scope: 'selection' | 'project'
   /** The selected elements that exist, in the given order. */
   selectedIds: string[]
-  /** Unfinished prerequisites of the selection (the unfinished objects of the project in `project` scope). */
-  blockers: Blocker[]
+  /**
+   * Unfinished prerequisites of the selection (the unfinished objects of the project in `project` scope):
+   * blocked ones first, then ready ones, then waiting ones; each group in release order.
+   */
+  unfinished: UnfinishedObject[]
+  /** Selected objects that are blocked themselves. */
+  selectedBlocked: string[]
   /** Null when the relevant part contains a cycle (the longest chain is not defined then). */
   criticalPath: CriticalPath | null
   /** Objects of the cycles that are part of the relevant graph; empty if there are none. */
@@ -100,6 +123,9 @@ export interface InconsistentObject {
   waitingFor: string[]
 }
 
+/** Blocked objects come first in lists, then the ones that can be worked on, then the waiting ones. */
+const STATE_RANK: Record<WorkState, number> = { blocked: 0, ready: 1, waiting: 2 }
+
 interface Prepared {
   graph: EffectiveGraph
   indexOf: Map<string, number>
@@ -111,8 +137,10 @@ interface Prepared {
   status: (Status | undefined)[]
   /** Unfinished object. */
   open: boolean[]
+  /** Status `blockiert`. */
+  manual: boolean[]
   /** Some unfinished vertex is reachable via one or more steps (a vertex of a cycle can reach itself). */
-  blocked: boolean[]
+  waiting: boolean[]
   /** Finished object with an unfinished vertex reachable via one or more steps. */
   inconsistent: boolean[]
 }
@@ -130,29 +158,30 @@ function prepare(content: GraphContent): Prepared {
   const info = vertices.map((id, i) => (isObject[i] ? getStatusInfo(kinds.get(id)?.metadata ?? []) : undefined))
   const status = info.map((entry) => entry?.status)
   const open = status.map((s) => s !== undefined && s !== 'fertig')
+  const manual = status.map((s) => s === 'blockiert')
 
   // Multi-source walk against the arrows from every unfinished vertex. Seeds are marked only when
-  // they are reached from another vertex, so a lone unfinished object is not blocked by itself.
-  const blocked = vertices.map(() => false)
+  // they are reached from another vertex, so a lone unfinished object does not wait for itself.
+  const waiting = vertices.map(() => false)
   const queued = [...open]
   const queue: number[] = []
   open.forEach((isOpen, i) => isOpen && queue.push(i))
   for (let head = 0; head < queue.length; head++) {
     for (const p of pred[queue[head]]) {
-      blocked[p] = true
+      waiting[p] = true
       if (!queued[p]) {
         queued[p] = true
         queue.push(p)
       }
     }
   }
-  const inconsistent = vertices.map((_, i) => status[i] === 'fertig' && blocked[i])
-  return { graph, indexOf, succ, pred, isObject, info, status, open, blocked, inconsistent }
+  const inconsistent = vertices.map((_, i) => status[i] === 'fertig' && waiting[i])
+  return { graph, indexOf, succ, pred, isObject, info, status, open, manual, waiting, inconsistent }
 }
 
 /** Direct prerequisites of a vertex that are unfinished or finished but waiting themselves. */
 function waitingOn(p: Prepared, i: number): string[] {
-  return p.succ[i].filter((w) => p.open[w] || p.blocked[w]).map((w) => p.graph.vertices[w])
+  return p.succ[i].filter((w) => p.open[w] || p.waiting[w]).map((w) => p.graph.vertices[w])
 }
 
 /** Ancestor group ids of an element, nearest first; a corrupt parent loop ends the walk. */
@@ -175,15 +204,18 @@ export function analyzeProject(content: GraphContent): ProjectAnalysis {
   const statusInfoById = new Map<string, StatusInfo>()
   const unknownStatusIds = new Map<string, string>()
   const blockedIds = new Set<string>()
+  const blockReasons = new Map<string, string>()
+  const waitingIds = new Set<string>()
   const inconsistentIds = new Set<string>()
   const readyIds = new Set<string>()
-  const blockingDirect = new Map<string, string[]>()
+  const waitingFor = new Map<string, string[]>()
   const counts: StatusCounts = {
     total: 0,
     done: 0,
     inProgress: 0,
     open: 0,
     blocked: 0,
+    waiting: 0,
     inconsistent: 0,
     unknownStatus: 0,
     ready: 0,
@@ -202,15 +234,22 @@ export function analyzeProject(content: GraphContent): ProjectAnalysis {
     counts.total++
     if (status === 'fertig') counts.done++
     else if (status === 'in Arbeit') counts.inProgress++
+    else if (status === 'blockiert') counts.blocked++
     else counts.open++
     if (p.inconsistent[i]) {
       inconsistentIds.add(id)
       counts.inconsistent++
-      blockingDirect.set(id, waitingOn(p, i))
-    } else if (p.blocked[i]) {
+      waitingFor.set(id, waitingOn(p, i))
+    } else if (p.manual[i]) {
+      // A blocked object that also waits is shown as blocked only; what it waits for is kept for the tooltip.
       blockedIds.add(id)
-      counts.blocked++
-      blockingDirect.set(id, waitingOn(p, i))
+      const reason = getBlockReason(byId.get(id)?.metadata ?? [])
+      if (reason !== undefined) blockReasons.set(id, reason)
+      if (p.waiting[i]) waitingFor.set(id, waitingOn(p, i))
+    } else if (p.waiting[i]) {
+      waitingIds.add(id)
+      counts.waiting++
+      waitingFor.set(id, waitingOn(p, i))
     } else if (p.open[i]) {
       readyIds.add(id)
       counts.ready++
@@ -219,6 +258,7 @@ export function analyzeProject(content: GraphContent): ProjectAnalysis {
 
   const groupProgress = new Map<string, { done: number; total: number }>()
   const blockedMembers = new Map<string, string[]>()
+  const waitingMembers = new Map<string, string[]>()
   const inconsistentMembers = new Map<string, string[]>()
   const addMember = (members: Map<string, string[]>, groupId: string, id: string) => {
     const list = members.get(groupId)
@@ -237,19 +277,24 @@ export function analyzeProject(content: GraphContent): ProjectAnalysis {
         if (statusById.get(node.id) === 'fertig') progress.done++
       }
       if (blockedIds.has(node.id)) addMember(blockedMembers, groupId, node.id)
+      if (waitingIds.has(node.id)) addMember(waitingMembers, groupId, node.id)
       if (inconsistentIds.has(node.id)) addMember(inconsistentMembers, groupId, node.id)
     }
   }
   for (const groupId of blockedMembers.keys()) blockedIds.add(groupId)
+  for (const groupId of waitingMembers.keys()) waitingIds.add(groupId)
 
   return {
     statusById,
     statusInfoById,
     unknownStatusIds,
     blockedIds,
+    blockReasons,
+    waitingIds,
     inconsistentIds,
-    blockingDirect,
+    waitingFor,
     blockedMembers,
+    waitingMembers,
     inconsistentMembers,
     readyIds,
     groupProgress,
@@ -340,21 +385,26 @@ export function analyzeSelection(content: GraphContent, startIds: readonly strin
   }
 
   const depth = chainDepths(p)
-  const blockers = vertices
+  const stateOf = (i: number): WorkState => (p.manual[i] ? 'blocked' : p.waiting[i] ? 'waiting' : 'ready')
+  const unfinished = vertices
     .map((_, i) => i)
     .filter((i) => p.open[i] && distance[i] !== -1 && (whole || !startSet.has(i)))
     .sort((a, b) => {
-      const readyA = !p.blocked[a]
-      const readyB = !p.blocked[b]
-      if (readyA !== readyB) return readyA ? -1 : 1
+      const rankA = STATE_RANK[stateOf(a)]
+      const rankB = STATE_RANK[stateOf(b)]
+      if (rankA !== rankB) return rankA - rankB
       return depth[a] === depth[b] ? a - b : depth[a] < depth[b] ? -1 : 1
     })
     .map((i) => ({
       id: vertices[i],
       status: p.status[i] as Status,
-      ready: !p.blocked[i],
+      state: stateOf(i),
       distance: distance[i],
     }))
+  const selectedBlocked = selectedIds.filter((id) => {
+    const index = p.indexOf.get(id)
+    return index !== undefined && p.manual[index]
+  })
 
   const inScope = new Set(vertices.filter((_, i) => distance[i] !== -1))
   const cycleIds = findCycles(content, p.graph)
@@ -381,7 +431,8 @@ export function analyzeSelection(content: GraphContent, startIds: readonly strin
   return {
     scope: whole ? 'project' : 'selection',
     selectedIds,
-    blockers,
+    unfinished,
+    selectedBlocked,
     criticalPath,
     cycleIds,
     inconsistent,
@@ -391,6 +442,14 @@ export function analyzeSelection(content: GraphContent, startIds: readonly strin
 
 function stepsText(count: number): string {
   return count === 1 ? '1 Schritt' : `${count} Schritte`
+}
+
+const MAX_LISTED_NAMES = 5
+
+/** "A, B, C" with at most five names, then "…". */
+export function joinNames(names: readonly string[]): string {
+  const shown = names.slice(0, MAX_LISTED_NAMES).join(', ')
+  return names.length > MAX_LISTED_NAMES ? `${shown}, …` : shown
 }
 
 /** Markdown report (for the clipboard) of the analysis of a selection or the whole project. */
@@ -405,7 +464,13 @@ export function formatAnalysisMarkdown(
     return node ? displayName(node) : id.slice(0, 8)
   }
   const statusOf = (id: string) => project.statusById.get(id) ?? 'offen'
-  const entry = (b: Blocker) => `- ${name(b.id)} – ${b.status}${b.ready ? ', jetzt umsetzbar' : ''}`
+  const reasonOf = (id: string) => project.blockReasons.get(id) ?? 'kein Grund angegeben'
+  const waitsFor = (id: string) => `wartet auf ${joinNames((project.waitingFor.get(id) ?? []).map(name))}`
+  const entry = (u: UnfinishedObject) => {
+    if (u.state === 'blocked') return `- ${name(u.id)} – blockiert: ${reasonOf(u.id)}`
+    if (u.state === 'ready') return `- ${name(u.id)} – ${u.status}, jetzt umsetzbar`
+    return `- ${name(u.id)} – ${u.status}, ${waitsFor(u.id)}`
+  }
 
   const target = selection.scope === 'project' ? 'Gesamtes Projekt' : selection.selectedIds.map(name).join(', ')
   const { counts } = project
@@ -417,10 +482,20 @@ export function formatAnalysisMarkdown(
     `- in Arbeit: ${counts.inProgress}`,
     `- offen: ${counts.open}`,
     `- blockiert: ${counts.blocked}`,
+    `- wartet: ${counts.waiting}`,
     `- jetzt umsetzbar: ${counts.ready}`,
     ...(clarifyCount > 0 ? [`- zu klären: ${clarifyCount}`] : []),
     '',
   ]
+
+  if (selection.selectedBlocked.length > 0) {
+    lines.push(
+      '## Auswahl ist blockiert',
+      '',
+      ...selection.selectedBlocked.map((id) => `- ${name(id)} – ${reasonOf(id)}`),
+      '',
+    )
+  }
 
   if (clarifyCount > 0) {
     lines.push('## Zu klären', '')
@@ -444,18 +519,19 @@ export function formatAnalysisMarkdown(
     }
   }
 
+  const pathLines: string[] = []
   const path = selection.criticalPath
   if (path === null) {
-    lines.push(
+    pathLines.push(
       '## Kritischer Pfad',
       '',
       `Kritischer Pfad nicht berechenbar – Zyklus zwischen ${selection.cycleIds.map(name).join(', ')}.`,
       '',
     )
   } else if (path.nodeIds.length === 0) {
-    lines.push('## Kritischer Pfad (0 Schritte)', '', 'Kein offener Schritt.', '')
+    pathLines.push('## Kritischer Pfad (0 Schritte)', '', 'Kein offener Schritt.', '')
   } else {
-    lines.push(
+    pathLines.push(
       `## Kritischer Pfad (${stepsText(path.length)})`,
       '',
       ...path.nodeIds.map((id, i) => `${i + 1}. ${name(id)} – ${statusOf(id)}`),
@@ -464,16 +540,19 @@ export function formatAnalysisMarkdown(
   }
 
   if (selection.scope === 'project') {
-    const ready = selection.blockers.filter((b) => b.ready)
-    const blocked = selection.blockers.filter((b) => !b.ready)
-    lines.push('## Jetzt umsetzbar', '', ...(ready.length > 0 ? ready.map(entry) : ['Nichts.']), '')
-    lines.push('## Blockiert', '', ...(blocked.length > 0 ? blocked.map(entry) : ['Nichts.']), '')
+    const inState = (state: WorkState) => selection.unfinished.filter((u) => u.state === state)
+    const section = (title: string, items: string[]) => lines.push(title, '', ...(items.length > 0 ? items : ['Nichts.']), '')
+    section('## Blockiert', inState('blocked').map((u) => `- ${name(u.id)} – ${reasonOf(u.id)}`))
+    section('## Jetzt umsetzbar', inState('ready').map((u) => `- ${name(u.id)} – ${u.status}`))
+    section('## Wartet', inState('waiting').map((u) => `- ${name(u.id)} – ${u.status}, ${waitsFor(u.id)}`))
+    lines.push(...pathLines)
   } else {
     lines.push(
-      '## Blockierende Objekte',
+      ...pathLines,
+      '## Offene Voraussetzungen',
       '',
-      ...(selection.blockers.length > 0
-        ? selection.blockers.map(entry)
+      ...(selection.unfinished.length > 0
+        ? selection.unfinished.map(entry)
         : ['Keine offenen Voraussetzungen – kann released werden.']),
       '',
     )

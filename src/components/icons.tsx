@@ -151,6 +151,18 @@ export function FlagIcon({ size }: { size?: number }) {
   )
 }
 
+/** Hourglass (colour via `currentColor`): waits for an unfinished prerequisite. */
+export function HourglassIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M6 3h12M6 21h12" />
+      <path d="M7.5 3v3a5 5 0 0 0 2 4l2.5 2-2.5 2a5 5 0 0 0-2 4v3" />
+      <path d="M16.5 3v3a5 5 0 0 1-2 4L12 12l2.5 2a5 5 0 0 1 2 4v3" />
+      <path d="M9.5 19h5L12 16z" fill="currentColor" />
+    </Icon>
+  )
+}
+
 /** Warning triangle (amber via `currentColor`) with a white exclamation mark: finished, but a prerequisite is not. */
 export function WarningIcon({ size }: { size?: number }) {
   return (

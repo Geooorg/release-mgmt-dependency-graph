@@ -21,10 +21,12 @@ export interface FlowNodeData extends Record<string, unknown> {
   status?: Status
   /** Trimmed raw status value; undefined = not set (objects only). */
   statusRaw?: string
-  /** False = the raw status value is none of the three and counts as `offen` (objects only). */
+  /** False = the raw status value is none of the four and counts as `offen` (objects only). */
   statusKnown?: boolean
-  /** Tooltip text of the red flag; set = the element (a group: one of its members) is blocked. */
+  /** Tooltip text of the red flag; set = the element (a group: one of its members) has the status `blockiert`. */
   blockedTitle?: string
+  /** Tooltip text of the hourglass; set = the element (a group: one of its members) waits for an unfinished prerequisite. */
+  waitingTitle?: string
   /** Tooltip text of the amber warning triangle; set = finished despite an unfinished prerequisite (a group: one of its members). */
   inconsistentTitle?: string
   /** `#rrggbb` from the `color` metadata field; undefined = default blue. */

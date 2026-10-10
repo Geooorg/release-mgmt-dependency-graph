@@ -9,16 +9,20 @@ import {
 const done = (id: string, x = 0) => withStatus(box(id, x, 0), 'fertig')
 const wip = (id: string, x = 0) => withStatus(box(id, x, 0), 'in Arbeit')
 const open = (id: string, x = 0) => box(id, x, 0)
+const stuck = (id: string, x = 0, reason?: string) => {
+  const node = withStatus(box(id, x, 0), 'blockiert')
+  return reason === undefined ? node : { ...node, metadata: [...node.metadata, { key: 'blockiert_grund', value: reason }] }
+}
 const sorted = (set: ReadonlySet<string>) => [...set].sort()
 
 describe('analyzeProject', () => {
-  it('blocks nothing when everything is done', () => {
+  it('waits for nothing when everything is done', () => {
     const result = analyzeProject(
       content([done('a'), done('b', 1), done('c', 2)], [edge('ab', 'a', 'b'), edge('bc', 'b', 'c')]),
     )
-    expect(result.blockedIds.size).toBe(0)
+    expect(result.waitingIds.size).toBe(0)
     expect(result.readyIds.size).toBe(0)
-    expect(result.counts).toEqual({ total: 3, done: 3, inProgress: 0, open: 0, blocked: 0, inconsistent: 0, unknownStatus: 0, ready: 0 })
+    expect(result.counts).toEqual({ total: 3, done: 3, inProgress: 0, open: 0, blocked: 0, waiting: 0, inconsistent: 0, unknownStatus: 0, ready: 0 })
   })
 
   it('reads the status of every object (default offen)', () => {
@@ -36,28 +40,28 @@ describe('analyzeProject', () => {
     const result = analyzeProject(
       content([wip('a'), wip('b', 1), open('c', 2)], [edge('ab', 'a', 'b'), edge('bc', 'b', 'c')]),
     )
-    expect(sorted(result.blockedIds)).toEqual(['a', 'b'])
+    expect(sorted(result.waitingIds)).toEqual(['a', 'b'])
     expect(sorted(result.readyIds)).toEqual(['c'])
-    expect(result.blockingDirect.get('a')).toEqual(['b'])
-    expect(result.blockingDirect.get('b')).toEqual(['c'])
-    expect(result.blockingDirect.has('c')).toBe(false)
-    expect(result.counts).toEqual({ total: 3, done: 0, inProgress: 2, open: 1, blocked: 2, inconsistent: 0, unknownStatus: 0, ready: 1 })
+    expect(result.waitingFor.get('a')).toEqual(['b'])
+    expect(result.waitingFor.get('b')).toEqual(['c'])
+    expect(result.waitingFor.has('c')).toBe(false)
+    expect(result.counts).toEqual({ total: 3, done: 0, inProgress: 2, open: 1, blocked: 0, waiting: 2, inconsistent: 0, unknownStatus: 0, ready: 1 })
   })
 
-  it('reports a finished object with an open prerequisite as inconsistent, not as blocked', () => {
+  it('reports a finished object with an open prerequisite as inconsistent, not as waiting', () => {
     // a (done) depends on b (done) depends on c (open): b is inconsistent through c, a only via b
     const result = analyzeProject(
       content([done('a'), done('b', 1), open('c', 2)], [edge('ab', 'a', 'b'), edge('bc', 'b', 'c')]),
     )
-    expect(result.blockedIds.size).toBe(0)
+    expect(result.waitingIds.size).toBe(0)
     expect(sorted(result.inconsistentIds)).toEqual(['a', 'b'])
-    expect(result.blockingDirect.get('a')).toEqual(['b'])
-    expect(result.blockingDirect.get('b')).toEqual(['c'])
+    expect(result.waitingFor.get('a')).toEqual(['b'])
+    expect(result.waitingFor.get('b')).toEqual(['c'])
     expect(sorted(result.readyIds)).toEqual(['c'])
-    expect(result.counts).toMatchObject({ done: 2, blocked: 0, inconsistent: 2, ready: 1 })
+    expect(result.counts).toMatchObject({ done: 2, blocked: 0, waiting: 0, inconsistent: 2, ready: 1 })
   })
 
-  it('explains the A -> B, A -> C, C -> D example: A is blocked, C is inconsistent', () => {
+  it('explains the A -> B, A -> C, C -> D example: A waits, C is inconsistent', () => {
     // a (offen) depends on b (no status) and c (fertig); c depends on d (no status)
     const result = analyzeProject(
       content(
@@ -65,23 +69,28 @@ describe('analyzeProject', () => {
         [edge('ab', 'a', 'b'), edge('ac', 'a', 'c'), edge('cd', 'c', 'd')],
       ),
     )
-    expect(sorted(result.blockedIds)).toEqual(['a'])
+    expect(sorted(result.waitingIds)).toEqual(['a'])
     expect(sorted(result.inconsistentIds)).toEqual(['c'])
-    // c counts as a way through which a is blocked, although it is marked done
-    expect(result.blockingDirect.get('a')).toEqual(['b', 'c'])
-    expect(result.blockingDirect.get('c')).toEqual(['d'])
+    // c counts as a way through which a waits, although it is marked done
+    expect(result.waitingFor.get('a')).toEqual(['b', 'c'])
+    expect(result.waitingFor.get('c')).toEqual(['d'])
     expect(sorted(result.readyIds)).toEqual(['b', 'd'])
   })
 
-  it('keeps open + inProgress equal to ready + blocked, also with cycles and inconsistencies', () => {
+  it('keeps the unfinished objects equal to blocked + waiting + ready, also with cycles and inconsistencies', () => {
     const models = [
       content([open('p'), wip('q', 1), open('r', 2)], [edge('pq', 'p', 'q'), edge('qp', 'q', 'p'), edge('pr', 'p', 'r')]),
       content([done('a'), open('b', 1), wip('c', 2), done('d', 3)], [edge('ab', 'a', 'b'), edge('bc', 'b', 'c'), edge('cd', 'c', 'd')]),
       content([done('p'), open('q', 1)], [edge('pq', 'p', 'q'), edge('qp', 'q', 'p')]),
+      content(
+        [stuck('p'), wip('q', 1), open('r', 2), done('s', 3), stuck('t', 4)],
+        [edge('pq', 'p', 'q'), edge('qp', 'q', 'p'), edge('pr', 'p', 'r'), edge('st', 's', 't'), edge('tr', 't', 'r')],
+      ),
     ]
     for (const model of models) {
       const { counts } = analyzeProject(model)
-      expect(counts.open + counts.inProgress).toBe(counts.ready + counts.blocked)
+      expect(counts.open + counts.inProgress + counts.blocked).toBe(counts.blocked + counts.waiting + counts.ready)
+      expect(counts.total - counts.done).toBe(counts.blocked + counts.waiting + counts.ready)
     }
   })
 
@@ -90,11 +99,11 @@ describe('analyzeProject', () => {
       content([done('p'), open('q', 1)], [edge('pq', 'p', 'q'), edge('qp', 'q', 'p')]),
     )
     expect(sorted(result.inconsistentIds)).toEqual(['p'])
-    expect(sorted(result.blockedIds)).toEqual(['q'])
+    expect(sorted(result.waitingIds)).toEqual(['q'])
     expect(result.readyIds.size).toBe(0)
   })
 
-  it('lists the inconsistent members of a group, and a group is blocked only by blocked members', () => {
+  it('lists the inconsistent members of a group, and a group waits only through waiting members', () => {
     const result = analyzeProject(
       content(
         [group('g', 0, 0, 300, 200), done('m1', 0), open('m2', 1), open('y', 5), group('h', 0, 0, 300, 200)].map((n) =>
@@ -105,8 +114,8 @@ describe('analyzeProject', () => {
     )
     expect(result.inconsistentMembers.get('g')).toEqual(['m1'])
     expect(result.inconsistentMembers.has('h')).toBe(false)
-    expect(result.blockedIds.has('g')).toBe(false)
-    expect(result.blockedMembers.has('g')).toBe(false)
+    expect(result.waitingIds.has('g')).toBe(false)
+    expect(result.waitingMembers.has('g')).toBe(false)
   })
 
   it('collects objects with an unknown status value (counted as offen)', () => {
@@ -126,7 +135,7 @@ describe('analyzeProject', () => {
 
   it('does not block an object whose prerequisites are all done', () => {
     const result = analyzeProject(content([open('a'), done('b', 1)], [edge('ab', 'a', 'b')]))
-    expect(result.blockedIds.size).toBe(0)
+    expect(result.waitingIds.size).toBe(0)
     expect(sorted(result.readyIds)).toEqual(['a'])
   })
 
@@ -137,7 +146,7 @@ describe('analyzeProject', () => {
         [edge('ad', 'a', 'd'), edge('ab', 'a', 'b'), edge('ac', 'a', 'c')],
       ),
     )
-    expect(result.blockingDirect.get('a')).toEqual(['b', 'd'])
+    expect(result.waitingFor.get('a')).toEqual(['b', 'd'])
   })
 
   it('applies an edge to a group to all its members', () => {
@@ -150,11 +159,11 @@ describe('analyzeProject', () => {
         [edge('xg', 'x', 'g')],
       ),
     )
-    expect(sorted(result.blockedIds)).toEqual(['x'])
-    expect(result.blockingDirect.get('x')).toEqual(['m2'])
+    expect(sorted(result.waitingIds)).toEqual(['x'])
+    expect(result.waitingFor.get('x')).toEqual(['m2'])
   })
 
-  it('flags a group that contains a blocked member', () => {
+  it('flags a group that contains a waiting member', () => {
     const result = analyzeProject(
       content(
         [group('g', 0, 0, 300, 200), open('m1', 0), open('m2', 1), open('y', 5)].map((n, i) =>
@@ -163,11 +172,11 @@ describe('analyzeProject', () => {
         [edge('m2y', 'm2', 'y')],
       ),
     )
-    expect(sorted(result.blockedIds)).toEqual(['g', 'm2'])
-    expect(result.blockedMembers.get('g')).toEqual(['m2'])
+    expect(sorted(result.waitingIds)).toEqual(['g', 'm2'])
+    expect(result.waitingMembers.get('g')).toEqual(['m2'])
     expect(sorted(result.readyIds)).toEqual(['m1', 'y'])
     // counts only objects
-    expect(result.counts.blocked).toBe(1)
+    expect(result.counts.waiting).toBe(1)
   })
 
   it('counts the finished members of every group, nested ones for the outer group too', () => {
@@ -191,8 +200,8 @@ describe('analyzeProject', () => {
     const result = analyzeProject(
       content([open('a'), group('e', 0, 0, 10, 10), open('c', 2)], [edge('ae', 'a', 'e'), edge('ec', 'e', 'c')]),
     )
-    expect(sorted(result.blockedIds)).toEqual(['a'])
-    expect(result.blockingDirect.get('a')).toEqual(['e'])
+    expect(sorted(result.waitingIds)).toEqual(['a'])
+    expect(result.waitingFor.get('a')).toEqual(['e'])
     expect(result.counts.total).toBe(2)
   })
 
@@ -200,7 +209,7 @@ describe('analyzeProject', () => {
     const result = analyzeProject(
       content([open('p'), open('q', 1), open('r', 2)], [edge('pq', 'p', 'q'), edge('qp', 'q', 'p'), edge('pr', 'p', 'r')]),
     )
-    expect(sorted(result.blockedIds)).toEqual(['p', 'q'])
+    expect(sorted(result.waitingIds)).toEqual(['p', 'q'])
     expect(sorted(result.readyIds)).toEqual(['r'])
   })
 
@@ -209,7 +218,7 @@ describe('analyzeProject', () => {
     const nodes = Array.from({ length: size }, (_, i) => (i === size - 1 ? open(`n${i}`, i) : done(`n${i}`, i)))
     const edges = Array.from({ length: size - 1 }, (_, i) => edge(`e${i}`, `n${i}`, `n${i + 1}`))
     const result = analyzeProject(content(nodes, edges))
-    expect(result.blockedIds.size).toBe(0)
+    expect(result.waitingIds.size).toBe(0)
     expect(result.inconsistentIds.size).toBe(size - 1)
     expect([...result.readyIds]).toEqual([`n${size - 1}`])
   })
@@ -225,26 +234,26 @@ describe('analyzeSelection', () => {
   it('lists open transitive prerequisites, ready ones first, then in release order', () => {
     const result = analyzeSelection(graph, ['a'])
     expect(result.scope).toBe('selection')
-    expect(result.blockers).toEqual([
-      { id: 'd', status: 'offen', ready: true, distance: 2 },
-      { id: 'c', status: 'offen', ready: false, distance: 2 },
-      { id: 'b', status: 'in Arbeit', ready: false, distance: 1 },
+    expect(result.unfinished).toEqual([
+      { id: 'd', status: 'offen', state: 'ready', distance: 2 },
+      { id: 'c', status: 'offen', state: 'waiting', distance: 2 },
+      { id: 'b', status: 'in Arbeit', state: 'waiting', distance: 1 },
     ])
   })
 
   it('computes the shortest distance', () => {
     const result = analyzeSelection(graph, ['a'])
-    expect(result.blockers.find((b) => b.id === 'd')?.distance).toBe(2)
+    expect(result.unfinished.find((u) => u.id === 'd')?.distance).toBe(2)
   })
 
   it('excludes the selection itself and finished prerequisites', () => {
     const result = analyzeSelection(graph, ['b', 'c'])
-    expect(result.blockers.map((b) => b.id)).toEqual(['d'])
+    expect(result.unfinished.map((u) => u.id)).toEqual(['d'])
   })
 
   it('has no blockers when all prerequisites are done', () => {
     const result = analyzeSelection(content([open('a'), done('b', 1)], [edge('ab', 'a', 'b')]), ['a'])
-    expect(result.blockers).toEqual([])
+    expect(result.unfinished).toEqual([])
     expect(result.criticalPath).toEqual({ nodeIds: ['a'], edgeIds: [], length: 1 })
   })
 
@@ -255,7 +264,7 @@ describe('analyzeSelection', () => {
     )
     const result = analyzeSelection(grouped, ['g'])
     expect(result.selectedIds).toEqual(['g'])
-    expect(result.blockers.map((b) => b.id)).toEqual(['y', 'z'])
+    expect(result.unfinished.map((u) => u.id)).toEqual(['y', 'z'])
   })
 
   it('picks the longer of two chains as critical path, in release order', () => {
@@ -304,7 +313,7 @@ describe('analyzeSelection', () => {
   it('has an empty critical path for an empty project (no phantom step)', () => {
     const result = analyzeSelection(content([]), [])
     expect(result.criticalPath).toEqual({ nodeIds: [], edgeIds: [], length: 0 })
-    expect(result.blockers).toEqual([])
+    expect(result.unfinished).toEqual([])
   })
 
   it('includes a finished selected object that waits for an open prerequisite', () => {
@@ -328,7 +337,7 @@ describe('analyzeSelection', () => {
     const result = analyzeSelection(model, ['a'])
     expect(result.criticalPath).toBeNull()
     expect(result.cycleIds).toEqual(['p', 'q'])
-    expect(result.blockers.map((b) => b.id)).toEqual(['p', 'q'])
+    expect(result.unfinished.map((u) => u.id)).toEqual(['p', 'q'])
   })
 
   it('ignores a cycle that is not reachable from the selection', () => {
@@ -352,11 +361,11 @@ describe('analyzeSelection', () => {
     expect(result.selectedIds).toEqual([])
     expect(result.criticalPath).toEqual({ nodeIds: ['m2', 'm1', 'r1'], edgeIds: ['m1m2', 'r1m1'], length: 3 })
     // project scope: every open object is listed, ready ones first
-    expect(result.blockers.map((b) => [b.id, b.ready])).toEqual([
-      ['m2', true],
-      ['r2', false],
-      ['m1', false],
-      ['r1', false],
+    expect(result.unfinished.map((u) => [u.id, u.state])).toEqual([
+      ['m2', 'ready'],
+      ['r2', 'waiting'],
+      ['m1', 'waiting'],
+      ['r1', 'waiting'],
     ])
   })
 
@@ -371,7 +380,7 @@ describe('analyzeSelection', () => {
     const result = analyzeSelection(content(nodes, edges), ['n0'])
     expect(result.criticalPath?.length).toBe(size)
     expect(result.criticalPath?.nodeIds[0]).toBe(`n${size - 1}`)
-    expect(result.blockers).toHaveLength(size - 1)
+    expect(result.unfinished).toHaveLength(size - 1)
   })
 
   describe('to clarify', () => {
@@ -441,7 +450,8 @@ describe('formatAnalysisMarkdown', () => {
         '- fertig: 1',
         '- in Arbeit: 1',
         '- offen: 2',
-        '- blockiert: 2',
+        '- blockiert: 0',
+        '- wartet: 2',
         '- jetzt umsetzbar: 1',
         '',
         '## Kritischer Pfad (3 Schritte)',
@@ -450,10 +460,10 @@ describe('formatAnalysisMarkdown', () => {
         '2. Dienst B – in Arbeit',
         '3. Dienst A – offen',
         '',
-        '## Blockierende Objekte',
+        '## Offene Voraussetzungen',
         '',
         '- Dienst C – offen, jetzt umsetzbar',
-        '- Dienst B – in Arbeit',
+        '- Dienst B – in Arbeit, wartet auf Dienst C',
         '',
       ].join('\n'),
     )
@@ -464,7 +474,8 @@ describe('formatAnalysisMarkdown', () => {
     const text = formatAnalysisMarkdown(unnamed, analyzeProject(unnamed), analyzeSelection(unnamed, []))
     expect(text).toContain('# Release-Analyse: Release-1 – Gesamtes Projekt')
     expect(text).toContain('## Jetzt umsetzbar\n\n- c – offen')
-    expect(text).toContain('## Blockiert\n\n- b – in Arbeit\n- a – offen')
+    expect(text).toContain('## Wartet\n\n- b – in Arbeit, wartet auf c\n- a – offen, wartet auf b')
+    expect(text).toContain('## Blockiert\n\nNichts.')
   })
 
   it('adds a section "Zu klären" for inconsistent objects and unknown status values', () => {
@@ -486,7 +497,7 @@ describe('formatAnalysisMarkdown', () => {
         '',
         '- u – „erledigt“ (zählt als offen)',
         '',
-        '## Kritischer Pfad',
+        '## Blockiert',
       ].join('\n'),
     )
   })
@@ -508,5 +519,140 @@ describe('formatAnalysisMarkdown', () => {
     const finished = content([done('a'), done('b', 1)], [edge('ab', 'a', 'b')])
     const text = formatAnalysisMarkdown(finished, analyzeProject(finished), analyzeSelection(finished, ['a']))
     expect(text).toContain('Keine offenen Voraussetzungen – kann released werden.')
+  })
+
+  describe('blocked by hand', () => {
+    it('counts a manually blocked object as blocked, never as waiting or ready, with its reason', () => {
+      const result = analyzeProject(content([stuck('a', 0, ' Freigabe fehlt '), stuck('b', 1), open('c', 2)]))
+      expect(sorted(result.blockedIds)).toEqual(['a', 'b'])
+      expect(result.blockReasons).toEqual(new Map([['a', 'Freigabe fehlt']]))
+      expect(result.waitingIds.size).toBe(0)
+      expect(sorted(result.readyIds)).toEqual(['c'])
+      expect(result.counts).toMatchObject({ total: 3, open: 1, blocked: 2, waiting: 0, ready: 1 })
+    })
+
+    it('makes everything that depends on it wait, with the blocked object named as the cause', () => {
+      // a -> b -> c; c is blocked by hand
+      const result = analyzeProject(content([open('a'), wip('b', 1), stuck('c', 2)], [edge('ab', 'a', 'b'), edge('bc', 'b', 'c')]))
+      expect(sorted(result.waitingIds)).toEqual(['a', 'b'])
+      expect(result.waitingFor.get('b')).toEqual(['c'])
+      expect(result.waitingFor.get('a')).toEqual(['b'])
+      expect(result.readyIds.size).toBe(0)
+      expect(result.counts).toMatchObject({ blocked: 1, waiting: 2, ready: 0 })
+    })
+
+    it('shows a blocked object that also waits as blocked only, but remembers what it waits for', () => {
+      const result = analyzeProject(content([stuck('a'), open('b', 1)], [edge('ab', 'a', 'b')]))
+      expect(sorted(result.blockedIds)).toEqual(['a'])
+      expect(result.waitingIds.size).toBe(0)
+      expect(result.waitingFor.get('a')).toEqual(['b'])
+      expect(result.counts).toMatchObject({ blocked: 1, waiting: 0, ready: 1 })
+    })
+
+    it('does not wait for a finished prerequisite, and a finished object over a blocked one is inconsistent', () => {
+      const ok = analyzeProject(content([stuck('a'), done('b', 1)], [edge('ab', 'a', 'b')]))
+      expect(ok.waitingFor.has('a')).toBe(false)
+      const odd = analyzeProject(content([done('a'), stuck('b', 1)], [edge('ab', 'a', 'b')]))
+      expect(sorted(odd.inconsistentIds)).toEqual(['a'])
+      expect(odd.waitingFor.get('a')).toEqual(['b'])
+    })
+
+    it('ignores the reason of an object that is not blocked, and a blank reason', () => {
+      const stray = { ...open('a'), metadata: [...open('a').metadata, { key: 'blockiert_grund', value: 'alt' }] }
+      const result = analyzeProject(content([stray, stuck('b', 1, '   ')]))
+      expect(result.blockReasons.size).toBe(0)
+      expect(sorted(result.blockedIds)).toEqual(['b'])
+    })
+
+    it('flags groups by their blocked and by their waiting members separately', () => {
+      const result = analyzeProject(
+        content(
+          [group('g', 0, 0, 300, 200), { ...stuck('m1'), parentId: 'g' }, { ...open('m2', 1), parentId: 'g' }, open('y', 5)],
+          [edge('m2m1', 'm2', 'm1')],
+        ),
+      )
+      expect(sorted(result.blockedIds)).toEqual(['g', 'm1'])
+      expect(result.blockedMembers.get('g')).toEqual(['m1'])
+      expect(sorted(result.waitingIds)).toEqual(['g', 'm2'])
+      expect(result.waitingMembers.get('g')).toEqual(['m2'])
+      expect(result.groupProgress.get('g')).toEqual({ done: 0, total: 2 })
+    })
+
+    it('keeps unfinished = blocked + waiting + ready with cycles through blocked objects', () => {
+      const cyclic = content(
+        [stuck('p'), open('q', 1), wip('r', 2), done('s', 3)],
+        [edge('pq', 'p', 'q'), edge('qp', 'q', 'p'), edge('rs', 'r', 's'), edge('qr', 'q', 'r')],
+      )
+      const { counts } = analyzeProject(cyclic)
+      expect(counts.total - counts.done).toBe(counts.blocked + counts.waiting + counts.ready)
+      expect(counts).toMatchObject({ blocked: 1, waiting: 1, ready: 1 })
+    })
+
+    it('lists blocked prerequisites first, then ready, then waiting ones', () => {
+      // a depends on w (waits for z), r (ready), k (blocked); z is ready
+      const model = content(
+        [open('a'), wip('w', 1), open('r', 2), stuck('k', 3), open('z', 4)],
+        [edge('aw', 'a', 'w'), edge('ar', 'a', 'r'), edge('ak', 'a', 'k'), edge('wz', 'w', 'z')],
+      )
+      const result = analyzeSelection(model, ['a'])
+      expect(result.unfinished.map((u) => [u.id, u.state])).toEqual([
+        ['k', 'blocked'],
+        ['r', 'ready'],
+        ['z', 'ready'],
+        ['w', 'waiting'],
+      ])
+      expect(result.selectedBlocked).toEqual([])
+    })
+
+    it('reports a selected object that is blocked itself', () => {
+      const model = content([stuck('a'), open('b', 1), stuck('c', 2)], [edge('ab', 'a', 'b')])
+      expect(analyzeSelection(model, ['a']).selectedBlocked).toEqual(['a'])
+      expect(analyzeSelection(model, ['a', 'b', 'c']).selectedBlocked).toEqual(['a', 'c'])
+      expect(analyzeSelection(model, ['b']).selectedBlocked).toEqual([])
+      expect(analyzeSelection(model, []).selectedBlocked).toEqual([])
+    })
+
+    it('counts a blocked object as unfinished work on the critical path', () => {
+      const model = content([open('a'), stuck('b', 1)], [edge('ab', 'a', 'b')])
+      expect(analyzeSelection(model, ['a']).criticalPath).toEqual({ nodeIds: ['b', 'a'], edgeIds: ['ab'], length: 2 })
+    })
+  })
+})
+
+describe('formatAnalysisMarkdown with blocked objects', () => {
+  const model = content(
+    [open('a'), stuck('lib', 1, 'Freigabe fehlt'), stuck('x', 2), wip('w', 3), open('z', 4)],
+    [edge('a-lib', 'a', 'lib'), edge('w-z', 'w', 'z'), edge('a-w', 'a', 'w')],
+  )
+  const named = {
+    ...model,
+    nodes: model.nodes.map((n) => ({ ...n, metadata: n.metadata.map((m) => (m.key === 'name' ? { ...m, value: m.value === 'lib' ? 'Lib' : m.value } : m)) })),
+  }
+
+  it('lists blocked, ready and waiting objects of the whole project with reasons', () => {
+    const text = formatAnalysisMarkdown(named, analyzeProject(named), analyzeSelection(named, []))
+    expect(text).toContain('- blockiert: 2\n- wartet: 2\n- jetzt umsetzbar: 1\n')
+    expect(text).toContain('## Blockiert\n\n- Lib – Freigabe fehlt\n- x – kein Grund angegeben\n')
+    expect(text).toContain('## Jetzt umsetzbar\n\n- z – offen\n')
+    expect(text).toContain('## Wartet\n\n- w – in Arbeit, wartet auf z\n- a – offen, wartet auf Lib, w\n')
+    expect(text.indexOf('## Blockiert')).toBeLessThan(text.indexOf('## Jetzt umsetzbar'))
+    expect(text.indexOf('## Wartet')).toBeLessThan(text.indexOf('## Kritischer Pfad'))
+  })
+
+  it('puts blocked prerequisites of a selection first and says when the selection is blocked itself', () => {
+    const text = formatAnalysisMarkdown(named, analyzeProject(named), analyzeSelection(named, ['a']))
+    expect(text).toContain('## Offene Voraussetzungen\n\n- Lib – blockiert: Freigabe fehlt\n- z – offen, jetzt umsetzbar\n- w – in Arbeit, wartet auf z\n')
+    expect(text).not.toContain('Auswahl ist blockiert')
+    const self = formatAnalysisMarkdown(named, analyzeProject(named), analyzeSelection(named, ['lib']))
+    expect(self).toContain('## Auswahl ist blockiert\n\n- Lib – Freigabe fehlt\n')
+  })
+
+  it('shortens long lists of what an object waits for', () => {
+    const many = content(
+      [open('a'), ...['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map((id, i) => open(id, i + 1))],
+      ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map((id) => edge(`a-${id}`, 'a', id)),
+    )
+    const text = formatAnalysisMarkdown(many, analyzeProject(many), analyzeSelection(many, []))
+    expect(text).toContain('- a – offen, wartet auf p1, p2, p3, p4, p5, …')
   })
 })
