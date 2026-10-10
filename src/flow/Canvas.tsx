@@ -4,7 +4,6 @@ import {
   Controls,
   MiniMap,
   ReactFlow,
-  getViewportForBounds,
   useReactFlow,
   useStoreApi,
   type Connection,
@@ -21,6 +20,7 @@ import type { ProjectAnalysis } from '../model/releaseAnalysis'
 import { HANDLE_SIDES, type HandleSide } from '../model/types'
 import { graphStore, useGraph } from '../store/appStore'
 import { toFlowEdges, toFlowNodes } from './mapping'
+import { coveredLeftWidth, viewportForFocus } from './viewport'
 import type { AppFlowNode } from './types'
 
 type EdgeLike = Edge | Connection
@@ -98,14 +98,17 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
     return () => cancelAnimationFrame(frame)
   }, [contentRevision, fitView])
 
-  // Focus requests (cycle button, analysis panel): bring the requested elements into view. Not via
-  // fitView: with controlled nodes it stays queued until the next node change, so the view would
-  // lag one click behind.
+  // Focus requests (cycle button, analysis panel): bring the requested elements into view, beside
+  // the analysis panel that overlays the pane. Not via fitView: with controlled nodes it stays
+  // queued until the next node change, so the view would lag one click behind.
   useEffect(() => {
     if (!focusRequest || focusRequest.nodeIds.length === 0) return
-    const { width, height, minZoom } = flowStore.getState()
+    const { width, height, minZoom, domNode } = flowStore.getState()
+    const panel = domNode?.parentElement?.querySelector('.analysis-panel')?.getBoundingClientRect()
+    const covered = domNode ? coveredLeftWidth(domNode.getBoundingClientRect(), panel) : 0
     const bounds = getNodesBounds(focusRequest.nodeIds)
-    void setViewport(getViewportForBounds(bounds, width, height, minZoom, 1.2, 0.4), { duration: 300 })
+    const viewport = viewportForFocus(bounds, { width, height }, covered, { min: minZoom, max: 1.2 }, 0.4)
+    void setViewport(viewport, { duration: 300 })
   }, [focusRequest, flowStore, getNodesBounds, setViewport])
 
   // The flash after "reveal" is a CSS animation; drop the marker once it is over.
