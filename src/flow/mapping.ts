@@ -51,22 +51,14 @@ export function toFlowNodes(nodes: readonly ModelNode[], ui: FlowUiState): AppFl
     return waiting.length > 0 ? `${title} – ${listNames('wartet außerdem auf', namesOf(waiting))}` : title
   }
 
-  // Hourglass: unfinished, not blocked, with an unfinished prerequisite (a group: a member waits).
+  // Hourglass: unfinished, not blocked, with an unfinished direct prerequisite (a group: a member waits).
+  // Finished objects carry neither flag nor hourglass.
   const waitingTitle = (node: ModelNode): string | undefined => {
     if (!analysis?.waitingIds.has(node.id)) return undefined
     if (node.kind === 'group') {
       return listNames('Enthält wartende Objekte', namesOf(analysis.waitingMembers.get(node.id) ?? []))
     }
     return listNames('Wartet auf', namesOf(analysis.waitingFor.get(node.id) ?? []))
-  }
-
-  const inconsistentTitle = (node: ModelNode): string | undefined => {
-    if (node.kind === 'group') {
-      const members = analysis?.inconsistentMembers.get(node.id)
-      return members && listNames('Enthält fertige Objekte mit nicht fertiger Voraussetzung', namesOf(members))
-    }
-    if (!analysis?.inconsistentIds.has(node.id)) return undefined
-    return listNames('Fertig, aber Voraussetzung nicht fertig', namesOf(analysis.waitingFor.get(node.id) ?? []))
   }
 
   return sortParentsFirst(nodes).map((node) => {
@@ -93,7 +85,6 @@ export function toFlowNodes(nodes: readonly ModelNode[], ui: FlowUiState): AppFl
         statusKnown: analysis?.statusInfoById.get(node.id)?.known,
         blockedTitle: blockedTitle(node),
         waitingTitle: waitingTitle(node),
-        inconsistentTitle: inconsistentTitle(node),
         color,
         textColor: color && getContrastColor(color),
       },

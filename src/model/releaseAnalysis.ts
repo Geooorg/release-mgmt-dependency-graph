@@ -1,4 +1,4 @@
-import { findCycles } from './cycles'
+import { stronglyConnectedComponents } from './cycles'
 import { buildEffectiveGraph, type EffectiveGraph } from './effectiveGraph'
 import { displayName } from './metadata'
 import { DEFAULT_PROJECT_NAME } from './projectName'
@@ -13,14 +13,17 @@ import type { GraphContent, ModelNode } from './types'
  *
  * Terms: an unfinished object (any status but `fertig`) is
  *  - *blocked* when its status is `blockiert` (set by hand, with an optional reason),
- *  - *waiting* when it is not blocked but has an unfinished transitive prerequisite (computed),
+ *  - *waiting* when it is not blocked but has an unfinished direct prerequisite (computed),
  *  - *ready* otherwise ("jetzt umsetzbar").
- * A blocked object counts as unfinished, so everything that depends on it waits. A finished object
- * with an unfinished prerequisite is a contradiction ("inconsistent"), neither blocked nor waiting.
+ * A blocked object counts as unfinished, so everything that depends on it waits.
+ *
+ * "Finished is final": nothing is computed behind an object with the status `fertig`. It was
+ * delivered, so what it once needed does not matter to the objects built on it. A finished object
+ * therefore never waits, is never listed and never extends a chain, a prerequisite list or a cycle.
  *
  * Only objects (`kind: 'node'`) carry a status and count as work. A group without objects is a
  * vertex of the graph (its edges must not get lost) but has no work of its own, so it is
- * transparent: never unfinished, never blocked or waiting, not counted.
+ * transparent: never unfinished, never blocked or waiting, not counted, and looked through.
  */
 
 export interface StatusCounts {
@@ -31,10 +34,8 @@ export interface StatusCounts {
   open: number
   /** Objects with the status `blockiert` (set by hand), whatever their prerequisites. */
   blocked: number
-  /** Unfinished, not blocked objects with an unfinished transitive prerequisite. */
+  /** Unfinished, not blocked objects with an unfinished direct prerequisite. */
   waiting: number
-  /** Finished objects with an unfinished transitive prerequisite (a contradiction). */
-  inconsistent: number
   /** Objects whose status value is none of the four (counted as `offen`). */
   unknownStatus: number
   /** Unfinished, not blocked objects without an unfinished prerequisite: can be worked on right now. */
@@ -52,22 +53,18 @@ export interface ProjectAnalysis {
   blockedIds: Set<string>
   /** Reason of every blocked object that has one (trimmed). */
   blockReasons: Map<string, string>
-  /** Unfinished, not blocked objects with an unfinished transitive prerequisite, plus groups containing such an object. */
+  /** Unfinished, not blocked objects with an unfinished direct prerequisite, plus groups containing such an object. */
   waitingIds: Set<string>
-  /** Finished objects with an unfinished transitive prerequisite (objects only; groups are in `inconsistentMembers`). */
-  inconsistentIds: Set<string>
   /**
-   * Per waiting, inconsistent or blocked object that has unfinished prerequisites: the direct
-   * prerequisites through which it waits (unfinished, or finished but themselves waiting), in node order.
+   * Per waiting or blocked object that has unfinished prerequisites: the unfinished direct
+   * prerequisites (looking through groups without objects, never through finished objects), in node order.
    */
   waitingFor: Map<string, string[]>
   /** Per group: the blocked objects inside (any depth), in node order. */
   blockedMembers: Map<string, string[]>
   /** Per group: the waiting objects inside (any depth), in node order. */
   waitingMembers: Map<string, string[]>
-  /** Per group: the inconsistent objects inside (any depth), in node order. */
-  inconsistentMembers: Map<string, string[]>
-  /** Unfinished, not blocked objects without any unfinished transitive prerequisite. */
+  /** Unfinished, not blocked objects without an unfinished direct prerequisite. */
   readyIds: Set<string>
   /** Per group: finished and total objects inside (any depth). */
   groupProgress: Map<string, { done: number; total: number }>
@@ -101,26 +98,21 @@ export interface SelectionAnalysis {
   /** The selected elements that exist, in the given order. */
   selectedIds: string[]
   /**
-   * Unfinished prerequisites of the selection (the unfinished objects of the project in `project` scope):
-   * blocked ones first, then ready ones, then waiting ones; each group in release order.
+   * Unfinished prerequisites of the selection, reached over unfinished objects only (the unfinished
+   * objects of the project in `project` scope): blocked ones first, then ready ones, then waiting ones;
+   * each group in release order.
    */
   unfinished: UnfinishedObject[]
   /** Selected objects that are blocked themselves. */
   selectedBlocked: string[]
-  /** Null when the relevant part contains a cycle (the longest chain is not defined then). */
+  /** The selection itself is finished (so its prerequisites are not looked at); never true in `project` scope. */
+  selectionFinished: boolean
+  /** Null when the relevant part contains a cycle of unfinished objects (the longest chain is not defined then). */
   criticalPath: CriticalPath | null
-  /** Objects of the cycles that are part of the relevant graph; empty if there are none. */
+  /** Objects of the cycles that consist of unfinished objects (and empty groups) in the relevant graph; empty if there are none. */
   cycleIds: string[]
-  /** Finished objects of the relevant graph (selection and its prerequisites) with an unfinished prerequisite. */
-  inconsistent: InconsistentObject[]
-  /** Objects of the relevant graph whose status value is unknown (they count as `offen`). */
+  /** Objects of the relevant graph (selection and its unfinished prerequisites) whose status value is unknown (they count as `offen`). */
   unknownStatus: { id: string; raw: string }[]
-}
-
-export interface InconsistentObject {
-  id: string
-  /** Direct prerequisites through which the contradiction comes, in node order. */
-  waitingFor: string[]
 }
 
 /** Blocked objects come first in lists, then the ones that can be worked on, then the waiting ones. */
@@ -137,12 +129,29 @@ interface Prepared {
   status: (Status | undefined)[]
   /** Unfinished object. */
   open: boolean[]
+  /** Finished object: analysis stops here. */
+  done: boolean[]
   /** Status `blockiert`. */
   manual: boolean[]
-  /** Some unfinished vertex is reachable via one or more steps (a vertex of a cycle can reach itself). */
+  /** Per unfinished object: its unfinished direct prerequisites, looking through empty groups; ascending. */
+  direct: number[][]
+  /** Unfinished object with an unfinished direct prerequisite (a vertex of a cycle of unfinished ones waits for itself). */
   waiting: boolean[]
-  /** Finished object with an unfinished vertex reachable via one or more steps. */
-  inconsistent: boolean[]
+}
+
+/** Unfinished objects reached from `from` without passing a finished object; empty groups are walked through. */
+function unfinishedPrerequisites(succ: readonly (readonly number[])[], open: readonly boolean[], done: readonly boolean[], from: number): number[] {
+  const found = new Set<number>()
+  const seen = new Set<number>()
+  const stack = [...succ[from]]
+  while (stack.length > 0) {
+    const w = stack.pop() as number
+    if (seen.has(w)) continue
+    seen.add(w)
+    if (open[w]) found.add(w)
+    else if (!done[w]) stack.push(...succ[w])
+  }
+  return [...found].sort((a, b) => a - b)
 }
 
 function prepare(content: GraphContent): Prepared {
@@ -158,30 +167,12 @@ function prepare(content: GraphContent): Prepared {
   const info = vertices.map((id, i) => (isObject[i] ? getStatusInfo(kinds.get(id)?.metadata ?? []) : undefined))
   const status = info.map((entry) => entry?.status)
   const open = status.map((s) => s !== undefined && s !== 'fertig')
+  const done = status.map((s) => s === 'fertig')
   const manual = status.map((s) => s === 'blockiert')
 
-  // Multi-source walk against the arrows from every unfinished vertex. Seeds are marked only when
-  // they are reached from another vertex, so a lone unfinished object does not wait for itself.
-  const waiting = vertices.map(() => false)
-  const queued = [...open]
-  const queue: number[] = []
-  open.forEach((isOpen, i) => isOpen && queue.push(i))
-  for (let head = 0; head < queue.length; head++) {
-    for (const p of pred[queue[head]]) {
-      waiting[p] = true
-      if (!queued[p]) {
-        queued[p] = true
-        queue.push(p)
-      }
-    }
-  }
-  const inconsistent = vertices.map((_, i) => status[i] === 'fertig' && waiting[i])
-  return { graph, indexOf, succ, pred, isObject, info, status, open, manual, waiting, inconsistent }
-}
-
-/** Direct prerequisites of a vertex that are unfinished or finished but waiting themselves. */
-function waitingOn(p: Prepared, i: number): string[] {
-  return p.succ[i].filter((w) => p.open[w] || p.waiting[w]).map((w) => p.graph.vertices[w])
+  const direct = vertices.map((_, i) => (open[i] ? unfinishedPrerequisites(succ, open, done, i) : []))
+  const waiting = direct.map((list) => list.length > 0)
+  return { graph, indexOf, succ, pred, isObject, info, status, open, done, manual, direct, waiting }
 }
 
 /** Ancestor group ids of an element, nearest first; a corrupt parent loop ends the walk. */
@@ -206,7 +197,6 @@ export function analyzeProject(content: GraphContent): ProjectAnalysis {
   const blockedIds = new Set<string>()
   const blockReasons = new Map<string, string>()
   const waitingIds = new Set<string>()
-  const inconsistentIds = new Set<string>()
   const readyIds = new Set<string>()
   const waitingFor = new Map<string, string[]>()
   const counts: StatusCounts = {
@@ -216,11 +206,11 @@ export function analyzeProject(content: GraphContent): ProjectAnalysis {
     open: 0,
     blocked: 0,
     waiting: 0,
-    inconsistent: 0,
     unknownStatus: 0,
     ready: 0,
   }
 
+  const namesOf = (indices: readonly number[]) => indices.map((w) => vertices[w])
   vertices.forEach((id, i) => {
     const status = p.status[i]
     const info = p.info[i]
@@ -236,20 +226,16 @@ export function analyzeProject(content: GraphContent): ProjectAnalysis {
     else if (status === 'in Arbeit') counts.inProgress++
     else if (status === 'blockiert') counts.blocked++
     else counts.open++
-    if (p.inconsistent[i]) {
-      inconsistentIds.add(id)
-      counts.inconsistent++
-      waitingFor.set(id, waitingOn(p, i))
-    } else if (p.manual[i]) {
+    if (p.manual[i]) {
       // A blocked object that also waits is shown as blocked only; what it waits for is kept for the tooltip.
       blockedIds.add(id)
       const reason = getBlockReason(byId.get(id)?.metadata ?? [])
       if (reason !== undefined) blockReasons.set(id, reason)
-      if (p.waiting[i]) waitingFor.set(id, waitingOn(p, i))
+      if (p.waiting[i]) waitingFor.set(id, namesOf(p.direct[i]))
     } else if (p.waiting[i]) {
       waitingIds.add(id)
       counts.waiting++
-      waitingFor.set(id, waitingOn(p, i))
+      waitingFor.set(id, namesOf(p.direct[i]))
     } else if (p.open[i]) {
       readyIds.add(id)
       counts.ready++
@@ -259,7 +245,6 @@ export function analyzeProject(content: GraphContent): ProjectAnalysis {
   const groupProgress = new Map<string, { done: number; total: number }>()
   const blockedMembers = new Map<string, string[]>()
   const waitingMembers = new Map<string, string[]>()
-  const inconsistentMembers = new Map<string, string[]>()
   const addMember = (members: Map<string, string[]>, groupId: string, id: string) => {
     const list = members.get(groupId)
     if (list) list.push(id)
@@ -278,7 +263,6 @@ export function analyzeProject(content: GraphContent): ProjectAnalysis {
       }
       if (blockedIds.has(node.id)) addMember(blockedMembers, groupId, node.id)
       if (waitingIds.has(node.id)) addMember(waitingMembers, groupId, node.id)
-      if (inconsistentIds.has(node.id)) addMember(inconsistentMembers, groupId, node.id)
     }
   }
   for (const groupId of blockedMembers.keys()) blockedIds.add(groupId)
@@ -291,11 +275,9 @@ export function analyzeProject(content: GraphContent): ProjectAnalysis {
     blockedIds,
     blockReasons,
     waitingIds,
-    inconsistentIds,
     waitingFor,
     blockedMembers,
     waitingMembers,
-    inconsistentMembers,
     readyIds,
     groupProgress,
     counts,
@@ -303,22 +285,28 @@ export function analyzeProject(content: GraphContent): ProjectAnalysis {
 }
 
 /**
- * Per vertex: the number of unfinished objects on the longest chain of prerequisites below it
- * (Infinity if the vertex lies on, or depends on, a cycle). Kahn's algorithm, prerequisites first.
+ * Per vertex: the number of unfinished objects on the longest chain of unfinished prerequisites
+ * below it (Infinity if the vertex lies on, or depends on, a cycle of unfinished objects). Finished
+ * objects end a chain: they are left out. Kahn's algorithm, prerequisites first.
  */
 function chainDepths(p: Prepared): number[] {
   const count = p.succ.length
   const depth = new Array<number>(count).fill(Infinity)
-  const waiting = p.succ.map((list) => list.length)
+  const pending = p.succ.map((list, i) => (p.done[i] ? 0 : list.filter((w) => !p.done[w]).length))
   const queue: number[] = []
-  waiting.forEach((n, i) => n === 0 && queue.push(i))
+  pending.forEach((n, i) => {
+    if (p.done[i]) depth[i] = 0
+    else if (n === 0) queue.push(i)
+  })
   for (let head = 0; head < queue.length; head++) {
     const v = queue[head]
     let longest = 0
-    for (const w of p.succ[v]) longest = Math.max(longest, depth[w] + (p.open[w] ? 1 : 0))
+    for (const w of p.succ[v]) {
+      if (!p.done[w]) longest = Math.max(longest, depth[w] + (p.open[w] ? 1 : 0))
+    }
     depth[v] = longest
     for (const dependent of p.pred[v]) {
-      if (--waiting[dependent] === 0) queue.push(dependent)
+      if (!p.done[dependent] && --pending[dependent] === 0) queue.push(dependent)
     }
   }
   return depth
@@ -339,7 +327,7 @@ function longestChain(p: Prepared, depth: readonly number[], candidates: readonl
   const walk = [start]
   for (let current = start; depth[current] > 0; ) {
     // succ is ascending: the first best prerequisite wins ties.
-    const next = p.succ[current].find((w) => depth[w] + weight(w) === depth[current]) as number
+    const next = p.succ[current].find((w) => !p.done[w] && depth[w] + weight(w) === depth[current]) as number
     walk.push(next)
     current = next
   }
@@ -351,10 +339,20 @@ function longestChain(p: Prepared, depth: readonly number[], candidates: readonl
   return { nodeIds, edgeIds: [...edgeIds], length }
 }
 
+/** Vertices on a cycle of unfinished objects and empty groups (a finished object breaks a cycle), in vertex order. */
+function openCycleMembers(p: Prepared): number[] {
+  const alive = p.succ.map((list, i) => (p.done[i] ? [] : list.filter((w) => !p.done[w])))
+  const component = stronglyConnectedComponents(alive)
+  const size = new Map<number, number>()
+  component.forEach((c) => size.set(c, (size.get(c) ?? 0) + 1))
+  return component.flatMap((c, i) => ((size.get(c) ?? 0) > 1 ? [i] : []))
+}
+
 /**
  * What stands between the selection and its release: unfinished transitive prerequisites and the
- * critical path (the longest chain of unfinished work, finished objects weigh 0). A selected group
- * starts at all its members. Nothing selected = the whole project.
+ * critical path (the longest chain of consecutive unfinished objects). The walk stops at finished
+ * objects, also at a finished selection. A selected group starts at all its members. Nothing
+ * selected = the whole project.
  */
 export function analyzeSelection(content: GraphContent, startIds: readonly string[]): SelectionAnalysis {
   const p = prepare(content)
@@ -368,13 +366,15 @@ export function analyzeSelection(content: GraphContent, startIds: readonly strin
   const whole = startSet.size === 0
   const starts = whole ? vertices.map((_, i) => i) : [...startSet].sort((a, b) => a - b)
 
-  // Shortest distance from the starts; `below` marks vertices reached by one or more steps.
+  // Shortest distance from the starts, never expanding a finished object; `below` marks vertices
+  // reached by one or more steps.
   const distance = new Array<number>(vertices.length).fill(-1)
   const below = vertices.map(() => false)
   const queue = [...starts]
   starts.forEach((s) => (distance[s] = 0))
   for (let head = 0; head < queue.length; head++) {
     const v = queue[head]
+    if (p.done[v]) continue
     for (const w of p.succ[v]) {
       below[w] = true
       if (distance[w] === -1) {
@@ -406,11 +406,9 @@ export function analyzeSelection(content: GraphContent, startIds: readonly strin
     return index !== undefined && p.manual[index]
   })
 
-  const inScope = new Set(vertices.filter((_, i) => distance[i] !== -1))
-  const cycleIds = findCycles(content, p.graph)
-    .cycles.flat()
-    .filter((id) => inScope.has(id))
-    .sort((a, b) => (p.indexOf.get(a) as number) - (p.indexOf.get(b) as number))
+  const cycleIds = openCycleMembers(p)
+    .filter((i) => distance[i] !== -1)
+    .map((i) => vertices[i])
 
   let criticalPath: CriticalPath | null = null
   if (cycleIds.length === 0) {
@@ -419,13 +417,9 @@ export function analyzeSelection(content: GraphContent, startIds: readonly strin
     criticalPath = longestChain(p, depth, roots.length > 0 ? roots : starts)
   }
 
-  const inScopeIndices = vertices.map((_, i) => i).filter((i) => distance[i] !== -1)
-  const inconsistent = inScopeIndices
-    .filter((i) => p.inconsistent[i])
-    .map((i) => ({ id: vertices[i], waitingFor: waitingOn(p, i) }))
-  const unknownStatus = inScopeIndices.flatMap((i) => {
+  const unknownStatus = vertices.flatMap((id, i) => {
     const info = p.info[i]
-    return info && !info.known && info.raw !== undefined ? [{ id: vertices[i], raw: info.raw }] : []
+    return distance[i] !== -1 && info && !info.known && info.raw !== undefined ? [{ id, raw: info.raw }] : []
   })
 
   return {
@@ -433,9 +427,9 @@ export function analyzeSelection(content: GraphContent, startIds: readonly strin
     selectedIds,
     unfinished,
     selectedBlocked,
+    selectionFinished: !whole && starts.every((s) => p.done[s]),
     criticalPath,
     cycleIds,
-    inconsistent,
     unknownStatus,
   }
 }
@@ -445,6 +439,9 @@ function stepsText(count: number): string {
 }
 
 const MAX_LISTED_NAMES = 5
+
+/** Shown instead of the list of prerequisites when the selection is finished. */
+export const FINISHED_HINT = 'Fertig – Voraussetzungen werden nicht mehr betrachtet.'
 
 /** "A, B, C" with at most five names, then "…". */
 export function joinNames(names: readonly string[]): string {
@@ -474,7 +471,7 @@ export function formatAnalysisMarkdown(
 
   const target = selection.scope === 'project' ? 'Gesamtes Projekt' : selection.selectedIds.map(name).join(', ')
   const { counts } = project
-  const clarifyCount = selection.inconsistent.length + selection.unknownStatus.length
+  const clarifyCount = selection.unknownStatus.length
   const lines = [
     `# Release-Analyse: ${content.projectName ?? DEFAULT_PROJECT_NAME} – ${target}`,
     '',
@@ -498,25 +495,14 @@ export function formatAnalysisMarkdown(
   }
 
   if (clarifyCount > 0) {
-    lines.push('## Zu klären', '')
-    if (selection.inconsistent.length > 0) {
-      lines.push(
-        `### Fertig trotz offener Voraussetzung (${selection.inconsistent.length})`,
-        '',
-        ...selection.inconsistent.map(
-          (o) => `- ${name(o.id)} – wartet auf ${o.waitingFor.map((id) => `${name(id)} (${statusOf(id)})`).join(', ')}`,
-        ),
-        '',
-      )
-    }
-    if (selection.unknownStatus.length > 0) {
-      lines.push(
-        `### Unbekannter Status (${selection.unknownStatus.length})`,
-        '',
-        ...selection.unknownStatus.map((o) => `- ${name(o.id)} – „${o.raw}“ (zählt als offen)`),
-        '',
-      )
-    }
+    lines.push(
+      '## Zu klären',
+      '',
+      `### Unbekannter Status (${clarifyCount})`,
+      '',
+      ...selection.unknownStatus.map((o) => `- ${name(o.id)} – „${o.raw}“ (zählt als offen)`),
+      '',
+    )
   }
 
   const pathLines: string[] = []
@@ -553,7 +539,7 @@ export function formatAnalysisMarkdown(
       '',
       ...(selection.unfinished.length > 0
         ? selection.unfinished.map(entry)
-        : ['Keine offenen Voraussetzungen – kann released werden.']),
+        : [selection.selectionFinished ? FINISHED_HINT : 'Keine offenen Voraussetzungen – kann released werden.']),
       '',
     )
   }

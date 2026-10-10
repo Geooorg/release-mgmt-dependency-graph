@@ -66,7 +66,6 @@ function toPanelProps(
     ready: project.readyIds.has(id),
     blocked: project.blockedIds.has(id),
     waiting: project.waitingIds.has(id),
-    inconsistent: project.inconsistentIds.has(id),
     reason: project.blockReasons.get(id),
     waitingFor: (project.waitingFor.get(id) ?? []).map(nameOf),
   })
@@ -90,11 +89,7 @@ function toPanelProps(
     },
     cycleNames: selection.cycleIds.map(nameOf),
     unfinished: selection.unfinished.map((u) => entry(u.id)),
-    inconsistent: selection.inconsistent.map((item) => ({
-      id: item.id,
-      name: nameOf(item.id),
-      waitingFor: item.waitingFor.map((id) => ({ name: nameOf(id), status: project.statusById.get(id) ?? 'offen' })),
-    })),
+    selectionFinished: selection.selectionFinished,
     unknownStatus: selection.unknownStatus.map((item) => ({ id: item.id, name: nameOf(item.id), raw: item.raw })),
   }
 }

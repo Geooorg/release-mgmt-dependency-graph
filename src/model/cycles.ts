@@ -11,7 +11,7 @@ export interface CycleResult {
 }
 
 /** Iterative Tarjan: component index per vertex index (no recursion, safe for large graphs). */
-function stronglyConnectedComponents(successors: readonly (readonly number[])[]): number[] {
+export function stronglyConnectedComponents(successors: readonly (readonly number[])[]): number[] {
   const count = successors.length
   const index = new Array<number>(count).fill(-1)
   const low = new Array<number>(count).fill(0)

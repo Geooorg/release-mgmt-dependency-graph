@@ -149,13 +149,10 @@ describe('toFlowNodes status, waiting and blocked', () => {
     )
     const [a, b, c] = toFlowNodes(model.nodes, ui(analyzeProject(model)))
     expect([a.data.status, b.data.status, c.data.status]).toEqual(['fertig', 'offen', 'in Arbeit'])
-    // a is finished but waits for b: a contradiction, not a blockade
+    // a is finished: it carries no mark at all, whatever it depends on
     expect(a.data.waitingTitle).toBeUndefined()
-    expect(a.data.inconsistentTitle).toBe('Fertig, aber Voraussetzung nicht fertig: b')
     expect(b.data.waitingTitle).toBe('Wartet auf: c')
-    expect(b.data.inconsistentTitle).toBeUndefined()
     expect(c.data.waitingTitle).toBeUndefined()
-    expect(c.data.inconsistentTitle).toBeUndefined()
     expect([a, b, c].map((n) => n.data.blockedTitle)).toEqual([undefined, undefined, undefined])
   })
 
@@ -173,17 +170,20 @@ describe('toFlowNodes status, waiting and blocked', () => {
     expect([done.data.status, done.data.statusRaw, done.data.statusKnown]).toEqual(['fertig', 'fertig', true])
   })
 
-  it('lists at most five names in the inconsistency title', () => {
-    const blockers = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map((id, i) => box(id, i + 1, 0))
+  it('gives no object behind a finished one a hourglass: App -> Lib (fertig) -> Core', () => {
     const model = content(
-      [withStatus(box('a', 0, 0), 'fertig'), ...blockers],
-      blockers.map((b) => edge(`e-${b.id}`, 'a', b.id)),
+      [box('app', 0, 0), withStatus(box('lib', 1, 0), 'fertig'), box('core', 2, 0)],
+      [edge('al', 'app', 'lib'), edge('lc', 'lib', 'core')],
     )
-    const [a] = toFlowNodes(model.nodes, ui(analyzeProject(model)))
-    expect(a.data.inconsistentTitle).toBe('Fertig, aber Voraussetzung nicht fertig: p1, p2, p3, p4, p5, …')
+    const flows = toFlowNodes(model.nodes, ui(analyzeProject(model)))
+    expect(flows.map((n) => [n.data.waitingTitle, n.data.blockedTitle])).toEqual([
+      [undefined, undefined],
+      [undefined, undefined],
+      [undefined, undefined],
+    ])
   })
 
-  it('marks a group that contains an inconsistent object, besides the hourglass if there is one', () => {
+  it('flags a group by its unfinished members only, never for finished members', () => {
     const model = content(
       [
         group('g', 0, 0, 300, 200),
@@ -198,11 +198,10 @@ describe('toFlowNodes status, waiting and blocked', () => {
     const flows = toFlowNodes(model.nodes, ui(analyzeProject(model)))
     const g = flows.find((n) => n.id === 'g')!
     const h = flows.find((n) => n.id === 'h')!
-    expect(g.data.inconsistentTitle).toBe('Enthält fertige Objekte mit nicht fertiger Voraussetzung: m')
     expect(g.data.waitingTitle).toBe('Enthält wartende Objekte: n')
     expect(g.data.blockedTitle).toBeUndefined()
-    expect(h.data.inconsistentTitle).toBe('Enthält fertige Objekte mit nicht fertiger Voraussetzung: o')
     expect(h.data.waitingTitle).toBeUndefined()
+    expect(h.data.blockedTitle).toBeUndefined()
   })
 
   it('lists at most five prerequisites, then an ellipsis', () => {

@@ -1,15 +1,14 @@
 import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
-import { joinNames } from '../model/releaseAnalysis'
+import { FINISHED_HINT, joinNames } from '../model/releaseAnalysis'
 import { DEFAULT_STATUS, parseStatus, STATUS_VALUES, type Status } from '../model/status'
-import { BlockedFlag, InconsistentMark, StatusMark, WaitingMark } from './StatusMarks'
+import { BlockedFlag, StatusMark, WaitingMark } from './StatusMarks'
 import type { AnalysisEntry, AnalysisPanelProps, AnalysisSelected } from './props'
 import { useEditGesture } from './useSidebarEffects'
 import './components.css'
 
 const MAX_TITLE_NAMES = 3
 const NO_REASON = 'kein Grund angegeben'
-const INCONSISTENT_TITLE = 'Fertig, aber Voraussetzung nicht fertig'
 
 function titleOf(names: readonly string[]): string {
   if (names.length === 0) return 'Gesamtes Projekt'
@@ -65,7 +64,6 @@ function Entry({
       {entry.ready && <span className="analysis-chip analysis-chip--ready">jetzt umsetzbar</span>}
       {entry.blocked && <BlockedFlag title={blockedTitle(entry.reason)} inline />}
       {entry.waiting && <WaitingMark title={`Wartet auf: ${joinNames(entry.waitingFor ?? [])}`} inline />}
-      {entry.inconsistent && <InconsistentMark title={INCONSISTENT_TITLE} inline />}
       {note && noteText !== undefined && <span className="analysis-item__note">{noteText}</span>}
     </button>
   )
@@ -236,10 +234,6 @@ function Legend() {
       icon: <WaitingMark title="Wartet" inline />,
       text: 'Sanduhr: wartet – nicht fertig und von einer noch nicht fertigen Voraussetzung abhängig.',
     },
-    {
-      icon: <InconsistentMark title="Zu klären" inline />,
-      text: 'Dreieck: fertig trotz offener Voraussetzung – zu klären.',
-    },
     { icon: <StatusMark status="fertig" inline />, text: 'Häkchen: fertig' },
     { icon: <StatusMark status="in Arbeit" inline />, text: 'Halbkreis: in Arbeit' },
     { icon: <StatusMark status="offen" raw="offen" inline />, text: 'Grauer Kreis: offen (auch ohne gesetzten Status)' },
@@ -258,7 +252,7 @@ function Legend() {
           </li>
         ))}
       </ul>
-      <p className="analysis-hint">Bei Gruppen stehen Flagge, Sanduhr und Dreieck im Titel, wenn ein Mitglied betroffen ist.</p>
+      <p className="analysis-hint">Bei Gruppen stehen Flagge und Sanduhr im Titel, wenn ein Mitglied betroffen ist.</p>
     </details>
   )
 }
@@ -292,7 +286,7 @@ export function AnalysisPanel({
   criticalPath,
   cycleNames,
   unfinished,
-  inconsistent,
+  selectionFinished,
   unknownStatus,
   onReveal,
   onCopy,
@@ -302,7 +296,7 @@ export function AnalysisPanel({
   const ready = unfinished.filter((entry) => entry.ready)
   const waiting = unfinished.filter((entry) => entry.waiting)
   const title = titleOf(selectionNames)
-  const clarifyCount = inconsistent.length + unknownStatus.length
+  const clarifyCount = unknownStatus.length
 
   const pathSection =
     criticalPath === null ? (
@@ -382,36 +376,17 @@ export function AnalysisPanel({
 
         {clarifyCount > 0 && (
           <Section title="Zu klären">
-            {inconsistent.length > 0 && (
-              <>
-                <h4 className="analysis-subtitle">Fertig trotz offener Voraussetzung ({inconsistent.length})</h4>
-                <ul className="analysis-list">
-                  {inconsistent.map((item) => (
-                    <ClarifyItem
-                      key={item.id}
-                      id={item.id}
-                      text={`${item.name} – wartet auf ${item.waitingFor.map((w) => `${w.name} (${w.status})`).join(', ')}`}
-                      onReveal={onReveal}
-                    />
-                  ))}
-                </ul>
-              </>
-            )}
-            {unknownStatus.length > 0 && (
-              <>
-                <h4 className="analysis-subtitle">Unbekannter Status ({unknownStatus.length})</h4>
-                <ul className="analysis-list">
-                  {unknownStatus.map((item) => (
-                    <ClarifyItem
-                      key={item.id}
-                      id={item.id}
-                      text={`${item.name} – „${item.raw}“ (zählt als offen)`}
-                      onReveal={onReveal}
-                    />
-                  ))}
-                </ul>
-              </>
-            )}
+            <h4 className="analysis-subtitle">Unbekannter Status ({unknownStatus.length})</h4>
+            <ul className="analysis-list">
+              {unknownStatus.map((item) => (
+                <ClarifyItem
+                  key={item.id}
+                  id={item.id}
+                  text={`${item.name} – „${item.raw}“ (zählt als offen)`}
+                  onReveal={onReveal}
+                />
+              ))}
+            </ul>
           </Section>
         )}
 
@@ -421,7 +396,7 @@ export function AnalysisPanel({
             {listSection(
               'Offene Voraussetzungen',
               unfinished,
-              'Keine offenen Voraussetzungen – kann released werden.',
+              selectionFinished ? FINISHED_HINT : 'Keine offenen Voraussetzungen – kann released werden.',
             )}
           </>
         ) : (

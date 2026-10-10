@@ -765,4 +765,26 @@ describe('App: analysis mode layout', () => {
       expect(dependent.id).not.toBe(prerequisite.id)
     })
   })
+
+  describe('finished is final', () => {
+    it('shows no mark on or above a finished object and says so for a finished selection', async () => {
+      render(<App />)
+      const [first, second] = graphStore.getState().nodes
+      const edge = graphStore.getState().edges[0]
+      const [dependent, prerequisite] = edge.source === first.id ? [first, second] : [second, first]
+      act(() => graphStore.getState().setStatus(prerequisite.id, 'fertig'))
+      select(prerequisite.id)
+      await switchTo('Analysieren')
+
+      expect(document.querySelectorAll('.box-node .waiting-mark, .box-node .blocked-flag')).toHaveLength(0)
+      expect(document.querySelectorAll('.inconsistent-mark')).toHaveLength(0)
+      const counts = within(within(panel()!).getByRole('list', { name: 'Projektstand' }))
+      expect(counts.getByText('wartet').closest('li')).toHaveTextContent('0 wartet')
+      expect(counts.getByText('jetzt umsetzbar').closest('li')).toHaveTextContent('1 jetzt umsetzbar')
+      expect(within(panel()!).getByText('Fertig – Voraussetzungen werden nicht mehr betrachtet.')).toBeInTheDocument()
+
+      select(dependent.id)
+      expect(within(panel()!).queryByText(/nicht mehr betrachtet/)).toBeNull()
+    })
+  })
 })

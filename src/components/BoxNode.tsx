@@ -4,7 +4,7 @@ import type { BoxFlowNode } from '../flow/types'
 import { NODE_SIZE } from '../model/types'
 import { CycleBadge } from './CycleBadge'
 import { NodeHandles } from './NodeHandles'
-import { BlockedFlag, InconsistentMark, StatusMark, WaitingMark } from './StatusMarks'
+import { BlockedFlag, StatusMark, WaitingMark } from './StatusMarks'
 import './components.css'
 
 export function BoxNode({ data, selected }: NodeProps<BoxFlowNode>) {
@@ -30,7 +30,6 @@ export function BoxNode({ data, selected }: NodeProps<BoxFlowNode>) {
       <NodeHandles />
       {data.blockedTitle && <BlockedFlag title={data.blockedTitle} />}
       {data.waitingTitle && <WaitingMark title={data.waitingTitle} />}
-      {data.inconsistentTitle && <InconsistentMark title={data.inconsistentTitle} />}
       {data.isInCycle && <CycleBadge />}
       <StatusMark status={data.status} raw={data.statusRaw} known={data.statusKnown} />
       <span className={hasName ? 'box-node__label' : 'box-node__label box-node__label--empty'}>

@@ -253,31 +253,25 @@ describe('node components', () => {
     expect(container.querySelectorAll('.status-mark')).toHaveLength(5)
   })
 
-  it('shows the amber warning triangle instead of the flag on an inconsistent box', () => {
-    const { container } = renderNodes([
-      box({ data: makeData({ inconsistentTitle: 'Fertig, aber Voraussetzung nicht fertig: D', status: 'fertig' }) }),
-    ])
+  it('shows only the tick on a finished box: no flag, hourglass or triangle', () => {
+    const { container } = renderNodes([box({ data: makeData({ status: 'fertig' }) })])
 
-    const mark = screen.getByLabelText('Fertig, aber Voraussetzung nicht fertig: D')
-    expect(mark).toHaveAttribute('title', 'Fertig, aber Voraussetzung nicht fertig: D')
-    expect(mark).toHaveClass('inconsistent-mark')
-    expect(container.querySelectorAll('.blocked-flag')).toHaveLength(0)
+    expect(screen.getByLabelText('Status: fertig')).toHaveClass('status-mark--done')
+    expect(container.querySelectorAll('.blocked-flag, .waiting-mark, .inconsistent-mark')).toHaveLength(0)
   })
 
-  it('puts flag, hourglass and triangle of a group side by side into its title', () => {
+  it('puts flag and hourglass of a group side by side into its title', () => {
     const { container } = renderNodes([
       group({
         data: makeData({
           blockedTitle: 'Enthält blockierte Objekte: X',
           waitingTitle: 'Enthält wartende Objekte: Z',
-          inconsistentTitle: 'Enthält fertige Objekte mit nicht fertiger Voraussetzung: Y',
         }),
       }),
     ])
 
     expect(container.querySelector('.group-node__header .blocked-flag')).not.toBeNull()
     expect(container.querySelector('.group-node__header .waiting-mark')).not.toBeNull()
-    expect(container.querySelector('.group-node__header .inconsistent-mark')).not.toBeNull()
   })
 
   it('keeps flag, status mark and cycle badge apart on one box', () => {

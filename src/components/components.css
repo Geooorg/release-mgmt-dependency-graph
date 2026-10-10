@@ -821,28 +821,6 @@
   color: #d97706;
 }
 
-/* Same corner as the red flag: an object is either blocked or waiting (unfinished) or inconsistent (finished). */
-.inconsistent-mark {
-  position: absolute;
-  top: -11px;
-  left: -11px;
-  z-index: 1;
-  display: flex;
-  color: #d97706;
-  filter: drop-shadow(0 1px 2px rgb(17 24 39 / 0.45));
-}
-
-.inconsistent-mark--inline {
-  position: static;
-  flex: none;
-  margin-right: 6px;
-  filter: none;
-}
-
-.inconsistent-mark .icon {
-  display: block;
-}
-
 .status-mark--inline {
   position: static;
   flex: none;
@@ -1184,10 +1162,6 @@ ol.analysis-list > li::before {
 
 .analysis-legend__icon .blocked-flag--inline,
 .analysis-legend__icon .waiting-mark--inline {
-  margin-right: 0;
-}
-
-.analysis-legend__icon .inconsistent-mark--inline {
   margin-right: 0;
 }
 

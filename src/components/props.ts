@@ -122,21 +122,12 @@ export interface AnalysisEntry {
   ready: boolean
   /** Status `blockiert` (set by hand): red flag. */
   blocked: boolean
-  /** Unfinished, not blocked, with an unfinished transitive prerequisite: hourglass. */
+  /** Unfinished, not blocked, with an unfinished direct prerequisite: hourglass. */
   waiting: boolean
-  /** Finished although a prerequisite is not. */
-  inconsistent?: boolean
   /** Blocked entries: the reason; undefined = none given. */
   reason?: string
   /** Names of the direct prerequisites a waiting entry waits for, in release order. */
   waitingFor?: string[]
-}
-
-/** A finished object that waits for unfinished prerequisites. */
-export interface InconsistentEntry {
-  id: string
-  name: string
-  waitingFor: { name: string; status: Status }[]
 }
 
 /** An object whose status value is none of the four (it counts as `offen`). */
@@ -152,7 +143,7 @@ export interface AnalysisCounts {
   open: number
   /** Status `blockiert` (set by hand). */
   blocked: number
-  /** Unfinished, not blocked, with an unfinished prerequisite. */
+  /** Unfinished, not blocked, with an unfinished direct prerequisite. */
   waiting: number
   ready: number
 }
@@ -203,9 +194,9 @@ export interface AnalysisPanelProps {
    * ones first, then ready ones, then waiting ones.
    */
   unfinished: AnalysisEntry[]
-  /** Section "Zu klären": finished objects with unfinished prerequisites ... */
-  inconsistent: InconsistentEntry[]
-  /** ... and objects with an unknown status value (selection and its prerequisites, or the whole project). */
+  /** The selection itself is finished: its prerequisites are not looked at (hint instead of the list). */
+  selectionFinished: boolean
+  /** Section "Zu klären": objects with an unknown status value (selection and its unfinished prerequisites, or the whole project). */
   unknownStatus: UnknownStatusEntry[]
   /** Bring the object into view without changing the selection. */
   onReveal: (id: string) => void

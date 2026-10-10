@@ -32,7 +32,7 @@ function makeProps(overrides: Partial<AnalysisPanelProps> = {}): AnalysisPanelPr
     },
     cycleNames: [],
     unfinished: [entry('c', { ready: true }), entry('b', { status: 'in Arbeit', waiting: true, waitingFor: ['Dienst C'] })],
-    inconsistent: [],
+    selectionFinished: false,
     unknownStatus: [],
     onReveal: vi.fn(),
     onCopy: vi.fn(),
@@ -149,6 +149,17 @@ describe('AnalysisPanel', () => {
     expect(screen.getByText('Keine offenen Voraussetzungen – kann released werden.')).toBeInTheDocument()
   })
 
+  it('says a finished selection no longer looks at its prerequisites', () => {
+    render(
+      <AnalysisPanel
+        {...makeProps({ unfinished: [], selectionFinished: true, criticalPath: { steps: [], length: 0 } })}
+      />,
+    )
+    const section = screen.getByRole('heading', { name: 'Offene Voraussetzungen (0)' }).closest('section')!
+    expect(within(section).getByText('Fertig – Voraussetzungen werden nicht mehr betrachtet.')).toBeInTheDocument()
+    expect(screen.queryByText('Keine offenen Voraussetzungen – kann released werden.')).not.toBeInTheDocument()
+  })
+
   describe('whole project', () => {
     const projectProps = (overrides: Partial<AnalysisPanelProps> = {}) =>
       makeProps({
@@ -242,10 +253,9 @@ describe('AnalysisPanel', () => {
       const rows = [...legend.querySelectorAll('li')]
       const textOf = (selector: string) => legend.querySelector(selector)!.closest('li')!.textContent
 
-      expect(rows).toHaveLength(7)
+      expect(rows).toHaveLength(6)
       expect(textOf('.blocked-flag')).toMatch(/Rote Flagge.*blockiert.*manuell/)
       expect(textOf('.waiting-mark')).toMatch(/Sanduhr.*wartet.*Voraussetzung/)
-      expect(textOf('.inconsistent-mark')).toMatch(/Dreieck.*fertig.*Voraussetzung/)
       expect(textOf('.status-mark--done')).toMatch(/Häkchen.*fertig/)
       expect(textOf('.status-mark--progress')).toMatch(/Halbkreis.*in Arbeit/)
       expect(textOf('.status-mark--open')).toMatch(/Kreis.*offen/)
@@ -256,18 +266,10 @@ describe('AnalysisPanel', () => {
   })
 
   describe('to clarify', () => {
-    const inconsistent = [
-      { id: 'c', name: 'Dienst C', waitingFor: [{ name: 'Dienst D', status: 'offen' as const }] },
-      {
-        id: 'x',
-        name: 'Dienst X',
-        waitingFor: [
-          { name: 'Dienst Y', status: 'in Arbeit' as const },
-          { name: 'Dienst Z', status: 'offen' as const },
-        ],
-      },
+    const unknownStatus = [
+      { id: 'u', name: 'Dienst U', raw: 'erledigt' },
+      { id: 'v', name: 'Dienst V', raw: 'bald' },
     ]
-    const unknownStatus = [{ id: 'u', name: 'Dienst U', raw: 'erledigt' }]
 
     it('shows nothing when there is nothing to clarify', () => {
       render(<AnalysisPanel {...makeProps()} />)
@@ -275,38 +277,27 @@ describe('AnalysisPanel', () => {
       expect(within(screen.getByRole('list', { name: 'Projektstand' })).queryByText('zu klären')).not.toBeInTheDocument()
     })
 
-    it('lists finished objects with unfinished prerequisites and what they wait for', () => {
-      render(<AnalysisPanel {...makeProps({ inconsistent })} />)
-      const section = screen.getByRole('heading', { name: 'Zu klären' }).closest('section')!
-
-      expect(within(section).getByRole('heading', { name: 'Fertig trotz offener Voraussetzung (2)' })).toBeInTheDocument()
-      expect(within(section).getAllByRole('button').map((b) => b.textContent)).toEqual([
-        'Dienst C – wartet auf Dienst D (offen)',
-        'Dienst X – wartet auf Dienst Y (in Arbeit), Dienst Z (offen)',
-      ])
-      expect(within(section).queryByRole('heading', { name: /Unbekannter Status/ })).not.toBeInTheDocument()
-    })
-
-    it('lists unknown status values', () => {
+    it('lists unknown status values and nothing else', () => {
       render(<AnalysisPanel {...makeProps({ unknownStatus })} />)
       const section = screen.getByRole('heading', { name: 'Zu klären' }).closest('section')!
 
-      expect(within(section).getByRole('heading', { name: 'Unbekannter Status (1)' })).toBeInTheDocument()
-      expect(within(section).getByRole('button')).toHaveTextContent('Dienst U – „erledigt“ (zählt als offen)')
-      expect(within(section).queryByRole('heading', { name: /Fertig trotz/ })).not.toBeInTheDocument()
+      expect(within(section).getByRole('heading', { name: 'Unbekannter Status (2)' })).toBeInTheDocument()
+      expect(within(section).getAllByRole('button').map((b) => b.textContent)).toEqual([
+        'Dienst U – „erledigt“ (zählt als offen)',
+        'Dienst V – „bald“ (zählt als offen)',
+      ])
+      expect(within(section).getAllByRole('heading', { level: 4 })).toHaveLength(1)
     })
 
-    it('counts all entries in a chip and reveals an entry on click', async () => {
-      const props = makeProps({ inconsistent, unknownStatus })
+    it('counts the entries in a chip and reveals an entry on click', async () => {
+      const props = makeProps({ unknownStatus })
       render(<AnalysisPanel {...props} />)
 
       const counts = within(screen.getByRole('list', { name: 'Projektstand' }))
-      expect(counts.getByText('zu klären').closest('li')).toHaveTextContent('3 zu klären')
+      expect(counts.getByText('zu klären').closest('li')).toHaveTextContent('2 zu klären')
 
-      await userEvent.click(screen.getByRole('button', { name: /Dienst X/ }))
-      await userEvent.click(screen.getByRole('button', { name: /Dienst U/ }))
-      expect(props.onReveal).toHaveBeenNthCalledWith(1, 'x')
-      expect(props.onReveal).toHaveBeenNthCalledWith(2, 'u')
+      await userEvent.click(screen.getByRole('button', { name: /Dienst V/ }))
+      expect(props.onReveal).toHaveBeenCalledWith('v')
     })
   })
 

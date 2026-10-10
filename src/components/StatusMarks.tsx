@@ -1,5 +1,5 @@
 import type { Status } from '../model/status'
-import { CheckIcon, FlagIcon, HourglassIcon, OpenCircleIcon, QuestionIcon, WarningIcon } from './icons'
+import { CheckIcon, FlagIcon, HourglassIcon, OpenCircleIcon, QuestionIcon } from './icons'
 import './components.css'
 
 /** Red flag on elements with the status `blockiert`; `title` names the reason (also the accessible name). */
@@ -26,20 +26,6 @@ export function WaitingMark({ title, inline = false }: { title: string; inline?:
       title={title}
     >
       <HourglassIcon size={12} />
-    </span>
-  )
-}
-
-/** Amber warning triangle on elements that are finished although a prerequisite is not. */
-export function InconsistentMark({ title, inline = false }: { title: string; inline?: boolean }) {
-  return (
-    <span
-      className={inline ? 'inconsistent-mark inconsistent-mark--inline' : 'inconsistent-mark'}
-      role="img"
-      aria-label={title}
-      title={title}
-    >
-      <WarningIcon size={inline ? 18 : 22} />
     </span>
   )
 }

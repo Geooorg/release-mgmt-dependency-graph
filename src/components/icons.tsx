@@ -163,16 +163,6 @@ export function HourglassIcon({ size }: { size?: number }) {
   )
 }
 
-/** Warning triangle (amber via `currentColor`) with a white exclamation mark: finished, but a prerequisite is not. */
-export function WarningIcon({ size }: { size?: number }) {
-  return (
-    <Icon size={size}>
-      <path d="M12 3 2.5 20.5h19z" fill="currentColor" />
-      <path d="M12 9.5v5M12 17.5h.01" stroke="#fff" strokeWidth="2.5" />
-    </Icon>
-  )
-}
-
 /** Empty ring: status offen. */
 export function OpenCircleIcon({ size }: { size?: number }) {
   return (
