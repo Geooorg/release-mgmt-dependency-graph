@@ -72,3 +72,31 @@ describe('toFlowNodes', () => {
     ])
   })
 })
+
+describe('toFlowEdges labels', () => {
+  it('passes the label to the edge, in the edge colour', () => {
+    const [plain, labelled] = toFlowEdges(
+      [edge('p', 'a', 'b'), { ...edge('l', 'a', 'c'), label: 'braucht' }],
+      none,
+      new Set(['l']),
+      nodes,
+    )
+    expect(plain.label).toBeUndefined()
+    expect(labelled.label).toBe('braucht')
+    expect(labelled.labelStyle).toMatchObject({ fill: '#dc2626' })
+  })
+})
+
+describe('toFlowEdges labels', () => {
+  it('passes the label to the edge, in the edge colour', () => {
+    const [plain, labelled] = toFlowEdges(
+      [edge('p', 'a', 'b'), { ...edge('l', 'a', 'c'), label: 'braucht' }],
+      none,
+      new Set(['l']),
+      nodes,
+    )
+    expect(plain.label).toBeUndefined()
+    expect(labelled.label).toBe('braucht')
+    expect(labelled.labelStyle).toMatchObject({ fill: '#dc2626' })
+  })
+})

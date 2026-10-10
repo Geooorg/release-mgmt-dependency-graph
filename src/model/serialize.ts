@@ -40,7 +40,7 @@ export function serializeModel(model: GraphModel): string {
   return `${JSON.stringify(canonical, null, 2)}\n`
 }
 
-/** Fixed key order inside an edge; connectors only when set. */
+/** Fixed key order inside an edge; connectors and label only when set. */
 function canonicalEdge(edge: ModelEdge): ModelEdge {
   return {
     id: edge.id,
@@ -48,6 +48,7 @@ function canonicalEdge(edge: ModelEdge): ModelEdge {
     target: edge.target,
     ...(edge.sourceHandle && { sourceHandle: edge.sourceHandle }),
     ...(edge.targetHandle && { targetHandle: edge.targetHandle }),
+    ...(edge.label && { label: edge.label }),
   }
 }
 
@@ -382,11 +383,17 @@ function parseEdges(
       }
     }
 
+    let caption: string | undefined
+    if (value.label !== undefined) {
+      if (typeof value.label === 'string') caption = value.label.trim() || undefined
+      else fail('label muss ein Text sein.')
+    }
+
     if (problems.length > 0 || id === undefined || typeof source !== 'string' || typeof target !== 'string') {
       for (const problem of problems) report(problem)
       return
     }
-    edges.push({ id, source, target, ...handles })
+    edges.push({ id, source, target, ...handles, ...(caption && { label: caption }) })
   })
   return edges
 }

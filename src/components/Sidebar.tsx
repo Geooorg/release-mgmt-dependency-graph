@@ -4,6 +4,7 @@ import { findDuplicateKeys, isValidColor, normalizeMetadata } from '../model/met
 import { COLOR_KEY, DEFAULT_COLOR, NAME_KEY } from '../model/types'
 import type { MetadataEntry } from '../model/types'
 import type { SidebarElement, SidebarProps } from './props'
+import { SidebarEdgeForm } from './SidebarEdgeForm'
 import './components.css'
 
 /** One editable field row; `rid` is a stable local id used as React key. */
@@ -71,7 +72,9 @@ function canonical(entries: readonly MetadataEntry[]): MetadataEntry[] {
   return toEntries(toDraft(entries))
 }
 
-type SidebarFormProps = Omit<SidebarProps, 'element'> & { element: SidebarElement }
+type SidebarFormProps = Omit<SidebarProps, 'element'> & {
+  element: SidebarElement & { kind: 'node' | 'group' }
+}
 
 function SidebarForm({ element, onSave, onClose }: SidebarFormProps) {
   const formId = useId()
@@ -259,7 +262,16 @@ export function Sidebar({ element, onSave, onClose }: SidebarProps) {
   return (
     <aside className="sidebar" aria-label="Metadaten">
       {/* Keyed by id: opening a different element starts with a fresh draft. */}
-      <SidebarForm key={element.id} element={element} onSave={onSave} onClose={onClose} />
+      {element.kind === 'edge' ? (
+        <SidebarEdgeForm key={element.id} element={element} onSave={onSave} onClose={onClose} />
+      ) : (
+        <SidebarForm
+          key={element.id}
+          element={{ ...element, kind: element.kind }}
+          onSave={onSave}
+          onClose={onClose}
+        />
+      )}
     </aside>
   )
 }

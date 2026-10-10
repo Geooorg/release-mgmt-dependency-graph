@@ -53,6 +53,8 @@ export interface ModelEdge {
   sourceHandle?: HandleSide
   /** Connector on the target element; undefined = renderer picks. */
   targetHandle?: HandleSide
+  /** Optional caption shown on the edge. Trimmed; absent = no label. */
+  label?: string
 }
 
 /** Graph content without the schema version (what the store works on). */

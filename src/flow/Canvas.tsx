@@ -123,6 +123,7 @@ export function Canvas() {
       onNodeClick={(_, node) => graphStore.getState().pickForConnect(node.id)}
       onPaneClick={() => graphStore.getState().clearConnectSource()}
       onNodeDoubleClick={(_, node) => graphStore.getState().openSidebar(node.id)}
+      onEdgeDoubleClick={(_, edge) => graphStore.getState().openEdgeSidebar(edge.id)}
       onNodeDragStart={() => graphStore.getState().beginGesture()}
       onSelectionDragStart={() => graphStore.getState().beginGesture()}
       onNodeDrag={(_, __, dragged) =>

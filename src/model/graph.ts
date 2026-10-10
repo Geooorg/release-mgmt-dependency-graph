@@ -460,3 +460,16 @@ export function resizeNode(content: GraphContent, id: string, size: Size): Graph
 function clampAtLeast(value: number, min: number): number {
   return Number.isFinite(value) ? Math.max(value, min) : min
 }
+
+/**
+ * Sets the caption of an edge (trimmed; blank removes it). Unknown edge or no actual change ->
+ * the same `content` reference.
+ */
+export function updateEdgeLabel(content: GraphContent, id: string, label: string): GraphContent {
+  const edge = content.edges.find((e) => e.id === id)
+  const text = label.trim()
+  if (edge === undefined || (edge.label ?? '') === text) return content
+  const { label: _old, ...rest } = edge
+  const updated: ModelEdge = text === '' ? rest : { ...rest, label: text }
+  return { ...content, edges: content.edges.map((e) => (e.id === id ? updated : e)) }
+}

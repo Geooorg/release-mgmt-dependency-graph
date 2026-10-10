@@ -66,6 +66,11 @@ export function toFlowEdges(
       sourceHandle: edge.sourceHandle ?? facing?.sourceHandle,
       targetHandle: edge.targetHandle ?? facing?.targetHandle,
       selected,
+      label: edge.label,
+      labelStyle: { fill: color, fontWeight: 600, fontSize: 13 },
+      labelBgPadding: [6, 3],
+      labelBgBorderRadius: 4,
+      labelBgStyle: { fill: '#ffffff', fillOpacity: 0.92, stroke: color, strokeWidth: 1 },
       // Highlighted edges paint above everything else.
       zIndex: dependency ? 1000 : undefined,
       style: { stroke: color, strokeWidth: dependency ? 6 : selected ? 3 : 2 },

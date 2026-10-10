@@ -17,6 +17,7 @@ import {
   resizeNode,
   sortParentsFirst,
   ungroup,
+  updateEdgeLabel,
   updateMetadata,
   wouldBreakHierarchy,
 } from './graph'
@@ -1081,5 +1082,43 @@ describe('addEdge with connectors', () => {
     expect(next.edges[0]).toEqual({ id: 'id-1', source: 'a', target: 'b', sourceHandle: 'right' })
     expect('targetHandle' in next.edges[0]).toBe(false)
     expect('sourceHandle' in addEdge(base, 'a', 'b', counter()).edges[0]).toBe(false)
+  })
+})
+
+describe('updateEdgeLabel', () => {
+  const base: GraphContent = {
+    nodes: [node('a', 0, 0), node('b', 300, 0)],
+    edges: [
+      { id: 'e1', source: 'a', target: 'b', sourceHandle: 'right' },
+      { id: 'e2', source: 'b', target: 'a' },
+    ],
+  }
+
+  it('sets a trimmed label and keeps everything else', () => {
+    const next = updateEdgeLabel(base, 'e1', '  hängt ab von  ')
+    expect(next.edges[0]).toEqual({ id: 'e1', source: 'a', target: 'b', sourceHandle: 'right', label: 'hängt ab von' })
+    expect(next.edges[1]).toBe(base.edges[1])
+    expect(next.nodes).toBe(base.nodes)
+  })
+
+  it('removes the label for blank text', () => {
+    const labelled = updateEdgeLabel(base, 'e1', 'x')
+    for (const blank of ['', '   ']) {
+      const cleared = updateEdgeLabel(labelled, 'e1', blank)
+      expect('label' in cleared.edges[0]).toBe(false)
+    }
+  })
+
+  it('returns the same content for unknown edges or unchanged labels', () => {
+    expect(updateEdgeLabel(base, 'nope', 'x')).toBe(base)
+    expect(updateEdgeLabel(base, 'e1', '')).toBe(base)
+    const labelled = updateEdgeLabel(base, 'e1', 'x')
+    expect(updateEdgeLabel(labelled, 'e1', ' x ')).toBe(labelled)
+  })
+
+  it('does not mutate its input', () => {
+    const before = JSON.stringify(base)
+    updateEdgeLabel(base, 'e1', 'x')
+    expect(JSON.stringify(base)).toBe(before)
   })
 })

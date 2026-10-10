@@ -28,7 +28,8 @@ export type { DependencyDirection }
 
 export interface SidebarElement {
   id: string
-  kind: ElementKind
+  /** `edge`: only a `label` entry is shown/edited and saved (no name, colour or free-form fields). */
+  kind: ElementKind | 'edge'
   metadata: MetadataEntry[]
 }
 

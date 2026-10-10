@@ -37,13 +37,22 @@ function AppShell() {
   const sidebarNode = useGraph((s) =>
     s.sidebarId ? (s.nodes.find((n) => n.id === s.sidebarId) ?? null) : null,
   )
-  const sidebarElement = useMemo(
-    () =>
-      sidebarNode
-        ? { id: sidebarNode.id, kind: sidebarNode.kind, metadata: sidebarNode.metadata }
-        : null,
-    [sidebarNode],
+  const sidebarEdge = useGraph((s) =>
+    s.sidebarEdgeId ? (s.edges.find((e) => e.id === s.sidebarEdgeId) ?? null) : null,
   )
+  const sidebarElement = useMemo(() => {
+    if (sidebarNode) {
+      return { id: sidebarNode.id, kind: sidebarNode.kind, metadata: sidebarNode.metadata }
+    }
+    if (sidebarEdge) {
+      return {
+        id: sidebarEdge.id,
+        kind: 'edge' as const,
+        metadata: [{ key: 'label', value: sidebarEdge.label ?? '' }],
+      }
+    }
+    return null
+  }, [sidebarNode, sidebarEdge])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -137,7 +146,13 @@ function AppShell() {
         <Sidebar
           element={sidebarElement}
           onSave={(metadata) => {
-            if (sidebarElement) graphStore.getState().saveMetadata(sidebarElement.id, metadata)
+            if (!sidebarElement) return
+            const state = graphStore.getState()
+            if (sidebarElement.kind === 'edge') {
+              state.saveEdgeLabel(sidebarElement.id, metadata.find((m) => m.key === 'label')?.value ?? '')
+            } else {
+              state.saveMetadata(sidebarElement.id, metadata)
+            }
           }}
           onClose={() => graphStore.getState().closeSidebar()}
         />

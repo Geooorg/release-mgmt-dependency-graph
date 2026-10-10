@@ -48,17 +48,21 @@ npm run preview    # gebauten Stand lokal ansehen
 13. In der Sidebar ist die **UUID grau** dargestellt (gestrichelter Rand, Hinweis „nicht editierbar"), damit erkennbar ist, dass sie nicht änderbar ist.
 14. Die Sidebar enthält ein Feld **`color`** mit **Farbwähler**. Die Farbe wird **Hintergrund- und Rahmenfarbe** des Objekts (bei Gruppen: Rahmen, Titel und leichte Tönung) und in der Minimap verwendet; die Schriftfarbe passt sich automatisch an. „Zurücksetzen" stellt das Standard-Blau wieder her.
 
+### Beschriftung von Pfeilen
+
+15. Auch **Pfeile (Verbindungen)** lassen sich beschriften. Ein **Doppelklick auf den Pfeil** öffnet dieselbe Sidebar wie bei Objekten; sie zeigt die UUID der Verbindung (nicht editierbar) und genau ein Feld **„Label"**, das anfangs leer ist. Das Label (getrimmt) erscheint mittig auf dem Pfeil; ein leeres Label entfernt die Beschriftung. Änderungen sind rückgängig machbar.
+
 ### Persistenz und Austausch
 
-15. Das Modell des Graphen wird **bei jeder Änderung im `localStorage`** des Browsers gespeichert.
-16. Beim **Neuladen** der Seite wird zuerst im `localStorage` nach einem Modell aus einer früheren Sitzung gesucht und – falls vorhanden – geladen. Andernfalls werden **initial zwei miteinander verbundene Objekte** angezeigt.
-17. Über einen **Button der Toolbar** kann das Modell **exportiert** werden (Format: **JSON**, siehe unten).
-18. Der Benutzer kann ein Modell aus einer **JSON-Datei importieren**. **Vorher wird gefragt, ob die aktuellen Änderungen verworfen werden sollen.** Ungültige Dateien werden mit Fehlerliste abgelehnt; das aktuelle Modell bleibt dann unverändert.
+19. Das Modell des Graphen wird **bei jeder Änderung im `localStorage`** des Browsers gespeichert.
+20. Beim **Neuladen** der Seite wird zuerst im `localStorage` nach einem Modell aus einer früheren Sitzung gesucht und – falls vorhanden – geladen. Andernfalls werden **initial zwei miteinander verbundene Objekte** angezeigt.
+21. Über einen **Button der Toolbar** kann das Modell **exportiert** werden (Format: **JSON**, siehe unten).
+22. Der Benutzer kann ein Modell aus einer **JSON-Datei importieren**. **Vorher wird gefragt, ob die aktuellen Änderungen verworfen werden sollen.** Ungültige Dateien werden mit Fehlerliste abgelehnt; das aktuelle Modell bleibt dann unverändert.
 
 ### Rahmenbedingungen
 
-19. Rein clientseitig (`npm` + `vite`), keine Server-Abhängigkeit zur Laufzeit.
-20. Eingesetzte Technik: React Flow für die Graph-Darstellung und -Interaktion.
+23. Rein clientseitig (`npm` + `vite`), keine Server-Abhängigkeit zur Laufzeit.
+24. Eingesetzte Technik: React Flow für die Graph-Darstellung und -Interaktion.
 
 ## Bedienung
 
@@ -67,6 +71,7 @@ npm run preview    # gebauten Stand lokal ansehen
 | Objekt anlegen | Toolbar → **Objekt anlegen** (erscheint in der Mitte des sichtbaren Ausschnitts, an einer freien Stelle) |
 | Verbinden | Einen der vier Konnektoren (kleine Kreise am Rand) auf einen Konnektor eines anderen Elements ziehen **oder** Toolbar → **Verbinden**, dann Quelle und Ziel anklicken (die einander zugewandten Seiten werden gewählt; Esc beendet) |
 | Metadaten bearbeiten | Doppelklick auf Objekt/Gruppe → Sidebar → **Save** |
+| Pfeil beschriften | Doppelklick auf den Pfeil → Feld **Label** → **Save** |
 | Gruppieren | Elemente markieren (Strg/Cmd + Klick, oder Shift gedrückt halten und einen Rahmen aufziehen) → **Gruppieren** |
 | Gruppe auflösen | Gruppe markieren → **Gruppe auflösen** (Inhalt bleibt erhalten) |
 | In/aus Gruppe ziehen | Element auf eine Gruppe ziehen und loslassen bzw. aus ihr herausziehen. Ein Element, das mit einer Gruppe verbunden ist, kann nicht in genau diese Gruppe aufgenommen werden (es erscheint ein Hinweis). |
@@ -112,7 +117,7 @@ Der Export entspricht exakt dem im `localStorage` abgelegten Modell (Schlüssel 
 - `kind`: `node` (blauer Kasten) oder `group` (Gruppe/Sub-Graph).
 - `parentId` (optional) verweist auf eine Gruppe; `position` ist dann relativ zu dieser Gruppe.
 - `metadata` ist eine geordnete Liste; der Eintrag `name` steht immer an erster Stelle.
-- Kanten sind gerichtet: von `source` nach `target`. `sourceHandle`/`targetHandle` (`top`, `right`, `bottom`, `left`) sind optional; fehlen sie (ältere Dateien), werden die einander zugewandten Seiten gezeichnet.
+- Kanten sind gerichtet: von `source` nach `target`. `label` ist optional (Beschriftung). `sourceHandle`/`targetHandle` (`top`, `right`, `bottom`, `left`) sind optional; fehlen sie (ältere Dateien), werden die einander zugewandten Seiten gezeichnet.
 - `color` ist ein optionaler Metadateneintrag der Form `#rrggbb`; andere Werte werden wie „keine Farbe" behandelt.
 
 **Warum JSON statt XML?** Gleiches Format wie im `localStorage`, nativer Parser, und freie

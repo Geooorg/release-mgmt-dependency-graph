@@ -242,6 +242,69 @@ describe('graphStore', () => {
     })
   })
 
+  describe('edge labels', () => {
+    const withEdge = () =>
+      createGraphStore(content([box('a', 0, 0), box('b', 300, 0)], [edge('e', 'a', 'b')]))
+
+    it('opens the sidebar for an edge and closes the one for a node (and vice versa)', () => {
+      const store = withEdge()
+      const s = () => store.getState()
+      s().openSidebar('a')
+      s().openEdgeSidebar('e')
+      expect(s().sidebarEdgeId).toBe('e')
+      expect(s().sidebarId).toBeNull()
+      s().openSidebar('a')
+      expect(s().sidebarId).toBe('a')
+      expect(s().sidebarEdgeId).toBeNull()
+      s().openEdgeSidebar('e')
+      s().closeSidebar()
+      expect(s().sidebarEdgeId).toBeNull()
+    })
+
+    it('ignores unknown edge ids', () => {
+      const store = withEdge()
+      store.getState().openEdgeSidebar('nope')
+      expect(store.getState().sidebarEdgeId).toBeNull()
+    })
+
+    it('saves a trimmed label and can undo it', () => {
+      const store = withEdge()
+      store.getState().saveEdgeLabel('e', '  braucht  ')
+      expect(store.getState().edges[0].label).toBe('braucht')
+      store.getState().undo()
+      expect(store.getState().edges[0].label).toBeUndefined()
+    })
+
+    it('does not record an unchanged label as an undo step', () => {
+      const store = withEdge()
+      store.getState().saveEdgeLabel('e', '   ')
+      expect(store.getState().history.past).toHaveLength(0)
+    })
+
+    it('closes the edge sidebar when the edge is deleted or undone away', () => {
+      const store = withEdge()
+      const s = () => store.getState()
+      s().openEdgeSidebar('e')
+      s().applyEdgeSelection([{ id: 'e', selected: true }])
+      s().deleteSelection()
+      expect(s().sidebarEdgeId).toBeNull()
+
+      const other = withEdge()
+      other.getState().connect('b', 'a')
+      const added = other.getState().edges[1].id
+      other.getState().openEdgeSidebar(added)
+      other.getState().undo()
+      expect(other.getState().sidebarEdgeId).toBeNull()
+    })
+
+    it('closes the edge sidebar when an import replaces the model', () => {
+      const store = withEdge()
+      store.getState().openEdgeSidebar('e')
+      store.getState().replaceContent(content([box('x', 0, 0)]))
+      expect(store.getState().sidebarEdgeId).toBeNull()
+    })
+  })
+
   describe('importText', () => {
     const valid = JSON.stringify({
       version: 1,

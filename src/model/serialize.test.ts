@@ -235,7 +235,7 @@ describe('parseModel: untrusted input is never copied wholesale', () => {
     Object.assign(input.nodes[0].position as Json, { z: 3 })
     Object.assign(input.nodes[2].size as Json, { depth: 1 })
     Object.assign((input.nodes[0].metadata as Json[])[0], { hidden: 'x' })
-    Object.assign(input.edges[0], { label: 'x' })
+    Object.assign(input.edges[0], { weight: 'x' })
 
     const model = modelOf(parseModel(input))
     expect(Object.keys(model).sort()).toEqual(['edges', 'nodes', 'version'])
@@ -782,6 +782,49 @@ describe('edge connectors', () => {
     const text = serializeModel(model)
     expect(text.indexOf('"sourceHandle"')).toBeGreaterThan(text.indexOf('"target"'))
     expect(text.indexOf('"targetHandle"')).toBeGreaterThan(text.indexOf('"sourceHandle"'))
+    const back = parseModelJson(text)
+    expect(back.ok && back.model.edges).toEqual(model.edges)
+  })
+})
+
+describe('edge labels', () => {
+  const withLabel = (label: unknown) => {
+    const input = validInput()
+    input.edges = [{ id: 'e1', source: 'n1', target: 'n2', label }]
+    return input
+  }
+
+  it('keeps a label, trimmed', () => {
+    const result = parseModel(withLabel('  hängt ab von  '))
+    expect(result.ok && result.model.edges[0]).toEqual({ id: 'e1', source: 'n1', target: 'n2', label: 'hängt ab von' })
+  })
+
+  it('treats a blank label as no label', () => {
+    for (const blank of ['', '   ']) {
+      const result = parseModel(withLabel(blank))
+      expect(result.ok && 'label' in result.model.edges[0]).toBe(false)
+    }
+  })
+
+  it('rejects labels that are not text', () => {
+    for (const bad of [5, null, {}, ['x']]) {
+      const result = parseModel(withLabel(bad))
+      expect(result.ok).toBe(false)
+      expect(!result.ok && result.errors.join('\n')).toMatch(/label/)
+    }
+  })
+
+  it('serializes the label after the connectors and round-trips it', () => {
+    const model: GraphModel = {
+      version: 1,
+      nodes: [
+        { id: 'a', kind: 'node', position: { x: 0, y: 0 }, metadata: [{ key: 'name', value: 'A' }] },
+        { id: 'b', kind: 'node', position: { x: 9, y: 0 }, metadata: [{ key: 'name', value: 'B' }] },
+      ],
+      edges: [{ label: 'braucht', targetHandle: 'left', id: 'e', source: 'a', target: 'b' }],
+    }
+    const text = serializeModel(model)
+    expect(text.indexOf('"label"')).toBeGreaterThan(text.indexOf('"targetHandle"'))
     const back = parseModelJson(text)
     expect(back.ok && back.model.edges).toEqual(model.edges)
   })

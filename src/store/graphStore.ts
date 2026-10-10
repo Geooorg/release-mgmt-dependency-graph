@@ -44,6 +44,8 @@ export interface GraphState {
   selectedNodeIds: string[]
   selectedEdgeIds: string[]
   sidebarId: string | null
+  /** Edge whose label is being edited (mutually exclusive with `sidebarId`). */
+  sidebarEdgeId: string | null
   connectMode: ConnectMode
   connectSourceId: string | null
   dropTargetId: string | null
@@ -65,6 +67,8 @@ export interface GraphState {
   applyNodeSelection: (changes: readonly Selection[]) => void
   applyEdgeSelection: (changes: readonly Selection[]) => void
   openSidebar: (id: string) => void
+  openEdgeSidebar: (id: string) => void
+  saveEdgeLabel: (id: string, label: string) => void
   closeSidebar: () => void
 
   connect: (
@@ -130,13 +134,15 @@ export function createGraphStore(
 
     /** UI state that references elements must not outlive them (after undo, delete, …). */
     const pruneUi = (next: GraphContent): Partial<GraphState> => {
-      const { selectedNodeIds, selectedEdgeIds, sidebarId, connectSourceId, connectMode } = get()
+      const { selectedNodeIds, selectedEdgeIds, sidebarId, sidebarEdgeId, connectSourceId, connectMode } =
+        get()
       const hasNode = (id: string | null) => id !== null && next.nodes.some((n) => n.id === id)
       const sourceGone = connectSourceId !== null && !hasNode(connectSourceId)
       return {
         selectedNodeIds: selectedNodeIds.filter(hasNode),
         selectedEdgeIds: selectedEdgeIds.filter((id) => next.edges.some((e) => e.id === id)),
         sidebarId: hasNode(sidebarId) ? sidebarId : null,
+        sidebarEdgeId: next.edges.some((e) => e.id === sidebarEdgeId) ? sidebarEdgeId : null,
         connectSourceId: sourceGone ? null : connectSourceId,
         connectMode: sourceGone && connectMode === 'pickTarget' ? 'pickSource' : connectMode,
         dropTargetId: null,
@@ -183,6 +189,7 @@ export function createGraphStore(
       selectedNodeIds: [],
       selectedEdgeIds: [],
       sidebarId: null,
+      sidebarEdgeId: null,
       connectMode: 'off',
       connectSourceId: null,
       dropTargetId: null,
@@ -208,9 +215,13 @@ export function createGraphStore(
       applyEdgeSelection: (changes) =>
         set({ selectedEdgeIds: mergeSelection(get().selectedEdgeIds, changes) }),
       openSidebar: (id) => {
-        if (get().nodes.some((node) => node.id === id)) set({ sidebarId: id })
+        if (get().nodes.some((node) => node.id === id)) set({ sidebarId: id, sidebarEdgeId: null })
       },
-      closeSidebar: () => set({ sidebarId: null }),
+      openEdgeSidebar: (id) => {
+        if (get().edges.some((e) => e.id === id)) set({ sidebarEdgeId: id, sidebarId: null })
+      },
+      saveEdgeLabel: (id, label) => apply(graph.updateEdgeLabel(content(), id, label)),
+      closeSidebar: () => set({ sidebarId: null, sidebarEdgeId: null }),
 
       connect: (source, target, sourceHandle, targetHandle) => {
         tryConnect(source, target, { sourceHandle, targetHandle })
@@ -320,6 +331,7 @@ export function createGraphStore(
           selectedNodeIds: [],
           selectedEdgeIds: [],
           sidebarId: null,
+          sidebarEdgeId: null,
           connectMode: 'off',
           connectSourceId: null,
           dropTargetId: null,

@@ -443,4 +443,75 @@ describe('Sidebar', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('Doppelte Feldnamen: color')
     })
   })
+
+  describe('edge variant', () => {
+    const edgeElement = (label = ''): SidebarElement => ({
+      id: ID_B,
+      kind: 'edge',
+      metadata: [{ key: 'label', value: label }],
+    })
+
+    it('shows only the read-only UUID and one empty "Label" field', () => {
+      render(<Sidebar {...makeProps({ element: edgeElement() })} />)
+
+      expect(screen.getByRole('heading', { name: 'Verbindung' })).toBeInTheDocument()
+      expect(screen.getByLabelText('UUID')).toBeDisabled()
+      expect(screen.getByLabelText('UUID')).toHaveValue(ID_B)
+      expect(screen.getByLabelText('Label')).toHaveValue('')
+      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText(/Farbe/)).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Feld hinzufügen' })).not.toBeInTheDocument()
+    })
+
+    it('shows an existing label', () => {
+      render(<Sidebar {...makeProps({ element: edgeElement('braucht') })} />)
+
+      expect(screen.getByLabelText('Label')).toHaveValue('braucht')
+    })
+
+    it('saves the trimmed label as the only metadata entry', async () => {
+      const onSave = vi.fn()
+      render(<Sidebar {...makeProps({ element: edgeElement(), onSave })} />)
+
+      expect(screen.queryByText('Ungespeicherte Änderungen')).not.toBeInTheDocument()
+      await userEvent.type(screen.getByLabelText('Label'), '  hängt ab von  ')
+      expect(screen.getByText('Ungespeicherte Änderungen')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(onSave).toHaveBeenCalledWith([{ key: 'label', value: 'hängt ab von' }])
+      expect(screen.getByLabelText('Label')).toHaveValue('hängt ab von')
+      expect(screen.getByRole('status')).toHaveTextContent('Gespeichert')
+      expect(screen.queryByText('Ungespeicherte Änderungen')).not.toBeInTheDocument()
+    })
+
+    it('saves an empty label to clear it', async () => {
+      const onSave = vi.fn()
+      render(<Sidebar {...makeProps({ element: edgeElement('alt'), onSave })} />)
+
+      await userEvent.clear(screen.getByLabelText('Label'))
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(onSave).toHaveBeenCalledWith([{ key: 'label', value: '' }])
+    })
+
+    it('saves on Enter and calls onClose from the close button', async () => {
+      const onSave = vi.fn()
+      const onClose = vi.fn()
+      render(<Sidebar {...makeProps({ element: edgeElement(), onSave, onClose })} />)
+
+      await userEvent.type(screen.getByLabelText('Label'), 'x{Enter}')
+      expect(onSave).toHaveBeenCalledWith([{ key: 'label', value: 'x' }])
+      await userEvent.click(screen.getByRole('button', { name: 'Schließen' }))
+      expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    it('starts a fresh draft when another element is opened', async () => {
+      const { rerender } = render(<Sidebar {...makeProps({ element: edgeElement() })} />)
+      await userEvent.type(screen.getByLabelText('Label'), 'ungespeichert')
+
+      rerender(<Sidebar {...makeProps({ element: { ...edgeElement('zweite'), id: ID_A } })} />)
+
+      expect(screen.getByLabelText('Label')).toHaveValue('zweite')
+    })
+  })
 })
