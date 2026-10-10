@@ -9,8 +9,10 @@ import {
 } from './types'
 import type {
   GraphContent,
+  HandleSide,
   IdGenerator,
   MetadataEntry,
+  ModelEdge,
   ModelNode,
   Point,
   Size,
@@ -18,6 +20,11 @@ import type {
 
 /** Default id generator: `crypto.randomUUID()`. */
 export const defaultIdGenerator: IdGenerator = () => crypto.randomUUID()
+
+export interface EdgeHandles {
+  sourceHandle?: HandleSide
+  targetHandle?: HandleSide
+}
 
 export type ConnectionCheck =
   | { ok: true }
@@ -386,9 +393,42 @@ export function addEdge(
   source: string,
   target: string,
   newId: IdGenerator = defaultIdGenerator,
+  handles: EdgeHandles = {},
 ): GraphContent {
   if (!checkConnection(content, source, target).ok) return content
-  return { ...content, edges: [...content.edges, { id: newId(), source, target }] }
+  const edge: ModelEdge = { id: newId(), source, target }
+  if (handles.sourceHandle) edge.sourceHandle = handles.sourceHandle
+  if (handles.targetHandle) edge.targetHandle = handles.targetHandle
+  return { ...content, edges: [...content.edges, edge] }
+}
+
+/**
+ * Connectors that face each other, for connections made without dragging between two specific
+ * connectors (toolbar "Verbinden"): horizontal if the centres differ more in x than in y.
+ */
+export function pickSides(
+  nodes: readonly ModelNode[],
+  sourceId: string,
+  targetId: string,
+): Required<EdgeHandles> {
+  const centre = (id: string): Point => {
+    const node = nodes.find((n) => n.id === id)
+    const { x, y } = getAbsolutePosition(nodes, id)
+    const { width, height } = node ? getSize(node) : NODE_SIZE
+    return { x: x + width / 2, y: y + height / 2 }
+  }
+  const from = centre(sourceId)
+  const to = centre(targetId)
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0
+      ? { sourceHandle: 'right', targetHandle: 'left' }
+      : { sourceHandle: 'left', targetHandle: 'right' }
+  }
+  return dy >= 0
+    ? { sourceHandle: 'bottom', targetHandle: 'top' }
+    : { sourceHandle: 'top', targetHandle: 'bottom' }
 }
 
 /** Replaces the metadata of one element with `normalizeMetadata(entries)`. Unknown id -> unchanged. */

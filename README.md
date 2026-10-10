@@ -40,29 +40,40 @@ npm run preview    # gebauten Stand lokal ansehen
 
 9. Der Benutzer kann Objekte zu einer **Gruppe** zusammenfassen. Eine Gruppe hat – wie ein Objekt – eine UUID und **Metadaten** (Name + freie Felder, Bearbeitung per Doppelklick wie in 4.–8.). Fachlich entspricht eine Gruppe einem **Sub-Graphen**: Sie enthält Objekte und weitere Gruppen; Verbindungen sind innerhalb, außerhalb und zu Gruppen möglich.
 
+### Konnektoren, Rückgängig, Abhängigkeitsgraph, Farbe
+
+10. Jedes Objekt (und jede Gruppe) hat **vier Konnektoren** – oben, rechts, unten, links. Eine Verbindung kann an jedem Konnektor beginnen und enden; die gewählten Seiten werden mit der Kante gespeichert.
+11. Änderungen lassen sich **rückgängig machen** (Strg/Cmd + Z, Button „Rückgängig") und **wiederholen** (Strg/Cmd + Umschalt + Z bzw. Strg + Y, Button „Wiederholen"). Ein Verschieben/Größe ändern zählt als ein Schritt; der Verlauf umfasst bis zu 100 Schritte pro Sitzung.
+12. Aus den verbundenen Objekten wird **automatisch ein Abhängigkeitsgraph ermittelt**: Mit „Abhängigkeiten" und einem markierten Objekt werden alle Verbindungen, die von der Auswahl aus (transitiv) erreichbar sind, **dick und rot** gezeichnet; die erreichten Objekte erhalten einen roten Rahmen. Die Richtung ist wählbar: *Ausgehend →* (in Pfeilrichtung), *← Eingehend* (gegen die Pfeilrichtung), *↔ Beide* (gesamter verbundener Teilgraph). Die Hervorhebung folgt der Auswahl.
+13. In der Sidebar ist die **UUID grau** dargestellt (gestrichelter Rand, Hinweis „nicht editierbar"), damit erkennbar ist, dass sie nicht änderbar ist.
+14. Die Sidebar enthält ein Feld **`color`** mit **Farbwähler**. Die Farbe wird **Hintergrund- und Rahmenfarbe** des Objekts (bei Gruppen: Rahmen, Titel und leichte Tönung) und in der Minimap verwendet; die Schriftfarbe passt sich automatisch an. „Zurücksetzen" stellt das Standard-Blau wieder her.
+
 ### Persistenz und Austausch
 
-10. Das Modell des Graphen wird **bei jeder Änderung im `localStorage`** des Browsers gespeichert.
-11. Beim **Neuladen** der Seite wird zuerst im `localStorage` nach einem Modell aus einer früheren Sitzung gesucht und – falls vorhanden – geladen. Andernfalls werden **initial zwei miteinander verbundene Objekte** angezeigt.
-12. Über einen **Button der Toolbar** kann das Modell **exportiert** werden (Format: **JSON**, siehe unten).
-13. Der Benutzer kann ein Modell aus einer **JSON-Datei importieren**. **Vorher wird gefragt, ob die aktuellen Änderungen verworfen werden sollen.** Ungültige Dateien werden mit Fehlerliste abgelehnt; das aktuelle Modell bleibt dann unverändert.
+15. Das Modell des Graphen wird **bei jeder Änderung im `localStorage`** des Browsers gespeichert.
+16. Beim **Neuladen** der Seite wird zuerst im `localStorage` nach einem Modell aus einer früheren Sitzung gesucht und – falls vorhanden – geladen. Andernfalls werden **initial zwei miteinander verbundene Objekte** angezeigt.
+17. Über einen **Button der Toolbar** kann das Modell **exportiert** werden (Format: **JSON**, siehe unten).
+18. Der Benutzer kann ein Modell aus einer **JSON-Datei importieren**. **Vorher wird gefragt, ob die aktuellen Änderungen verworfen werden sollen.** Ungültige Dateien werden mit Fehlerliste abgelehnt; das aktuelle Modell bleibt dann unverändert.
 
 ### Rahmenbedingungen
 
-14. Rein clientseitig (`npm` + `vite`), keine Server-Abhängigkeit zur Laufzeit.
-15. Eingesetzte Technik: React Flow für die Graph-Darstellung und -Interaktion.
+19. Rein clientseitig (`npm` + `vite`), keine Server-Abhängigkeit zur Laufzeit.
+20. Eingesetzte Technik: React Flow für die Graph-Darstellung und -Interaktion.
 
 ## Bedienung
 
 | Aktion | So geht's |
 |---|---|
 | Objekt anlegen | Toolbar → **Objekt anlegen** (erscheint in der Mitte des sichtbaren Ausschnitts, an einer freien Stelle) |
-| Verbinden | Rechten Griff eines Kastens auf den linken Griff eines anderen ziehen **oder** Toolbar → **Verbinden**, dann Quelle und Ziel anklicken (Esc beendet) |
+| Verbinden | Einen der vier Konnektoren (kleine Kreise am Rand) auf einen Konnektor eines anderen Elements ziehen **oder** Toolbar → **Verbinden**, dann Quelle und Ziel anklicken (die einander zugewandten Seiten werden gewählt; Esc beendet) |
 | Metadaten bearbeiten | Doppelklick auf Objekt/Gruppe → Sidebar → **Save** |
 | Gruppieren | Elemente markieren (Strg/Cmd + Klick, oder Shift gedrückt halten und einen Rahmen aufziehen) → **Gruppieren** |
 | Gruppe auflösen | Gruppe markieren → **Gruppe auflösen** (Inhalt bleibt erhalten) |
 | In/aus Gruppe ziehen | Element auf eine Gruppe ziehen und loslassen bzw. aus ihr herausziehen. Ein Element, das mit einer Gruppe verbunden ist, kann nicht in genau diese Gruppe aufgenommen werden (es erscheint ein Hinweis). |
 | Löschen | Markieren → **Löschen** oder Entf-Taste (bei Gruppen: nur die Gruppe, der Inhalt bleibt) |
+| Rückgängig / Wiederholen | Strg/Cmd + Z bzw. Strg/Cmd + Umschalt + Z (oder Strg + Y), oder die Toolbar-Buttons |
+| Abhängigkeiten anzeigen | Objekt markieren → Toolbar → **Abhängigkeiten**, Richtung im Auswahlfeld wählen |
+| Farbe ändern | Doppelklick → Sidebar → Feld **Farbe (color)** → **Save** |
 | Export / Import | Toolbar → **Export** / **Import** |
 
 ## Datenformat (JSON)
@@ -78,7 +89,11 @@ Der Export entspricht exakt dem im `localStorage` abgelegten Modell (Schlüssel 
       "kind": "group",
       "position": { "x": 40, "y": 40 },
       "size": { "width": 420, "height": 220 },
-      "metadata": [{ "key": "name", "value": "Plattform" }, { "key": "owner", "value": "Team A" }]
+      "metadata": [
+        { "key": "name", "value": "Plattform" },
+        { "key": "color", "value": "#16a34a" },
+        { "key": "owner", "value": "Team A" }
+      ]
     },
     {
       "id": "7d2a91f0-…",
@@ -88,14 +103,17 @@ Der Export entspricht exakt dem im `localStorage` abgelegten Modell (Schlüssel 
       "metadata": [{ "key": "name", "value": "Service A" }]
     }
   ],
-  "edges": [{ "id": "c4e8…", "source": "7d2a91f0-…", "target": "…" }]
+  "edges": [
+    { "id": "c4e8…", "source": "7d2a91f0-…", "target": "…", "sourceHandle": "right", "targetHandle": "left" }
+  ]
 }
 ```
 
 - `kind`: `node` (blauer Kasten) oder `group` (Gruppe/Sub-Graph).
 - `parentId` (optional) verweist auf eine Gruppe; `position` ist dann relativ zu dieser Gruppe.
 - `metadata` ist eine geordnete Liste; der Eintrag `name` steht immer an erster Stelle.
-- Kanten sind gerichtet: von `source` nach `target`.
+- Kanten sind gerichtet: von `source` nach `target`. `sourceHandle`/`targetHandle` (`top`, `right`, `bottom`, `left`) sind optional; fehlen sie (ältere Dateien), werden die einander zugewandten Seiten gezeichnet.
+- `color` ist ein optionaler Metadateneintrag der Form `#rrggbb`; andere Werte werden wie „keine Farbe" behandelt.
 
 **Warum JSON statt XML?** Gleiches Format wie im `localStorage`, nativer Parser, und freie
 Feldnamen (z. B. `Release-Datum`) wären als XML-Elementnamen ungültig.

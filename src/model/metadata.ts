@@ -1,4 +1,4 @@
-import { NAME_KEY } from './types'
+import { COLOR_KEY, NAME_KEY } from './types'
 import type { MetadataEntry } from './types'
 
 /**
@@ -36,4 +36,23 @@ export function findDuplicateKeys(entries: readonly MetadataEntry[]): string[] {
 /** Value of the `name` entry, or '' if there is none. */
 export function getName(entries: readonly MetadataEntry[]): string {
   return entries.find((entry) => entry.key === NAME_KEY)?.value ?? ''
+}
+
+const HEX_COLOR = /^#[0-9a-f]{6}$/i
+
+/** Is `value` a `#rrggbb` colour? (Only this form is rendered; anything else counts as "no colour".) */
+export function isValidColor(value: string): boolean {
+  return HEX_COLOR.test(value)
+}
+
+/** The element's colour (lower-cased `#rrggbb`), or undefined if unset or invalid. */
+export function getColor(entries: readonly MetadataEntry[]): string | undefined {
+  const value = entries.find((entry) => entry.key === COLOR_KEY)?.value
+  return value !== undefined && isValidColor(value) ? value.toLowerCase() : undefined
+}
+
+/** Dark or white text, whichever reads better on the given `#rrggbb` background (YIQ brightness). */
+export function getContrastColor(background: string): '#111827' | '#ffffff' {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(background.slice(i, i + 2), 16))
+  return (r * 299 + g * 587 + b * 114) / 1000 >= 150 ? '#111827' : '#ffffff'
 }

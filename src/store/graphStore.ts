@@ -1,11 +1,21 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { ConnectMode } from '../flow/types'
+import type { DependencyMode } from '../model/dependency'
 import * as graph from '../model/graph'
+import {
+  discardLastRecord,
+  emptyHistory,
+  recordHistory,
+  redoHistory,
+  undoHistory,
+  type History,
+} from '../model/history'
 import * as placement from '../model/placement'
 import { parseModelJson } from '../model/serialize'
 import type { ConnectionCheck } from '../model/graph'
 import type {
   GraphContent,
+  HandleSide,
   IdGenerator,
   MetadataEntry,
   ModelEdge,
@@ -38,6 +48,12 @@ export interface GraphState {
   connectSourceId: string | null
   dropTargetId: string | null
   notice: Notice | null
+  /** Highlight the dependency graph of the selection (direction) or `off`. */
+  dependencyMode: DependencyMode
+  /** Undo/redo stacks. */
+  history: History
+  /** A multi-event gesture (drag, resize) is running; its changes form one undo step. */
+  gesture: boolean
   /** Bumped when the whole content is replaced (import) so the canvas can re-fit the view. */
   contentRevision: number
 
@@ -51,7 +67,12 @@ export interface GraphState {
   openSidebar: (id: string) => void
   closeSidebar: () => void
 
-  connect: (source: string, target: string) => void
+  connect: (
+    source: string,
+    target: string,
+    sourceHandle?: HandleSide,
+    targetHandle?: HandleSide,
+  ) => void
   toggleConnectMode: () => void
   exitConnectMode: () => void
   pickForConnect: (id: string) => void
@@ -62,6 +83,13 @@ export interface GraphState {
   deleteSelection: () => void
   updateDropTarget: (draggedIds: readonly string[]) => void
   finishDrag: (draggedIds: readonly string[]) => void
+
+  undo: () => void
+  redo: () => void
+  /** Start/end a drag or resize: everything in between becomes one undo step. */
+  beginGesture: () => void
+  endGesture: () => void
+  setDependencyMode: (mode: DependencyMode) => void
 
   replaceContent: (content: GraphContent) => void
   /** Parses an exported JSON document; replaces the model on success, otherwise keeps it and reports why. */
@@ -87,18 +115,56 @@ export function createGraphStore(
   return createStore<GraphState>()((set, get) => {
     const content = (): GraphContent => ({ nodes: get().nodes, edges: get().edges })
 
-    /** Applies new content; keeps unchanged array references so persistence sees no false change. */
+    /**
+     * Applies new content and records the previous state as an undo step (unless a gesture is
+     * running, which recorded its start already). Keeps unchanged array references so persistence
+     * sees no false change.
+     */
     const apply = (next: GraphContent, extra: Partial<GraphState> = {}) => {
-      set({ nodes: next.nodes, edges: next.edges, ...extra })
+      const current = content()
+      const changed = next.nodes !== current.nodes || next.edges !== current.edges
+      const history =
+        changed && !get().gesture ? recordHistory(get().history, current) : get().history
+      set({ nodes: next.nodes, edges: next.edges, history, ...extra })
     }
 
-    const tryConnect = (source: string, target: string): boolean => {
+    /** UI state that references elements must not outlive them (after undo, delete, …). */
+    const pruneUi = (next: GraphContent): Partial<GraphState> => {
+      const { selectedNodeIds, selectedEdgeIds, sidebarId, connectSourceId, connectMode } = get()
+      const hasNode = (id: string | null) => id !== null && next.nodes.some((n) => n.id === id)
+      const sourceGone = connectSourceId !== null && !hasNode(connectSourceId)
+      return {
+        selectedNodeIds: selectedNodeIds.filter(hasNode),
+        selectedEdgeIds: selectedEdgeIds.filter((id) => next.edges.some((e) => e.id === id)),
+        sidebarId: hasNode(sidebarId) ? sidebarId : null,
+        connectSourceId: sourceGone ? null : connectSourceId,
+        connectMode: sourceGone && connectMode === 'pickTarget' ? 'pickSource' : connectMode,
+        dropTargetId: null,
+      }
+    }
+
+    const restore = (result: { history: History; content: GraphContent } | undefined) => {
+      if (!result) return
+      set({
+        nodes: result.content.nodes,
+        edges: result.content.edges,
+        history: result.history,
+        gesture: false,
+        ...pruneUi(result.content),
+      })
+    }
+
+    const tryConnect = (
+      source: string,
+      target: string,
+      handles: graph.EdgeHandles = {},
+    ): boolean => {
       const check = graph.checkConnection(content(), source, target)
       if (!check.ok) {
         set({ notice: { kind: 'info', message: CONNECTION_MESSAGES[check.reason] } })
         return false
       }
-      apply(graph.addEdge(content(), source, target, newId))
+      apply(graph.addEdge(content(), source, target, newId, handles))
       return true
     }
 
@@ -121,11 +187,17 @@ export function createGraphStore(
       connectSourceId: null,
       dropTargetId: null,
       notice: initialNotice,
+      dependencyMode: 'off',
+      history: emptyHistory,
+      gesture: false,
       contentRevision: 0,
 
       addNodeAt: (position) => {
         const node = graph.createNode(placement.findFreePosition(get().nodes, position), newId)
-        set({ nodes: [...get().nodes, node], selectedNodeIds: [node.id], selectedEdgeIds: [] })
+        apply(
+          { nodes: [...get().nodes, node], edges: get().edges },
+          { selectedNodeIds: [node.id], selectedEdgeIds: [] },
+        )
       },
       moveNode: (id, position) => apply(graph.moveNode(content(), id, position)),
       resizeNode: (id, size) => apply(graph.resizeNode(content(), id, size)),
@@ -140,8 +212,8 @@ export function createGraphStore(
       },
       closeSidebar: () => set({ sidebarId: null }),
 
-      connect: (source, target) => {
-        tryConnect(source, target)
+      connect: (source, target, sourceHandle, targetHandle) => {
+        tryConnect(source, target, { sourceHandle, targetHandle })
       },
       toggleConnectMode: () =>
         set(
@@ -161,7 +233,7 @@ export function createGraphStore(
         } else if (connectSourceId === id) {
           set({ connectMode: 'pickSource', connectSourceId: null })
         } else {
-          tryConnect(connectSourceId, id)
+          tryConnect(connectSourceId, id, graph.pickSides(get().nodes, connectSourceId, id))
           set({ connectMode: 'pickSource', connectSourceId: null })
         }
       },
@@ -188,21 +260,13 @@ export function createGraphStore(
         })
       },
       deleteSelection: () => {
-        const { selectedNodeIds, selectedEdgeIds, sidebarId, connectSourceId } = get()
+        const { selectedNodeIds, selectedEdgeIds } = get()
         if (selectedNodeIds.length === 0 && selectedEdgeIds.length === 0) return
         const next = graph.deleteElements(content(), {
           nodeIds: selectedNodeIds,
           edgeIds: selectedEdgeIds,
         })
-        const exists = (id: string | null) => id !== null && next.nodes.some((n) => n.id === id)
-        const sourceGone = connectSourceId !== null && !exists(connectSourceId)
-        apply(next, {
-          selectedNodeIds: [],
-          selectedEdgeIds: [],
-          sidebarId: exists(sidebarId) ? sidebarId : null,
-          connectSourceId: sourceGone ? null : connectSourceId,
-          connectMode: sourceGone ? 'pickSource' : get().connectMode,
-        })
+        apply(next, { ...pruneUi(next), selectedNodeIds: [], selectedEdgeIds: [] })
       },
 
       updateDropTarget: (draggedIds) => {
@@ -233,10 +297,26 @@ export function createGraphStore(
         })
       },
 
+      undo: () => restore(undoHistory(get().history, content())),
+      redo: () => restore(redoHistory(get().history, content())),
+      beginGesture: () => {
+        if (get().gesture) return
+        set({ history: recordHistory(get().history, content()), gesture: true })
+      },
+      endGesture: () => {
+        if (!get().gesture) return
+        const { history, nodes, edges } = get()
+        const start = history.past.at(-1)
+        const unchanged = start !== undefined && sameContent(start, { nodes, edges })
+        set({ gesture: false, history: unchanged ? discardLastRecord(history) : history })
+      },
+      setDependencyMode: (mode) => set({ dependencyMode: mode }),
+
       replaceContent: (next) =>
         set({
           nodes: next.nodes,
           edges: next.edges,
+          history: recordHistory(get().history, content()),
           selectedNodeIds: [],
           selectedEdgeIds: [],
           sidebarId: null,
@@ -265,6 +345,24 @@ export function createGraphStore(
       notify: (notice) => set({ notice }),
       dismissNotice: () => set({ notice: null }),
     }
+  })
+}
+
+/** Same model, ignoring object identity (a "move" onto the same spot is no change). */
+function sameContent(a: GraphContent, b: GraphContent): boolean {
+  if (a.edges !== b.edges || a.nodes.length !== b.nodes.length) return false
+  return a.nodes.every((n, i) => {
+    const m = b.nodes[i]
+    return (
+      n === m ||
+      (n.id === m.id &&
+        n.parentId === m.parentId &&
+        n.metadata === m.metadata &&
+        n.position.x === m.position.x &&
+        n.position.y === m.position.y &&
+        n.size?.width === m.size?.width &&
+        n.size?.height === m.size?.height)
+    )
   })
 }
 

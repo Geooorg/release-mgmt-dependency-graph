@@ -29,6 +29,7 @@ function makeData(overrides: Partial<FlowNodeData> = {}): FlowNodeData {
     id: 'abcdef12-3456-4789-8abc-def012345678',
     isConnectSource: false,
     isDropTarget: false,
+    isDependency: false,
     ...overrides,
   }
 }
@@ -62,15 +63,13 @@ describe('node components', () => {
     expect(Object.keys(nodeTypes).sort()).toEqual(['box', 'group'])
   })
 
-  it('renders a box node with name, fixed size and both handles', () => {
+  it('renders a box node with name and fixed size', () => {
     const { container } = renderNodes([box()])
 
     const node = container.querySelector<HTMLElement>('.box-node')
     expect(node).not.toBeNull()
     expect(node).toHaveTextContent('Projekt A')
     expect(node).toHaveStyle({ width: `${NODE_SIZE.width}px`, height: `${NODE_SIZE.height}px` })
-    expect(node?.querySelector('.react-flow__handle-left.target')).not.toBeNull()
-    expect(node?.querySelector('.react-flow__handle-right.source')).not.toBeNull()
     expect(node).not.toHaveClass('box-node--selected')
     expect(node).not.toHaveClass('box-node--connect-source')
   })
@@ -92,14 +91,12 @@ describe('node components', () => {
     expect(node).toHaveClass('box-node--connect-source')
   })
 
-  it('renders a group node with header label and handles', () => {
+  it('renders a group node with header label', () => {
     const { container } = renderNodes([group()])
 
     const node = container.querySelector<HTMLElement>('.group-node')
     expect(node).not.toBeNull()
     expect(node?.querySelector('.group-node__header')).toHaveTextContent('Gruppe X')
-    expect(node?.querySelector('.react-flow__handle-left.target')).not.toBeNull()
-    expect(node?.querySelector('.react-flow__handle-right.source')).not.toBeNull()
     expect(node).not.toHaveClass('group-node--drop-target')
   })
 
@@ -129,5 +126,47 @@ describe('node components', () => {
     const node = container.querySelector('.group-node')
     expect(node).toHaveClass('group-node--drop-target')
     expect(node).toHaveClass('group-node--connect-source')
+  })
+
+  it('gives boxes and groups four connectors, one per side', () => {
+    const { container } = renderNodes([box(), group()])
+
+    for (const selector of ['.box-node', '.group-node']) {
+      const handles = [...(container.querySelector(selector)?.querySelectorAll('.react-flow__handle') ?? [])]
+      expect(handles.map((h) => h.getAttribute('data-handleid')).sort()).toEqual([
+        'bottom',
+        'left',
+        'right',
+        'top',
+      ])
+    }
+  })
+
+  it('applies the element colour as background and border via CSS variables', () => {
+    const { container } = renderNodes([
+      box({ data: makeData({ color: '#facc15', textColor: '#111827' }) }),
+      group({ data: makeData({ color: '#dc2626', textColor: '#ffffff' }) }),
+    ])
+
+    const boxNode = container.querySelector<HTMLElement>('.box-node')!
+    expect(boxNode.style.getPropertyValue('--node-color')).toBe('#facc15')
+    expect(boxNode.style.getPropertyValue('--node-text')).toBe('#111827')
+    expect(container.querySelector<HTMLElement>('.group-node')!.style.getPropertyValue('--node-color')).toBe('#dc2626')
+  })
+
+  it('leaves the colour variables unset for the default blue', () => {
+    const { container } = renderNodes([box()])
+
+    expect(container.querySelector<HTMLElement>('.box-node')!.style.getPropertyValue('--node-color')).toBe('')
+  })
+
+  it('marks elements of the highlighted dependency graph', () => {
+    const { container } = renderNodes([
+      box({ data: makeData({ isDependency: true }) }),
+      group({ data: makeData({ isDependency: true }) }),
+    ])
+
+    expect(container.querySelector('.box-node')).toHaveClass('box-node--dependency')
+    expect(container.querySelector('.group-node')).toHaveClass('group-node--dependency')
   })
 })

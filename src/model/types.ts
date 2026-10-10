@@ -40,11 +40,19 @@ export interface ModelNode {
   metadata: MetadataEntry[]
 }
 
-/** Directed edge: from `source` to `target`. */
+/** Every element has four connectors, one per side. */
+export const HANDLE_SIDES = ['top', 'right', 'bottom', 'left'] as const
+export type HandleSide = (typeof HANDLE_SIDES)[number]
+
+/** Directed edge: from `source` to `target`, optionally attached to specific connectors. */
 export interface ModelEdge {
   id: string
   source: string
   target: string
+  /** Connector on the source element; undefined = renderer picks. */
+  sourceHandle?: HandleSide
+  /** Connector on the target element; undefined = renderer picks. */
+  targetHandle?: HandleSide
 }
 
 /** Graph content without the schema version (what the store works on). */
@@ -68,3 +76,6 @@ export const GROUP_MIN_SIZE: Size = { width: 160, height: 96 }
 export const GROUP_DEFAULT_SIZE: Size = { width: 320, height: 200 }
 
 export const NAME_KEY = 'name'
+/** Optional metadata field holding the element colour as `#rrggbb`. */
+export const COLOR_KEY = 'color'
+export const DEFAULT_COLOR = '#2563eb'

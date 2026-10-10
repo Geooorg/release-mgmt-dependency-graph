@@ -79,6 +79,14 @@ andere Elemente – auch weitere Gruppen – enthält; fachlich ein Sub-Graph.
 | Export | lädt `release-management-YYYY-MM-DD.json` herunter |
 | Import | Rückfrage „Aktuelle Änderungen verwerfen?" → Dateiauswahl → Validierung → Ersetzen; bei Fehler bleibt das Modell unverändert und die Fehler werden aufgelistet |
 
+## 6a. Erweiterungen (zweite Iteration)
+
+- **Vier Konnektoren** je Element. Die Kanten speichern optional `sourceHandle`/`targetHandle`. Technisch: je Seite ein `source`-Handle und `ConnectionMode.Loose`, damit jeder Konnektor Anfang oder Ende sein kann. Ohne gespeicherte Seiten (ältere Dateien, Toolbar-„Verbinden") gilt `pickSides`: die einander zugewandten Seiten nach dominanter Achse. Das Schema bleibt `version: 1`, weil die Felder optional sind.
+- **Undo/Redo**: Snapshot-Verlauf (`model/history.ts`, max. 100) im Store. Jede Modelländerung über `apply` legt den Vorzustand ab; Drag und Resize werden über `beginGesture`/`endGesture` zu einem Schritt gebündelt (leere Gesten verfallen). Auswahl, Sidebar und Modi werden nicht aufgezeichnet; nach Undo/Redo werden UI-Verweise auf verschwundene Elemente bereinigt. Auch ein Import ist rückgängig machbar.
+- **Abhängigkeitsgraph** (`model/dependency.ts`): Breitensuche ab der Auswahl (bei Gruppen inkl. aller Mitglieder) entlang der Kanten, richtungsabhängig, zyklensicher. Die Hervorhebung ist reiner UI-Zustand (`dependencyMode`) und folgt der Auswahl. Annahme: „Abhängigkeitsgraph" = alles, was von der Auswahl aus über Pfeile (transitiv) erreichbar ist; die Richtung ist wählbar, die Semantik („hängt ab von" vs. „liefert an") bleibt dem Nutzer überlassen.
+- **Farbe**: Metadatenfeld `color` (`#rrggbb`) mit Farbwähler; wird gerendert als Hintergrund und Rahmen (Gruppen: Rahmen, Titel, 8 % Tönung). Schriftfarbe per Helligkeit (`getContrastColor`). Ungültige Werte zählen als „nicht gesetzt".
+- **UUID-Feld** in der Sidebar: grau, gestrichelt, mit Hinweis „nicht editierbar".
+
 ## 7. Persistenz
 
 - Schlüssel `release-management.graph.v1` im `localStorage`.
@@ -109,7 +117,7 @@ vom Modell, damit Klicken kein Speichern auslöst.
 2. „Beim Laden der Seite importieren" wird als „Import jederzeit über die Toolbar, auch direkt nach dem Laden" umgesetzt; die Rückfrage erscheint immer vor der Dateiauswahl.
 3. Der Speichern-Button der Sidebar heißt wörtlich „Save".
 4. Zyklen im Graph sind erlaubt und werden (noch) nicht markiert.
-5. Kein Undo/Redo, kein Auto-Layout in der ersten Version.
+5. Kein Auto-Layout; der Undo-Verlauf wird nicht gespeichert (nur für die laufende Sitzung).
 
 ## 10. Teststrategie
 
@@ -127,7 +135,7 @@ vom Modell, damit Klicken kein Speichern auslöst.
 
 ## 12. Offene Punkte / Ideen für später
 
-- Zyklen im Graph erkennen und markieren; „Auswirkungsanalyse" (was hängt transitiv an X?)
-- Auto-Layout, Undo/Redo, Einklappen von Gruppen
+- Zyklen im Graph erkennen und markieren
+- Auto-Layout, Einklappen von Gruppen, Kantenbeschriftungen
 - Zusätzlicher XML-Export, falls eine bestehende Toolchain ihn braucht
 - Einzel-HTML-Build (`vite-plugin-singlefile`) für Verteilung ohne Webserver

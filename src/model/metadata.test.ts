@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { findDuplicateKeys, getName, normalizeMetadata } from './metadata'
+import {
+  findDuplicateKeys,
+  getColor,
+  getContrastColor,
+  getName,
+  isValidColor,
+  normalizeMetadata,
+} from './metadata'
 import type { MetadataEntry } from './types'
 
 const entry = (key: string, value: string): MetadataEntry => ({ key, value })
@@ -113,5 +120,30 @@ describe('getName', () => {
 
   it('returns the first name entry if there are several', () => {
     expect(getName([entry('name', 'first'), entry('name', 'second')])).toBe('first')
+  })
+})
+
+describe('colour helpers', () => {
+  it('accepts only #rrggbb', () => {
+    expect(isValidColor('#2563eb')).toBe(true)
+    expect(isValidColor('#ABCDEF')).toBe(true)
+    for (const bad of ['', 'red', '#fff', '#12345g', '2563eb', '#2563eb ', 'rgb(0,0,0)']) {
+      expect(isValidColor(bad)).toBe(false)
+    }
+  })
+
+  it('reads the colour entry, lower-cased, and ignores invalid values', () => {
+    expect(getColor([{ key: 'name', value: 'x' }])).toBeUndefined()
+    expect(getColor([{ key: 'name', value: 'x' }, { key: 'color', value: '#FF0000' }])).toBe('#ff0000')
+    expect(getColor([{ key: 'color', value: 'red' }])).toBeUndefined()
+    expect(getColor([{ key: 'color', value: '' }])).toBeUndefined()
+  })
+
+  it('picks readable text colours', () => {
+    expect(getContrastColor('#ffffff')).toBe('#111827')
+    expect(getContrastColor('#facc15')).toBe('#111827')
+    expect(getContrastColor('#000000')).toBe('#ffffff')
+    expect(getContrastColor('#2563eb')).toBe('#ffffff')
+    expect(getContrastColor('#dc2626')).toBe('#ffffff')
   })
 })

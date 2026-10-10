@@ -10,6 +10,12 @@ export interface FlowNodeData extends Record<string, unknown> {
   isConnectSource: boolean
   /** Group highlighted as drop target while dragging a node over it. */
   isDropTarget: boolean
+  /** Element is part of the highlighted dependency graph. */
+  isDependency: boolean
+  /** `#rrggbb` from the `color` metadata field; undefined = default blue. */
+  color?: string
+  /** Readable text colour for `color`. */
+  textColor?: string
 }
 
 export type BoxFlowNode = Node<FlowNodeData, 'box'>

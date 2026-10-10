@@ -28,6 +28,10 @@ function AppShell() {
   const ungroupable = useGraph((s) =>
     s.nodes.some((n) => n.kind === 'group' && s.selectedNodeIds.includes(n.id)),
   )
+  const canUndo = useGraph((s) => s.history.past.length > 0)
+  const canRedo = useGraph((s) => s.history.future.length > 0)
+  const dependencyMode = useGraph((s) => s.dependencyMode)
+  const selectionEmpty = useGraph((s) => s.selectedNodeIds.length === 0)
   const deletable = useGraph((s) => s.selectedNodeIds.length + s.selectedEdgeIds.length > 0)
   const notice = useGraph((s) => s.notice)
   const sidebarNode = useGraph((s) =>
@@ -45,7 +49,16 @@ function AppShell() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) return
       const state = graphStore.getState()
-      if (event.key === 'Delete' || event.key === 'Backspace') {
+      const modifier = event.metaKey || event.ctrlKey
+      const key = event.key.toLowerCase()
+      if (modifier && key === 'z') {
+        event.preventDefault()
+        if (event.shiftKey) state.redo()
+        else state.undo()
+      } else if (modifier && key === 'y') {
+        event.preventDefault()
+        state.redo()
+      } else if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault()
         state.deleteSelection()
       } else if (event.key === 'Escape') {
@@ -94,6 +107,13 @@ function AppShell() {
         canGroup={groupable}
         canUngroup={ungroupable}
         canDelete={deletable}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        dependencyMode={dependencyMode}
+        selectionEmpty={selectionEmpty}
+        onUndo={() => graphStore.getState().undo()}
+        onRedo={() => graphStore.getState().redo()}
+        onDependencyModeChange={(mode) => graphStore.getState().setDependencyMode(mode)}
         onAddNode={addNode}
         onToggleConnect={() => graphStore.getState().toggleConnectMode()}
         onGroup={() => graphStore.getState().groupSelection()}

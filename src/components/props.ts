@@ -1,4 +1,5 @@
 import type { ConnectMode } from '../flow/types'
+import type { DependencyDirection, DependencyMode } from '../model/dependency'
 import type { ElementKind, MetadataEntry } from '../model/types'
 
 export interface ToolbarProps {
@@ -6,6 +7,14 @@ export interface ToolbarProps {
   canGroup: boolean
   canUngroup: boolean
   canDelete: boolean
+  canUndo: boolean
+  canRedo: boolean
+  dependencyMode: DependencyMode
+  /** Nothing selected: the highlight has nothing to start from. */
+  selectionEmpty: boolean
+  onUndo: () => void
+  onRedo: () => void
+  onDependencyModeChange: (mode: DependencyMode) => void
   onAddNode: () => void
   onToggleConnect: () => void
   onGroup: () => void
@@ -14,6 +23,8 @@ export interface ToolbarProps {
   onExport: () => void
   onImport: () => void
 }
+
+export type { DependencyDirection }
 
 export interface SidebarElement {
   id: string

@@ -40,6 +40,9 @@ Vor „fertig" immer: `npm test && npm run typecheck && npm run lint && npm run 
 - `parentId` zeigt nur auf `kind: 'group'`, keine Zyklen; `position` ist relativ zum Elternelement. Beim Umhängen bleibt die Bildschirmposition erhalten.
 - Kanten sind gerichtet, ohne Selbstschleife/Duplikat und nicht zwischen Gruppe und eigenem Mitglied. `reparent` fasst Kanten nicht an – vorher `wouldBreakHierarchy` prüfen (macht der Store beim Drag & Drop).
 - Löschen einer Gruppe löst sie auf – Inhalt wird nie implizit mitgelöscht.
+- Jede Modelländerung im Store läuft über `apply` (legt den Undo-Schritt an). Mehrteilige Gesten (Drag, Resize) mit `beginGesture`/`endGesture` klammern. UI-Zustand (Auswahl, Sidebar, Modi) wird nicht aufgezeichnet.
+- Kanten haben optional `sourceHandle`/`targetHandle` (`top|right|bottom|left`); fehlen sie, zeichnet `toFlowEdges` die zugewandten Seiten (`pickSides`). Die Knoten haben 4 `source`-Handles, der Canvas läuft im Loose-Modus.
+- `color` ist ein normaler Metadateneintrag (`#rrggbb`, direkt nach `name`); nur `getColor` liefert gültige Werte. Die Sidebar rendert ihn als Farbwähler, nicht als freie Zeile.
 
 ## Konventionen
 

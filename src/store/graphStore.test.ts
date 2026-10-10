@@ -98,7 +98,9 @@ describe('graphStore', () => {
       expect(s().connectMode).toBe('pickTarget')
       expect(s().connectSourceId).toBe('a')
       s().pickForConnect('b')
-      expect(s().edges).toEqual([{ id: 'id-1', source: 'a', target: 'b' }])
+      expect(s().edges).toEqual([
+        { id: 'id-1', source: 'a', target: 'b', sourceHandle: 'right', targetHandle: 'left' },
+      ])
       expect(s().connectMode).toBe('pickSource')
       expect(s().connectSourceId).toBeNull()
     })
@@ -272,6 +274,167 @@ describe('graphStore', () => {
       const store = createGraphStore(twoNodes())
       expect(store.getState().importText('<xml/>')).toBe(false)
       expect(store.getState().notice?.details?.[0]).toMatch(/JSON/)
+    })
+  })
+
+  describe('undo / redo', () => {
+    const s = (store: ReturnType<typeof createGraphStore>) => store.getState()
+    const ids = (store: ReturnType<typeof createGraphStore>) => s(store).nodes.map((n) => n.id)
+
+    it('does nothing when there is no history', () => {
+      const store = createGraphStore(twoNodes())
+      const before = s(store).nodes
+      s(store).undo()
+      s(store).redo()
+      expect(s(store).nodes).toBe(before)
+    })
+
+    it('undoes and redoes adding a node', () => {
+      const store = createGraphStore(twoNodes(), counterIds())
+      s(store).addNodeAt({ x: 0, y: 500 })
+      s(store).undo()
+      expect(ids(store)).toEqual(['a', 'b'])
+      s(store).redo()
+      expect(ids(store)).toEqual(['a', 'b', 'id-1'])
+    })
+
+    it('undoes connecting, metadata changes, grouping, ungrouping and deleting', () => {
+      const store = createGraphStore(twoNodes(), counterIds())
+      s(store).connect('a', 'b')
+      s(store).saveMetadata('a', [{ key: 'name', value: 'Renamed' }])
+      s(store).applyNodeSelection([{ id: 'a', selected: true }, { id: 'b', selected: true }])
+      s(store).groupSelection()
+      s(store).ungroupSelection() // a and b stay selected
+      s(store).applyNodeSelection([{ id: 'b', selected: false }])
+      s(store).deleteSelection()
+      expect(ids(store)).toEqual(['b'])
+
+      s(store).undo() // delete
+      expect(ids(store).sort()).toEqual(['a', 'b'])
+      s(store).undo() // ungroup -> group is back
+      expect(s(store).nodes.some((n) => n.kind === 'group')).toBe(true)
+      s(store).undo() // group
+      expect(s(store).nodes.some((n) => n.kind === 'group')).toBe(false)
+      s(store).undo() // metadata
+      expect(s(store).nodes.find((n) => n.id === 'a')!.metadata[0].value).toBe('a')
+      s(store).undo() // connect
+      expect(s(store).edges).toEqual([])
+      expect(s(store).history.past).toHaveLength(0)
+    })
+
+    it('does not record selection, sidebar or connect-mode changes', () => {
+      const store = createGraphStore(twoNodes())
+      s(store).applyNodeSelection([{ id: 'a', selected: true }])
+      s(store).openSidebar('a')
+      s(store).toggleConnectMode()
+      s(store).setDependencyMode('both')
+      expect(s(store).history.past).toHaveLength(0)
+    })
+
+    it('a new change after undo discards the redo stack', () => {
+      const store = createGraphStore(twoNodes(), counterIds())
+      s(store).addNodeAt({ x: 0, y: 500 })
+      s(store).undo()
+      s(store).connect('a', 'b')
+      s(store).redo()
+      expect(s(store).edges).toHaveLength(1)
+      expect(ids(store)).toEqual(['a', 'b'])
+    })
+
+    it('bundles a drag gesture into a single undo step', () => {
+      const store = createGraphStore(twoNodes())
+      s(store).beginGesture()
+      for (let x = 1; x <= 20; x++) s(store).moveNode('a', { x, y: x })
+      s(store).endGesture()
+      expect(s(store).history.past).toHaveLength(1)
+      s(store).undo()
+      expect(s(store).nodes.find((n) => n.id === 'a')!.position).toEqual({ x: 0, y: 0 })
+    })
+
+    it('includes the drop into a group in the same step as the drag', () => {
+      const store = createGraphStore(content([group('g', 0, 0, 300, 200), box('out', 600, 50)]))
+      s(store).beginGesture()
+      s(store).moveNode('out', { x: 100, y: 80 })
+      s(store).finishDrag(['out'])
+      s(store).endGesture()
+      expect(s(store).nodes.find((n) => n.id === 'out')!.parentId).toBe('g')
+      s(store).undo()
+      const restored = s(store).nodes.find((n) => n.id === 'out')!
+      expect(restored.parentId).toBeUndefined()
+      expect(restored.position).toEqual({ x: 600, y: 50 })
+    })
+
+    it('forgets gestures that changed nothing', () => {
+      const store = createGraphStore(twoNodes())
+      s(store).beginGesture()
+      s(store).moveNode('a', { x: 0, y: 0 })
+      s(store).endGesture()
+      expect(s(store).history.past).toHaveLength(0)
+    })
+
+    it('records moves outside of a gesture one by one (keyboard)', () => {
+      const store = createGraphStore(twoNodes())
+      s(store).moveNode('a', { x: 5, y: 0 })
+      s(store).moveNode('a', { x: 10, y: 0 })
+      expect(s(store).history.past).toHaveLength(2)
+    })
+
+    it('tidies up UI state that points at vanished elements', () => {
+      const store = createGraphStore(twoNodes(), counterIds())
+      s(store).addNodeAt({ x: 0, y: 500 }) // selects id-1
+      s(store).openSidebar('id-1')
+      s(store).undo()
+      expect(s(store).selectedNodeIds).toEqual([])
+      expect(s(store).sidebarId).toBeNull()
+    })
+
+    it('makes an import undoable', () => {
+      const store = createGraphStore(twoNodes())
+      const valid = JSON.stringify({
+        version: 1,
+        nodes: [{ id: 'x', kind: 'node', position: { x: 0, y: 0 }, metadata: [] }],
+        edges: [],
+      })
+      s(store).importText(valid)
+      expect(ids(store)).toEqual(['x'])
+      s(store).undo()
+      expect(ids(store)).toEqual(['a', 'b'])
+    })
+
+    it('caps memory: history never exceeds its limit', () => {
+      const store = createGraphStore(twoNodes())
+      for (let i = 0; i < 150; i++) s(store).moveNode('a', { x: i + 1, y: 0 })
+      expect(s(store).history.past.length).toBeLessThanOrEqual(100)
+    })
+  })
+
+  describe('connectors', () => {
+    it('stores the connectors of a handle-to-handle connection', () => {
+      const store = createGraphStore(twoNodes(), counterIds())
+      store.getState().connect('a', 'b', 'bottom', 'top')
+      expect(store.getState().edges).toEqual([
+        { id: 'id-1', source: 'a', target: 'b', sourceHandle: 'bottom', targetHandle: 'top' },
+      ])
+    })
+
+    it('connect mode attaches the facing sides', () => {
+      const store = createGraphStore(twoNodes(), counterIds())
+      const s = () => store.getState()
+      s().toggleConnectMode()
+      s().pickForConnect('a')
+      s().pickForConnect('b')
+      expect(s().edges[0]).toMatchObject({ sourceHandle: 'right', targetHandle: 'left' })
+    })
+  })
+
+  describe('dependency mode', () => {
+    it('is off by default and can be switched', () => {
+      const store = createGraphStore(twoNodes())
+      expect(store.getState().dependencyMode).toBe('off')
+      store.getState().setDependencyMode('outgoing')
+      expect(store.getState().dependencyMode).toBe('outgoing')
+      store.getState().setDependencyMode('off')
+      expect(store.getState().dependencyMode).toBe('off')
     })
   })
 

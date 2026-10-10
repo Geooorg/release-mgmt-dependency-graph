@@ -12,6 +12,7 @@ import {
   getSize,
   groupElements,
   moveNode,
+  pickSides,
   reparent,
   resizeNode,
   sortParentsFirst,
@@ -1033,5 +1034,52 @@ describe('wouldBreakHierarchy', () => {
   it('ignores unrelated edges', () => {
     const nodes = [g('G'), node('n', 500, 0), node('m', 600, 0)]
     expect(wouldBreakHierarchy({ nodes, edges: [e('e', 'n', 'm')] }, 'n', 'G')).toBe(false)
+  })
+})
+
+describe('pickSides', () => {
+  const nodes = [
+    node('c', 400, 400),
+    node('right', 800, 400),
+    node('left', 0, 400),
+    node('below', 400, 800),
+    node('above', 400, 0),
+  ]
+
+  it('connects the facing sides, horizontally when the dominant axis is x', () => {
+    expect(pickSides(nodes, 'c', 'right')).toEqual({ sourceHandle: 'right', targetHandle: 'left' })
+    expect(pickSides(nodes, 'c', 'left')).toEqual({ sourceHandle: 'left', targetHandle: 'right' })
+  })
+
+  it('connects vertically when the dominant axis is y', () => {
+    expect(pickSides(nodes, 'c', 'below')).toEqual({ sourceHandle: 'bottom', targetHandle: 'top' })
+    expect(pickSides(nodes, 'c', 'above')).toEqual({ sourceHandle: 'top', targetHandle: 'bottom' })
+  })
+
+  it('uses absolute positions of elements inside groups', () => {
+    const grouped = [
+      { ...node('g', 1000, 0), kind: 'group' as const, size: { width: 300, height: 200 } },
+      node('in', 20, 40, { parentId: 'g' }),
+      node('out', 0, 40),
+    ]
+    expect(pickSides(grouped, 'out', 'in')).toEqual({ sourceHandle: 'right', targetHandle: 'left' })
+  })
+})
+
+describe('addEdge with connectors', () => {
+  const base: GraphContent = { nodes: [node('a', 0, 0), node('b', 300, 0)], edges: [] }
+
+  it('stores the chosen connectors on the edge', () => {
+    const next = addEdge(base, 'a', 'b', counter(), { sourceHandle: 'bottom', targetHandle: 'top' })
+    expect(next.edges).toEqual([
+      { id: 'id-1', source: 'a', target: 'b', sourceHandle: 'bottom', targetHandle: 'top' },
+    ])
+  })
+
+  it('omits connector keys that are not given', () => {
+    const next = addEdge(base, 'a', 'b', counter(), { sourceHandle: 'right' })
+    expect(next.edges[0]).toEqual({ id: 'id-1', source: 'a', target: 'b', sourceHandle: 'right' })
+    expect('targetHandle' in next.edges[0]).toBe(false)
+    expect('sourceHandle' in addEdge(base, 'a', 'b', counter()).edges[0]).toBe(false)
   })
 })

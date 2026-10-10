@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
-import { findDuplicateKeys, normalizeMetadata } from '../model/metadata'
-import { NAME_KEY } from '../model/types'
+import { findDuplicateKeys, isValidColor, normalizeMetadata } from '../model/metadata'
+import { COLOR_KEY, DEFAULT_COLOR, NAME_KEY } from '../model/types'
 import type { MetadataEntry } from '../model/types'
 import type { SidebarElement, SidebarProps } from './props'
 import './components.css'
@@ -15,9 +15,11 @@ interface Row {
   autoFocus?: boolean
 }
 
-/** Local edit state: the fixed `name` value plus the free-form rows. */
+/** Local edit state: the fixed `name` and `color` fields plus the free-form rows. */
 interface Draft {
   name: string
+  /** `#rrggbb`, or '' = no colour set (default blue). */
+  color: string
   rows: Row[]
 }
 
@@ -39,10 +41,14 @@ function toRows(entries: readonly MetadataEntry[], previous: readonly Row[] = []
 
 function toDraft(entries: readonly MetadataEntry[], previousRows: readonly Row[] = []): Draft {
   const nameIndex = entries.findIndex((entry) => entry.key === NAME_KEY)
+  const colorIndex = entries.findIndex((entry) => entry.key === COLOR_KEY)
+  const color = colorIndex >= 0 ? entries[colorIndex].value.trim().toLowerCase() : ''
   return {
     name: nameIndex >= 0 ? entries[nameIndex].value : '',
+    // An unusable colour value counts as "not set" and is dropped on the next save.
+    color: isValidColor(color) ? color : '',
     rows: toRows(
-      entries.filter((_, index) => index !== nameIndex),
+      entries.filter((_, index) => index !== nameIndex && index !== colorIndex),
       previousRows,
     ),
   }
@@ -51,6 +57,7 @@ function toDraft(entries: readonly MetadataEntry[], previousRows: readonly Row[]
 function toEntries(draft: Draft): MetadataEntry[] {
   return [
     { key: NAME_KEY, value: draft.name },
+    ...(draft.color ? [{ key: COLOR_KEY, value: draft.color }] : []),
     ...draft.rows.map(({ key, value }) => ({ key, value })),
   ]
 }
@@ -144,6 +151,7 @@ function SidebarForm({ element, onSave, onClose }: SidebarFormProps) {
         <label className="sidebar__label" htmlFor={`${formId}-uuid`}>
           UUID
         </label>
+        <span className="sidebar__readonly">nicht editierbar</span>
         <input
           id={`${formId}-uuid`}
           className="ui-input sidebar__uuid"
@@ -163,6 +171,30 @@ function SidebarForm({ element, onSave, onClose }: SidebarFormProps) {
           value={draft.name}
           onChange={(event) => edit({ ...draft, name: event.target.value })}
         />
+      </div>
+
+      <div className="sidebar__field">
+        <label className="sidebar__label" htmlFor={`${formId}-color`}>
+          Farbe (color)
+        </label>
+        <div className="sidebar__color">
+          <input
+            id={`${formId}-color`}
+            type="color"
+            className="sidebar__color-input"
+            value={draft.color || DEFAULT_COLOR}
+            onChange={(event) => edit({ ...draft, color: event.target.value.toLowerCase() })}
+          />
+          <span className="sidebar__color-value">{draft.color || 'Standard'}</span>
+          <button
+            type="button"
+            className="ui-button ui-button--secondary"
+            disabled={draft.color === ''}
+            onClick={() => edit({ ...draft, color: '' })}
+          >
+            Zurücksetzen
+          </button>
+        </div>
       </div>
 
       {draft.rows.length > 0 && (

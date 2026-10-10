@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import type { MetadataEntry } from '../model/types'
@@ -28,6 +28,7 @@ vi.mock('../model/metadata', () => {
       }
       return [...duplicates]
     },
+    isValidColor: (value: string): boolean => /^#[0-9a-f]{6}$/i.test(value),
     getName: (entries: readonly Entry[]): string =>
       entries.find((entry) => entry.key === 'name')?.value ?? '',
   }
@@ -331,5 +332,115 @@ describe('Sidebar', () => {
 
     const aside = screen.getByRole('complementary', { name: 'Metadaten' })
     expect(within(aside).getByRole('button', { name: 'Save' })).toHaveAttribute('type', 'submit')
+  })
+
+  describe('read-only UUID', () => {
+    it('is disabled and marked as not editable', () => {
+      render(<Sidebar {...makeProps()} />)
+
+      expect(screen.getByLabelText('UUID')).toBeDisabled()
+      expect(screen.getByText('nicht editierbar')).toBeInTheDocument()
+    })
+  })
+
+  describe('colour field', () => {
+    const colorInput = () => screen.getByLabelText<HTMLInputElement>(/Farbe/)
+
+    it('offers a colour picker that shows the default when no colour is set', () => {
+      render(<Sidebar {...makeProps()} />)
+
+      expect(colorInput()).toHaveAttribute('type', 'color')
+      expect(colorInput().value).toBe('#2563eb')
+      expect(screen.getByText('Standard')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Zurücksetzen' })).toBeDisabled()
+    })
+
+    it('shows the colour of the element', () => {
+      render(
+        <Sidebar
+          {...makeProps({
+            element: makeElement({
+              metadata: [
+                { key: 'name', value: 'A' },
+                { key: 'color', value: '#FACC15' },
+              ],
+            }),
+          })}
+        />,
+      )
+
+      expect(colorInput().value).toBe('#facc15')
+      expect(keyInputs()).toHaveLength(0) // not duplicated as a free-form row
+    })
+
+    it('saves a chosen colour right after the name', async () => {
+      const onSave = vi.fn()
+      render(<Sidebar {...makeProps({ onSave })} />)
+
+      fireEvent.input(colorInput(), { target: { value: '#dc2626' } })
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(onSave).toHaveBeenCalledWith([
+        { key: 'name', value: 'Projekt A' },
+        { key: 'color', value: '#dc2626' },
+        { key: 'owner', value: 'Team 1' },
+      ])
+    })
+
+    it('resets to the default by removing the field entirely', async () => {
+      const onSave = vi.fn()
+      render(
+        <Sidebar
+          {...makeProps({
+            onSave,
+            element: makeElement({
+              metadata: [
+                { key: 'name', value: 'A' },
+                { key: 'color', value: '#dc2626' },
+              ],
+            }),
+          })}
+        />,
+      )
+
+      await userEvent.click(screen.getByRole('button', { name: 'Zurücksetzen' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(onSave).toHaveBeenCalledWith([{ key: 'name', value: 'A' }])
+    })
+
+    it('treats an unusable stored colour as not set', async () => {
+      const onSave = vi.fn()
+      render(
+        <Sidebar
+          {...makeProps({
+            onSave,
+            element: makeElement({
+              metadata: [
+                { key: 'name', value: 'A' },
+                { key: 'color', value: 'chartreuse' },
+              ],
+            }),
+          })}
+        />,
+      )
+
+      expect(screen.getByText('Standard')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      expect(onSave).toHaveBeenCalledWith([{ key: 'name', value: 'A' }])
+    })
+
+    it('rejects a free-form row that is also called "color"', async () => {
+      const onSave = vi.fn()
+      render(<Sidebar {...makeProps({ onSave })} />)
+
+      fireEvent.input(colorInput(), { target: { value: '#dc2626' } })
+      await userEvent.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
+      await userEvent.type(keyInputs().at(-1)!, 'color')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(onSave).not.toHaveBeenCalled()
+      expect(screen.getByRole('alert')).toHaveTextContent('Doppelte Feldnamen: color')
+    })
   })
 })

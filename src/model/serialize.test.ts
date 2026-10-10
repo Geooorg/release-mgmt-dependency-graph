@@ -740,3 +740,49 @@ describe('exportFileName', () => {
     expect(exportFileName()).toMatch(/^release-management-\d{4}-\d{2}-\d{2}\.json$/)
   })
 })
+
+describe('edge connectors', () => {
+  const withHandles = (extra: Json) => {
+    const input = validInput()
+    input.edges = [{ id: 'e1', source: 'n1', target: 'n2', ...extra }]
+    return input
+  }
+
+  it('keeps valid sourceHandle/targetHandle', () => {
+    const result = parseModel(withHandles({ sourceHandle: 'bottom', targetHandle: 'top' }))
+    expect(result.ok && result.model.edges[0]).toEqual({
+      id: 'e1',
+      source: 'n1',
+      target: 'n2',
+      sourceHandle: 'bottom',
+      targetHandle: 'top',
+    })
+  })
+
+  it('stays compatible with edges that have no connectors', () => {
+    const result = parseModel(withHandles({}))
+    expect(result.ok && result.model.edges[0]).toEqual({ id: 'e1', source: 'n1', target: 'n2' })
+  })
+
+  it('rejects unknown connector names with a readable message', () => {
+    const result = parseModel(withHandles({ sourceHandle: 'diagonal' }))
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.errors.join('\n')).toMatch(/sourceHandle/)
+  })
+
+  it('serializes connectors in a stable key order and round-trips them', () => {
+    const model: GraphModel = {
+      version: 1,
+      nodes: [
+        { id: 'a', kind: 'node', position: { x: 0, y: 0 }, metadata: [{ key: 'name', value: 'A' }] },
+        { id: 'b', kind: 'node', position: { x: 9, y: 0 }, metadata: [{ key: 'name', value: 'B' }] },
+      ],
+      edges: [{ targetHandle: 'left', sourceHandle: 'right', target: 'b', source: 'a', id: 'e' }],
+    }
+    const text = serializeModel(model)
+    expect(text.indexOf('"sourceHandle"')).toBeGreaterThan(text.indexOf('"target"'))
+    expect(text.indexOf('"targetHandle"')).toBeGreaterThan(text.indexOf('"sourceHandle"'))
+    const back = parseModelJson(text)
+    expect(back.ok && back.model.edges).toEqual(model.edges)
+  })
+})

@@ -1,10 +1,11 @@
 import { sortParentsFirst } from './graph'
 import { findDuplicateKeys, normalizeMetadata } from './metadata'
-import { SCHEMA_VERSION } from './types'
+import { HANDLE_SIDES, SCHEMA_VERSION } from './types'
 import type {
   ElementKind,
   GraphContent,
   GraphModel,
+  HandleSide,
   MetadataEntry,
   ModelEdge,
   ModelNode,
@@ -34,9 +35,20 @@ export function serializeModel(model: GraphModel): string {
   const canonical = {
     version: model.version,
     nodes: model.nodes.map(canonicalNode),
-    edges: model.edges.map((edge) => ({ id: edge.id, source: edge.source, target: edge.target })),
+    edges: model.edges.map(canonicalEdge),
   }
   return `${JSON.stringify(canonical, null, 2)}\n`
+}
+
+/** Fixed key order inside an edge; connectors only when set. */
+function canonicalEdge(edge: ModelEdge): ModelEdge {
+  return {
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    ...(edge.sourceHandle && { sourceHandle: edge.sourceHandle }),
+    ...(edge.targetHandle && { targetHandle: edge.targetHandle }),
+  }
 }
 
 /** Fixed key order inside an element, independent of how the object was built. */
@@ -359,11 +371,22 @@ function parseEdges(
       }
     }
 
+    const handles: Pick<ModelEdge, 'sourceHandle' | 'targetHandle'> = {}
+    for (const field of ['sourceHandle', 'targetHandle'] as const) {
+      const raw = value[field]
+      if (raw === undefined) continue
+      if (typeof raw === 'string' && (HANDLE_SIDES as readonly string[]).includes(raw)) {
+        handles[field] = raw as HandleSide
+      } else {
+        fail(`${field} muss ${HANDLE_SIDES.map((side) => quote(side)).join(', ')} sein.`)
+      }
+    }
+
     if (problems.length > 0 || id === undefined || typeof source !== 'string' || typeof target !== 'string') {
       for (const problem of problems) report(problem)
       return
     }
-    edges.push({ id, source, target })
+    edges.push({ id, source, target, ...handles })
   })
   return edges
 }
