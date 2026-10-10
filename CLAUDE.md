@@ -30,7 +30,7 @@ Vor „fertig" immer: `npm test && npm run typecheck && npm run lint && npm run 
 - `src/store/` – zustand-Store: Modell (`nodes`, `edges`) + UI-Zustand (Auswahl, geöffnete Sidebar, Verbinden-Modus). Das Modell ist die einzige Quelle der Wahrheit. Auswahl liegt **getrennt** vom Modell, damit Klicken kein Speichern auslöst.
 - `src/storage/` – `localStorage` (immer `try/catch`) und Datei-Download/-Upload.
 - `src/flow/` – Anbindung an React Flow: Mapping Modell ↔ Flow-Knoten (`mapping.ts`: `parentId`, Positionen relativ zur Gruppe, Eltern vor Kindern) und `Canvas.tsx` (übersetzt React-Flow-Events in Store-Aktionen).
-- `src/components/` – präsentational, Props-getrieben (`props.ts` ist der Vertrag), keine Fachlogik, kein Store-Zugriff.
+- `src/components/` – (Tooltips für Buttons über `Tooltip`, Icons in `icons.tsx` als Inline-SVG) präsentational, Props-getrieben (`props.ts` ist der Vertrag), keine Fachlogik, kein Store-Zugriff.
 
 ## Domänen-Invarianten (nicht brechen)
 

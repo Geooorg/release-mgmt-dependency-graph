@@ -178,4 +178,79 @@ describe('Toolbar', () => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })
   })
+
+  describe('icons and tooltips', () => {
+    const iconButtons = ['Rückgängig', 'Wiederholen', 'Gruppieren', 'Gruppe auflösen']
+
+    it('shows the four icon buttons without visible text but with an accessible name', () => {
+      render(<Toolbar {...makeProps()} />)
+
+      for (const name of iconButtons) {
+        const button = screen.getByRole('button', { name })
+        expect(button).toHaveTextContent('')
+        expect(button.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+      }
+    })
+
+    it('explains undo with its shortcut on hover', async () => {
+      render(<Toolbar {...makeProps()} />)
+
+      await userEvent.hover(screen.getByRole('button', { name: 'Rückgängig' }))
+
+      const tip = await screen.findByRole('tooltip')
+      expect(tip).toHaveTextContent('Letzte Änderung rückgängig machen')
+      expect(tip).toHaveTextContent('Strg/Cmd + Z')
+    })
+
+    it('explains redo with its shortcut on hover', async () => {
+      render(<Toolbar {...makeProps()} />)
+
+      await userEvent.hover(screen.getByRole('button', { name: 'Wiederholen' }))
+
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('Strg/Cmd + Umschalt + Z')
+    })
+
+    it('explains group and ungroup on hover', async () => {
+      render(<Toolbar {...makeProps()} />)
+
+      await userEvent.hover(screen.getByRole('button', { name: 'Gruppieren' }))
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('zu einer Gruppe')
+
+      await userEvent.unhover(screen.getByRole('button', { name: 'Gruppieren' }))
+      await userEvent.hover(screen.getByRole('button', { name: 'Gruppe auflösen' }))
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('Inhalt bleibt erhalten')
+    })
+
+    it('tells why a disabled button is unavailable', async () => {
+      render(<Toolbar {...makeProps({ canGroup: false, canUngroup: false, canUndo: false })} />)
+
+      await userEvent.hover(screen.getByRole('button', { name: 'Gruppieren' }).parentElement!)
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('Zuerst ein oder mehrere Objekte markieren')
+    })
+
+    it('does not show the "unavailable" hint while the action is possible', async () => {
+      render(<Toolbar {...makeProps()} />)
+
+      await userEvent.hover(screen.getByRole('button', { name: 'Rückgängig' }))
+
+      expect(await screen.findByRole('tooltip')).not.toHaveTextContent('nichts rückgängig')
+    })
+
+    it('also explains the text buttons', async () => {
+      render(<Toolbar {...makeProps()} />)
+
+      await userEvent.hover(screen.getByRole('button', { name: 'Export' }))
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('JSON')
+    })
+
+    it('groups the buttons into labelled sections', () => {
+      render(<Toolbar {...makeProps()} />)
+
+      for (const name of ['Erstellen', 'Verlauf', 'Gruppen', 'Analyse', 'Datei']) {
+        expect(screen.getByRole('group', { name })).toBeInTheDocument()
+      }
+      const history = screen.getByRole('group', { name: 'Verlauf' })
+      expect(history.querySelectorAll('button')).toHaveLength(2)
+    })
+  })
 })
