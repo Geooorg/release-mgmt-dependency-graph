@@ -1,23 +1,20 @@
 import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
-import { FINISHED_HINT, joinNames } from '../model/releaseAnalysis'
-import { DEFAULT_STATUS, parseStatus, STATUS_VALUES, type Status } from '../model/status'
+import { useT } from '../i18n/react'
+import type { Translate } from '../i18n/translate'
+import { joinNames } from '../model/releaseAnalysis'
+import { DEFAULT_STATUS, parseStatus, STATUS_LABEL_KEYS, STATUS_VALUES, type Status } from '../model/status'
 import { BlockedFlag, StatusMark, WaitingMark } from './StatusMarks'
 import type { AnalysisEntry, AnalysisPanelProps, AnalysisSelected } from './props'
 import { useEditGesture } from './useSidebarEffects'
 import './components.css'
 
 const MAX_TITLE_NAMES = 3
-const NO_REASON = 'kein Grund angegeben'
 
-function titleOf(names: readonly string[]): string {
-  if (names.length === 0) return 'Gesamtes Projekt'
+function titleOf(names: readonly string[], t: Translate): string {
+  if (names.length === 0) return t('analysis.wholeProject')
   const shown = names.slice(0, MAX_TITLE_NAMES).join(', ')
-  return names.length > MAX_TITLE_NAMES ? `${shown} und ${names.length - MAX_TITLE_NAMES} weitere` : shown
-}
-
-function stepsText(count: number): string {
-  return count === 1 ? '1 Schritt' : `${count} Schritte`
+  return names.length > MAX_TITLE_NAMES ? t('analysis.titleMore', { names: shown, count: names.length - MAX_TITLE_NAMES }) : shown
 }
 
 const STATUS_CHIP: Record<Status, string> = {
@@ -28,16 +25,13 @@ const STATUS_CHIP: Record<Status, string> = {
 }
 
 function StatusChip({ status }: { status: AnalysisEntry['status'] }) {
-  return <span className={`analysis-chip analysis-chip--${STATUS_CHIP[status]}`}>{status}</span>
+  const t = useT()
+  return <span className={`analysis-chip analysis-chip--${STATUS_CHIP[status]}`}>{t(STATUS_LABEL_KEYS[status])}</span>
 }
 
-/** "Blockiert: <reason>" / "Blockiert (kein Grund angegeben)": tooltip and accessible name of the flag. */
-function blockedTitle(reason: string | undefined): string {
-  return reason === undefined ? `Blockiert (${NO_REASON})` : `Blockiert: ${reason}`
-}
-
-function waitingText(entry: AnalysisEntry): string {
-  return `wartet auf ${joinNames(entry.waitingFor ?? [])}`
+/** "Blocked: <reason>" / "Blocked (no reason given)": tooltip and accessible name of the flag. */
+function blockedTitle(reason: string | undefined, t: Translate): string {
+  return reason === undefined ? t('analysis.blocked.noReason') : t('analysis.blocked.reason', { reason })
 }
 
 /** `note`: a second line with the reason (blocked) or what the entry waits for (waiting). */
@@ -50,20 +44,25 @@ function Entry({
   onReveal: (id: string) => void
   note: boolean
 }) {
-  const noteText = entry.blocked ? (entry.reason ?? NO_REASON) : entry.waiting ? waitingText(entry) : undefined
+  const t = useT()
+  const noteText = entry.blocked
+    ? (entry.reason ?? t('analysis.noReason'))
+    : entry.waiting
+      ? t('analysis.waitsFor', { names: joinNames(entry.waitingFor ?? []) })
+      : undefined
   return (
     <button
       type="button"
       className="analysis-item"
-      title="Im Graph zeigen"
+      title={t('analysis.reveal')}
       onClick={() => onReveal(entry.id)}
     >
       <span className="analysis-item__name">{entry.name}</span>
       {/* The flag says "blockiert" already. */}
       {!entry.blocked && <StatusChip status={entry.status} />}
-      {entry.ready && <span className="analysis-chip analysis-chip--ready">jetzt umsetzbar</span>}
-      {entry.blocked && <BlockedFlag title={blockedTitle(entry.reason)} inline />}
-      {entry.waiting && <WaitingMark title={`Wartet auf: ${joinNames(entry.waitingFor ?? [])}`} inline />}
+      {entry.ready && <span className="analysis-chip analysis-chip--ready">{t('analysis.ready')}</span>}
+      {entry.blocked && <BlockedFlag title={blockedTitle(entry.reason, t)} inline />}
+      {entry.waiting && <WaitingMark title={t('analysis.waitingMark', { names: joinNames(entry.waitingFor ?? []) })} inline />}
       {note && noteText !== undefined && <span className="analysis-item__note">{noteText}</span>}
     </button>
   )
@@ -91,11 +90,12 @@ function EntryList({
   )
 }
 
-/** A plain text row that reveals the object on click (section "Zu klären"). */
+/** A plain text row that reveals the object on click (section "to clarify"). */
 function ClarifyItem({ id, text, onReveal }: { id: string; text: string; onReveal: (id: string) => void }) {
+  const t = useT()
   return (
     <li>
-      <button type="button" className="analysis-item analysis-item--text" title="Im Graph zeigen" onClick={() => onReveal(id)}>
+      <button type="button" className="analysis-item analysis-item--text" title={t('analysis.reveal')} onClick={() => onReveal(id)}>
         {text}
       </button>
     </li>
@@ -126,6 +126,7 @@ function BlockReasonField({
   onEditStart: () => void
   onEditEnd: () => void
 }) {
+  const t = useT()
   const fieldId = useId()
   const [applied, setApplied] = useState(reason)
   const [draft, setDraft] = useState(reason)
@@ -137,12 +138,12 @@ function BlockReasonField({
   return (
     <div className="analysis-selected__field">
       <label className="analysis-selected__label" htmlFor={fieldId}>
-        Grund
+        {t('analysis.field.reason')}
       </label>
       <input
         id={fieldId}
         className="ui-input"
-        placeholder="Warum ist das Objekt blockiert? (optional)"
+        placeholder={t('analysis.reason.placeholder')}
         value={draft}
         onChange={(event) => {
           setDraft(event.target.value)
@@ -170,19 +171,20 @@ function SelectedStatus({
   onEditStart: () => void
   onEditEnd: () => void
 }) {
+  const t = useT()
   const selectId = useId()
   const known = parseStatus(selected.status)
   const { progress } = selected
   return (
-    <section className="analysis-selected" aria-label="Auswahl">
+    <section className="analysis-selected" aria-label={t('analysis.selected.label')}>
       <p className="analysis-selected__name" title={selected.name}>
-        Auswahl: <strong>{selected.name}</strong>
+        {t('analysis.selected.prefix')} <strong>{selected.name}</strong>
       </p>
       {selected.kind === 'node' ? (
         <>
           <div className="analysis-selected__field">
             <label className="analysis-selected__label" htmlFor={selectId}>
-              Status
+              {t('analysis.field.status')}
             </label>
             <select
               id={selectId}
@@ -192,11 +194,11 @@ function SelectedStatus({
             >
               {STATUS_VALUES.map((status) => (
                 <option key={status} value={status}>
-                  {status}
+                  {t(STATUS_LABEL_KEYS[status])}
                 </option>
               ))}
               {selected.status !== '' && known === undefined && (
-                <option value={selected.status}>{selected.status} (unbekannt)</option>
+                <option value={selected.status}>{t('sidebar.status.unknown', { value: selected.status })}</option>
               )}
             </select>
           </div>
@@ -214,8 +216,8 @@ function SelectedStatus({
         progress && (
           <p className="analysis-selected__progress">
             {progress.total === 0
-              ? 'Status aus Mitgliedern: keine Mitglieder'
-              : `Status aus Mitgliedern: ${progress.done} von ${progress.total} fertig`}
+              ? t('sidebar.progress.none')
+              : t('sidebar.progress.some', { done: progress.done, total: progress.total })}
           </p>
         )
       )}
@@ -225,23 +227,18 @@ function SelectedStatus({
 
 /** "Zeichen erklärt": the marks of the graph, drawn with the same components as on the boxes. */
 function Legend() {
+  const t = useT()
   const rows: { icon: ReactNode; text: string }[] = [
-    {
-      icon: <BlockedFlag title="Blockiert" inline />,
-      text: 'Rote Flagge: blockiert – manuell gesetzt (Status „blockiert“), z. B. weil eine Freigabe fehlt. Entfernen: anderen Status wählen.',
-    },
-    {
-      icon: <WaitingMark title="Wartet" inline />,
-      text: 'Sanduhr: wartet – nicht fertig und von einer noch nicht fertigen Voraussetzung abhängig.',
-    },
-    { icon: <StatusMark status="fertig" inline />, text: 'Häkchen: fertig' },
-    { icon: <StatusMark status="in Arbeit" inline />, text: 'Halbkreis: in Arbeit' },
-    { icon: <StatusMark status="offen" raw="offen" inline />, text: 'Grauer Kreis: offen (auch ohne gesetzten Status)' },
-    { icon: <StatusMark status="offen" raw="…" known={false} inline />, text: '„?“: unbekannter Status – zählt als offen' },
+    { icon: <BlockedFlag title={t('analysis.mark.blocked')} inline />, text: t('analysis.legend.blocked') },
+    { icon: <WaitingMark title={t('analysis.mark.waiting')} inline />, text: t('analysis.legend.waiting') },
+    { icon: <StatusMark status="fertig" inline />, text: t('analysis.legend.done') },
+    { icon: <StatusMark status="in Arbeit" inline />, text: t('analysis.legend.progress') },
+    { icon: <StatusMark status="offen" raw="offen" inline />, text: t('analysis.legend.open') },
+    { icon: <StatusMark status="offen" raw="…" known={false} inline />, text: t('analysis.legend.unknown') },
   ]
   return (
     <details className="analysis-legend">
-      <summary className="analysis-legend__summary">Zeichen erklärt</summary>
+      <summary className="analysis-legend__summary">{t('analysis.legend.title')}</summary>
       <ul className="analysis-legend__list">
         {rows.map((row) => (
           <li key={row.text} className="analysis-legend__row">
@@ -252,20 +249,22 @@ function Legend() {
           </li>
         ))}
       </ul>
-      <p className="analysis-hint">Bei Gruppen stehen Flagge und Sanduhr im Titel, wenn ein Mitglied betroffen ist.</p>
+      <p className="analysis-hint">{t('analysis.legend.groups')}</p>
     </details>
   )
 }
 
 /** The selected objects that are blocked themselves, prominent at the top. */
 function SelfBlocked({ entries }: { entries: AnalysisPanelProps['selfBlocked'] }) {
+  const t = useT()
   return (
-    <section className="analysis-self-blocked" aria-label="Auswahl ist blockiert">
+    <section className="analysis-self-blocked" aria-label={t('analysis.selfBlocked.label')}>
       {entries.map((entry) => (
         <p key={entry.id} className="analysis-self-blocked__row">
-          <BlockedFlag title={blockedTitle(entry.reason)} inline />
+          <BlockedFlag title={blockedTitle(entry.reason, t)} inline />
           <span>
-            <strong>{entry.name}</strong> ist blockiert – {entry.reason ?? NO_REASON}
+            <strong>{entry.name}</strong>{' '}
+            {t('analysis.selfBlocked.suffix', { reason: entry.reason ?? t('analysis.noReason') })}
           </span>
         </p>
       ))}
@@ -292,26 +291,27 @@ export function AnalysisPanel({
   onCopy,
   onClose,
 }: AnalysisPanelProps) {
+  const t = useT()
   const blocked = unfinished.filter((entry) => entry.blocked)
   const ready = unfinished.filter((entry) => entry.ready)
   const waiting = unfinished.filter((entry) => entry.waiting)
-  const title = titleOf(selectionNames)
+  const title = titleOf(selectionNames, t)
   const clarifyCount = unknownStatus.length
 
   const pathSection =
     criticalPath === null ? (
-      <Section title="Kritischer Pfad">
+      <Section title={t('analysis.criticalPath')}>
         <p className="analysis-warning" role="alert">
-          Kritischer Pfad nicht berechenbar – Zyklus zwischen {cycleNames.join(', ')}.
+          {t('analysis.criticalPath.cycle', { names: cycleNames.join(', ') })}
         </p>
       </Section>
     ) : (
-      <Section title={`Kritischer Pfad (${stepsText(criticalPath.length)})`}>
+      <Section title={t('analysis.criticalPath.steps', { steps: t.plural('analysis.steps', criticalPath.length) })}>
         {criticalPath.steps.length === 0 ? (
-          <p className="analysis-empty">Kein offener Schritt.</p>
+          <p className="analysis-empty">{t('analysis.criticalPath.empty')}</p>
         ) : (
           <>
-            <p className="analysis-hint">Zuerst zu erledigen steht oben; der Pfad ist im Graph rot markiert.</p>
+            <p className="analysis-hint">{t('analysis.criticalPath.hint')}</p>
             <EntryList entries={criticalPath.steps} onReveal={onReveal} numbered />
           </>
         )}
@@ -319,18 +319,18 @@ export function AnalysisPanel({
     )
 
   const listSection = (heading: string, entries: readonly AnalysisEntry[], empty: string) => (
-    <Section title={`${heading} (${entries.length})`}>
+    <Section title={t('analysis.section.count', { heading, count: entries.length })}>
       {entries.length === 0 ? <p className="analysis-empty">{empty}</p> : <EntryList entries={entries} onReveal={onReveal} />}
     </Section>
   )
 
   return (
-    <aside className="analysis-panel" aria-label="Release-Analyse">
+    <aside className="analysis-panel" aria-label={t('analysis.label')}>
       <div className="analysis-panel__header">
         <h2 className="analysis-panel__title" title={selectionNames.join(', ') || undefined}>
-          Analyse: {title}
+          {t('analysis.title', { title })}
         </h2>
-        <button type="button" className="ui-button ui-button--icon" aria-label="Analyse schließen" onClick={onClose}>
+        <button type="button" className="ui-button ui-button--icon" aria-label={t('analysis.close')} onClick={onClose}>
           ×
         </button>
       </div>
@@ -348,41 +348,41 @@ export function AnalysisPanel({
           />
         )}
 
-        <ul className="analysis-counts" aria-label="Projektstand">
+        <ul className="analysis-counts" aria-label={t('analysis.counts.label')}>
           <li>
-            <strong>{counts.done}</strong> fertig
+            <strong>{counts.done}</strong> {t(STATUS_LABEL_KEYS.fertig)}
           </li>
           <li>
-            <strong>{counts.inProgress}</strong> in Arbeit
+            <strong>{counts.inProgress}</strong> {t(STATUS_LABEL_KEYS['in Arbeit'])}
           </li>
           <li>
-            <strong>{counts.open}</strong> offen
+            <strong>{counts.open}</strong> {t(STATUS_LABEL_KEYS.offen)}
           </li>
           <li>
-            <strong>{counts.blocked}</strong> blockiert
+            <strong>{counts.blocked}</strong> {t(STATUS_LABEL_KEYS.blockiert)}
           </li>
           <li>
-            <strong>{counts.waiting}</strong> wartet
+            <strong>{counts.waiting}</strong> {t('analysis.waiting')}
           </li>
           <li>
-            <strong>{counts.ready}</strong> jetzt umsetzbar
+            <strong>{counts.ready}</strong> {t('analysis.ready')}
           </li>
           {clarifyCount > 0 && (
             <li className="analysis-counts__clarify">
-              <strong>{clarifyCount}</strong> zu klären
+              <strong>{clarifyCount}</strong> {t('analysis.toClarify')}
             </li>
           )}
         </ul>
 
         {clarifyCount > 0 && (
-          <Section title="Zu klären">
-            <h4 className="analysis-subtitle">Unbekannter Status ({unknownStatus.length})</h4>
+          <Section title={t('analysis.clarify.title')}>
+            <h4 className="analysis-subtitle">{t('analysis.unknownStatus.title', { count: unknownStatus.length })}</h4>
             <ul className="analysis-list">
               {unknownStatus.map((item) => (
                 <ClarifyItem
                   key={item.id}
                   id={item.id}
-                  text={`${item.name} – „${item.raw}“ (zählt als offen)`}
+                  text={t('analysis.unknownStatus.item', { name: item.name, raw: item.raw })}
                   onReveal={onReveal}
                 />
               ))}
@@ -394,16 +394,16 @@ export function AnalysisPanel({
           <>
             {pathSection}
             {listSection(
-              'Offene Voraussetzungen',
+              t('analysis.section.prerequisites'),
               unfinished,
-              selectionFinished ? FINISHED_HINT : 'Keine offenen Voraussetzungen – kann released werden.',
+              selectionFinished ? t('analysis.finishedHint') : t('analysis.empty.prerequisites'),
             )}
           </>
         ) : (
           <>
-            {listSection('Blockiert', blocked, 'Keine blockierten Objekte.')}
-            {listSection('Jetzt umsetzbar', ready, 'Keine umsetzbaren Objekte.')}
-            {listSection('Wartet', waiting, 'Keine wartenden Objekte.')}
+            {listSection(t('analysis.section.blocked'), blocked, t('analysis.empty.blocked'))}
+            {listSection(t('analysis.section.ready'), ready, t('analysis.empty.ready'))}
+            {listSection(t('analysis.section.waiting'), waiting, t('analysis.empty.waiting'))}
             {pathSection}
           </>
         )}
@@ -413,7 +413,7 @@ export function AnalysisPanel({
 
       <div className="analysis-panel__footer">
         <button type="button" className="ui-button ui-button--secondary" onClick={onCopy}>
-          Als Markdown kopieren
+          {t('analysis.copy')}
         </button>
       </div>
     </aside>

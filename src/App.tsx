@@ -19,7 +19,7 @@ import type {
   SearchOutcome,
 } from './components/props'
 import { Canvas } from './flow/Canvas'
-import { useLocale } from './i18n/react'
+import { useLocale, useT } from './i18n/react'
 import { findCycles } from './model/cycles'
 import { canGroup } from './model/graph'
 import { contentFingerprint } from './model/fingerprint'
@@ -114,6 +114,7 @@ function AppShell() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const locale = useLocale()
+  const t = useT()
   const lastSearch = useRef<{ query: string; id: string | null }>({ query: '', id: null })
   const [jsonExport, setJsonExport] = useState<string | null>(null)
   const [jsonImport, setJsonImport] = useState<{ unsaved: boolean; errors: string[] } | null>(null)
@@ -281,7 +282,7 @@ function AppShell() {
   const copyAnalysis = async () => {
     if (!selection) return
     const state = graphStore.getState()
-    const text = formatAnalysisMarkdown({ nodes, edges, projectName }, analysis, selection)
+    const text = formatAnalysisMarkdown({ nodes, edges, projectName }, analysis, selection, t)
     if (await copyText(text)) {
       state.notify({ kind: 'success', message: 'Analyse in die Zwischenablage kopiert.' })
     } else {

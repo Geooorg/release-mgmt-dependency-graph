@@ -1,4 +1,4 @@
-import type { Status } from '../model/status'
+import { STATUS_LABEL_KEYS, type Status } from '../model/status'
 import { CheckIcon, FlagIcon, HourglassIcon, OpenCircleIcon, QuestionIcon } from './icons'
 import { useT } from '../i18n/react'
 import type { Translate } from '../i18n/translate'
@@ -47,11 +47,12 @@ function markOf({ status, raw, known = true }: StatusMarkProps & { status: Statu
   if (!known) {
     return { modifier: 'unknown', title: t('status.unknown', { value: raw ?? '' }), icon: <QuestionIcon size={12} /> }
   }
-  if (status === 'fertig') return { modifier: 'done', title: 'Status: fertig', icon: <CheckIcon size={11} /> }
+  const title = t('status.mark', { status: t(STATUS_LABEL_KEYS[status]) })
+  if (status === 'fertig') return { modifier: 'done', title, icon: <CheckIcon size={11} /> }
   if (status === 'in Arbeit') {
     return {
       modifier: 'progress',
-      title: 'Status: in Arbeit',
+      title,
       icon: (
         <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" focusable="false">
           <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="3" />
@@ -62,7 +63,7 @@ function markOf({ status, raw, known = true }: StatusMarkProps & { status: Statu
   }
   return {
     modifier: 'open',
-    title: raw === undefined ? 'Status: offen (nicht gesetzt)' : 'Status: offen',
+    title: raw === undefined ? t('status.mark.unset', { status: t(STATUS_LABEL_KEYS[status]) }) : title,
     icon: <OpenCircleIcon size={12} />,
   }
 }

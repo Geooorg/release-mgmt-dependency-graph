@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createTranslate } from '../i18n/translate'
 import { box, content, edge, group, withStatus } from '../test/fixtures'
 import {
   analyzeProject,
@@ -779,5 +780,58 @@ describe('formatAnalysisMarkdown with blocked objects', () => {
     )
     const text = formatAnalysisMarkdown(many, analyzeProject(many), analyzeSelection(many, []))
     expect(text).toContain('- a – offen, wartet auf p1, p2, p3, p4, p5, …')
+  })
+})
+
+describe('formatAnalysisMarkdown in other languages', () => {
+  const model = {
+    ...content(
+      [open('a'), stuck('b', 1, 'Freigabe fehlt'), open('c', 2), withStatus(box('u', 3, 0), 'erledigt'), done('d', 4)],
+      [edge('ab', 'a', 'b'), edge('ac', 'a', 'c')],
+    ),
+    projectName: 'Release-1',
+  }
+  const GERMAN_MARKERS = ['Zu klären', 'Kritischer Pfad', 'wartet', 'Wartet', 'Jetzt umsetzbar', 'jetzt umsetzbar', 'Nichts.', 'Blockiert', 'Voraussetzungen', 'Schritt', 'zählt als', 'Unbekannter Status', 'kein Grund']
+  const render = (locale: 'de' | 'en' | 'fr', ids: string[]) =>
+    formatAnalysisMarkdown(model, analyzeProject(model), analyzeSelection(model, ids), createTranslate(locale))
+
+  it('writes the English report without German words', () => {
+    const project = render('en', [])
+    expect(project).toContain('# Release analysis: Release-1 – Whole project')
+    expect(project).toContain('- done: 1\n- in progress: 0\n- open: 3\n- blocked: 1\n- waiting: 1\n- ready now: 2\n- to clarify: 1\n')
+    expect(project).toContain('## To clarify\n\n### Unknown status (1)\n\n- u – “erledigt” (counts as open)')
+    expect(project).toContain('## Blocked\n\n- b – Freigabe fehlt\n')
+    expect(project).toContain('## Ready now\n\n- c – open\n- u – open\n')
+    expect(project).toContain('## Waiting\n\n- a – open, waits for b, c\n')
+    expect(project).toContain('## Critical path (2 steps)')
+
+    const selection = render('en', ['a'])
+    expect(selection).toContain('## Open prerequisites\n\n- b – blocked: Freigabe fehlt\n- c – open, ready now\n')
+    expect(render('en', ['d'])).toContain('Done – prerequisites are no longer considered.')
+    for (const text of [project, selection]) {
+      for (const marker of GERMAN_MARKERS) expect(text, marker).not.toContain(marker)
+    }
+  })
+
+  it('writes the French report without German words', () => {
+    const project = render('fr', [])
+    expect(project).toContain('# Analyse de release : Release-1 – Projet entier')
+    expect(project).toContain('- terminé : 1\n- en cours : 0\n- ouvert : 3\n- bloqué : 1\n- en attente : 1\n- réalisable maintenant : 2\n- à clarifier : 1\n')
+    expect(project).toContain('## Chemin critique (2 étapes)')
+    expect(project).toContain('## Bloqués\n\n- b – Freigabe fehlt\n')
+    expect(project).toContain('- a – ouvert, attend b, c')
+    expect(render('fr', ['a'])).toContain('- b – bloqué : Freigabe fehlt')
+    for (const marker of GERMAN_MARKERS) expect(project, marker).not.toContain(marker)
+  })
+
+  it('names the cycle and the missing reason in English', () => {
+    const cyclic = content([stuck('p'), open('q', 1)], [edge('pq', 'p', 'q'), edge('qp', 'q', 'p')])
+    const text = formatAnalysisMarkdown(cyclic, analyzeProject(cyclic), analyzeSelection(cyclic, ['p']), createTranslate('en'))
+    expect(text).toContain('Critical path cannot be computed – cycle between p, q.')
+    expect(text).toContain('- p – no reason given')
+  })
+
+  it('keeps the German output when no translator is passed', () => {
+    expect(formatAnalysisMarkdown(model, analyzeProject(model), analyzeSelection(model, ['a']))).toBe(render('de', ['a']))
   })
 })

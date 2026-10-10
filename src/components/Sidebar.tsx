@@ -8,6 +8,7 @@ import {
   isStatusKey,
   parseStatus,
   STATUS_KEY,
+  STATUS_LABEL_KEYS,
   STATUS_VALUES,
 } from '../model/status'
 import { useT } from '../i18n/react'
@@ -255,7 +256,7 @@ function SidebarForm({
           >
             {STATUS_VALUES.map((status) => (
               <option key={status} value={status}>
-                {status}
+                {t(STATUS_LABEL_KEYS[status])}
               </option>
             ))}
             {shown.status !== '' && parseStatus(shown.status) === undefined && (

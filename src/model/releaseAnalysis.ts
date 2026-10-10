@@ -1,8 +1,9 @@
+import { createTranslate, type Translate } from '../i18n/translate'
 import { stronglyConnectedComponents } from './cycles'
 import { buildEffectiveGraph, type EffectiveGraph } from './effectiveGraph'
 import { displayName } from './metadata'
 import { DEFAULT_PROJECT_NAME } from './projectName'
-import { getBlockReason, getStatusInfo, type Status, type StatusInfo } from './status'
+import { getBlockReason, getStatusInfo, STATUS_LABEL_KEYS, type Status, type StatusInfo } from './status'
 import type { GraphContent, ModelNode } from './types'
 
 /**
@@ -434,14 +435,7 @@ export function analyzeSelection(content: GraphContent, startIds: readonly strin
   }
 }
 
-function stepsText(count: number): string {
-  return count === 1 ? '1 Schritt' : `${count} Schritte`
-}
-
 const MAX_LISTED_NAMES = 5
-
-/** Shown instead of the list of prerequisites when the selection is finished. */
-export const FINISHED_HINT = 'Fertig – Voraussetzungen werden nicht mehr betrachtet.'
 
 /** "A, B, C" with at most five names, then "…". */
 export function joinNames(names: readonly string[]): string {
@@ -454,40 +448,44 @@ export function formatAnalysisMarkdown(
   content: GraphContent,
   project: ProjectAnalysis,
   selection: SelectionAnalysis,
+  t: Translate = createTranslate('de'),
 ): string {
   const byId = new Map(content.nodes.map((n) => [n.id, n]))
   const name = (id: string) => {
     const node = byId.get(id)
     return node ? displayName(node) : id.slice(0, 8)
   }
-  const statusOf = (id: string) => project.statusById.get(id) ?? 'offen'
-  const reasonOf = (id: string) => project.blockReasons.get(id) ?? 'kein Grund angegeben'
-  const waitsFor = (id: string) => `wartet auf ${joinNames((project.waitingFor.get(id) ?? []).map(name))}`
+  const statusName = (status: Status) => t(STATUS_LABEL_KEYS[status])
+  const statusOf = (id: string) => statusName(project.statusById.get(id) ?? 'offen')
+  const reasonOf = (id: string) => project.blockReasons.get(id) ?? t('analysis.noReason')
+  const waitsFor = (id: string) => t('analysis.waitsFor', { names: joinNames((project.waitingFor.get(id) ?? []).map(name)) })
+  const blockedLine = (id: string) => `- ${name(id)} – ${t('analysis.md.blockedDetail', { reason: reasonOf(id) })}`
   const entry = (u: UnfinishedObject) => {
-    if (u.state === 'blocked') return `- ${name(u.id)} – blockiert: ${reasonOf(u.id)}`
-    if (u.state === 'ready') return `- ${name(u.id)} – ${u.status}, jetzt umsetzbar`
-    return `- ${name(u.id)} – ${u.status}, ${waitsFor(u.id)}`
+    if (u.state === 'blocked') return blockedLine(u.id)
+    if (u.state === 'ready') return `- ${name(u.id)} – ${statusName(u.status)}, ${t('analysis.ready')}`
+    return `- ${name(u.id)} – ${statusName(u.status)}, ${waitsFor(u.id)}`
   }
 
-  const target = selection.scope === 'project' ? 'Gesamtes Projekt' : selection.selectedIds.map(name).join(', ')
+  const target = selection.scope === 'project' ? t('analysis.wholeProject') : selection.selectedIds.map(name).join(', ')
   const { counts } = project
   const clarifyCount = selection.unknownStatus.length
+  const countLine = (label: string, count: number) => t('analysis.md.count', { label, count })
   const lines = [
-    `# Release-Analyse: ${content.projectName ?? DEFAULT_PROJECT_NAME} – ${target}`,
+    `# ${t('analysis.md.title', { project: content.projectName ?? DEFAULT_PROJECT_NAME, target })}`,
     '',
-    `- fertig: ${counts.done}`,
-    `- in Arbeit: ${counts.inProgress}`,
-    `- offen: ${counts.open}`,
-    `- blockiert: ${counts.blocked}`,
-    `- wartet: ${counts.waiting}`,
-    `- jetzt umsetzbar: ${counts.ready}`,
-    ...(clarifyCount > 0 ? [`- zu klären: ${clarifyCount}`] : []),
+    countLine(statusName('fertig'), counts.done),
+    countLine(statusName('in Arbeit'), counts.inProgress),
+    countLine(statusName('offen'), counts.open),
+    countLine(statusName('blockiert'), counts.blocked),
+    countLine(t('analysis.waiting'), counts.waiting),
+    countLine(t('analysis.ready'), counts.ready),
+    ...(clarifyCount > 0 ? [countLine(t('analysis.toClarify'), clarifyCount)] : []),
     '',
   ]
 
   if (selection.selectedBlocked.length > 0) {
     lines.push(
-      '## Auswahl ist blockiert',
+      `## ${t('analysis.selfBlocked.label')}`,
       '',
       ...selection.selectedBlocked.map((id) => `- ${name(id)} – ${reasonOf(id)}`),
       '',
@@ -496,11 +494,11 @@ export function formatAnalysisMarkdown(
 
   if (clarifyCount > 0) {
     lines.push(
-      '## Zu klären',
+      `## ${t('analysis.clarify.title')}`,
       '',
-      `### Unbekannter Status (${clarifyCount})`,
+      `### ${t('analysis.unknownStatus.title', { count: clarifyCount })}`,
       '',
-      ...selection.unknownStatus.map((o) => `- ${name(o.id)} – „${o.raw}“ (zählt als offen)`),
+      ...selection.unknownStatus.map((o) => `- ${t('analysis.unknownStatus.item', { name: name(o.id), raw: o.raw })}`),
       '',
     )
   }
@@ -509,16 +507,21 @@ export function formatAnalysisMarkdown(
   const path = selection.criticalPath
   if (path === null) {
     pathLines.push(
-      '## Kritischer Pfad',
+      `## ${t('analysis.criticalPath')}`,
       '',
-      `Kritischer Pfad nicht berechenbar – Zyklus zwischen ${selection.cycleIds.map(name).join(', ')}.`,
+      t('analysis.criticalPath.cycle', { names: selection.cycleIds.map(name).join(', ') }),
       '',
     )
   } else if (path.nodeIds.length === 0) {
-    pathLines.push('## Kritischer Pfad (0 Schritte)', '', 'Kein offener Schritt.', '')
+    pathLines.push(
+      `## ${t('analysis.criticalPath.steps', { steps: t.plural('analysis.steps', 0) })}`,
+      '',
+      t('analysis.criticalPath.empty'),
+      '',
+    )
   } else {
     pathLines.push(
-      `## Kritischer Pfad (${stepsText(path.length)})`,
+      `## ${t('analysis.criticalPath.steps', { steps: t.plural('analysis.steps', path.length) })}`,
       '',
       ...path.nodeIds.map((id, i) => `${i + 1}. ${name(id)} – ${statusOf(id)}`),
       '',
@@ -527,19 +530,23 @@ export function formatAnalysisMarkdown(
 
   if (selection.scope === 'project') {
     const inState = (state: WorkState) => selection.unfinished.filter((u) => u.state === state)
-    const section = (title: string, items: string[]) => lines.push(title, '', ...(items.length > 0 ? items : ['Nichts.']), '')
-    section('## Blockiert', inState('blocked').map((u) => `- ${name(u.id)} – ${reasonOf(u.id)}`))
-    section('## Jetzt umsetzbar', inState('ready').map((u) => `- ${name(u.id)} – ${u.status}`))
-    section('## Wartet', inState('waiting').map((u) => `- ${name(u.id)} – ${u.status}, ${waitsFor(u.id)}`))
+    const section = (title: string, items: string[]) =>
+      lines.push(`## ${title}`, '', ...(items.length > 0 ? items : [t('analysis.nothing')]), '')
+    section(t('analysis.section.blocked'), inState('blocked').map((u) => `- ${name(u.id)} – ${reasonOf(u.id)}`))
+    section(t('analysis.section.ready'), inState('ready').map((u) => `- ${name(u.id)} – ${statusName(u.status)}`))
+    section(
+      t('analysis.section.waiting'),
+      inState('waiting').map((u) => `- ${name(u.id)} – ${statusName(u.status)}, ${waitsFor(u.id)}`),
+    )
     lines.push(...pathLines)
   } else {
     lines.push(
       ...pathLines,
-      '## Offene Voraussetzungen',
+      `## ${t('analysis.section.prerequisites')}`,
       '',
       ...(selection.unfinished.length > 0
         ? selection.unfinished.map(entry)
-        : [selection.selectionFinished ? FINISHED_HINT : 'Keine offenen Voraussetzungen – kann released werden.']),
+        : [selection.selectionFinished ? t('analysis.finishedHint') : t('analysis.empty.prerequisites')]),
       '',
     )
   }

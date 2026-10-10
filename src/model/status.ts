@@ -1,3 +1,4 @@
+import type { MessageKey } from '../i18n/messages'
 import { COLOR_KEY, NAME_KEY } from './types'
 import type { MetadataEntry } from './types'
 
@@ -13,6 +14,14 @@ export const BLOCK_REASON_KEY = 'blockiert_grund'
  */
 export const STATUS_VALUES = ['offen', 'in Arbeit', 'blockiert', 'fertig'] as const
 export type Status = (typeof STATUS_VALUES)[number]
+
+/** Display names of the statuses; the stored values stay German (they are data). */
+export const STATUS_LABEL_KEYS: Record<Status, MessageKey> = {
+  offen: 'status.offen',
+  'in Arbeit': 'status.in Arbeit',
+  blockiert: 'status.blockiert',
+  fertig: 'status.fertig',
+}
 
 export const DEFAULT_STATUS: Status = 'offen'
 

@@ -7,10 +7,8 @@ import { describe, expect, it } from 'vitest'
 const PENDING: readonly string[] = [
   'App.tsx',
   'components/AgentHelp.tsx',
-  'components/AnalysisPanel.tsx',
   'flow/mapping.ts',
   'model/graph.ts',
-  'model/releaseAnalysis.ts',
   'model/serialize.ts',
   'store/appStore.ts',
   'store/graphStore.ts',

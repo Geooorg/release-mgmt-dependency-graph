@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createTranslate } from '../i18n/translate'
 import {
   findBlockReasonEntry,
   findStatusEntry,
@@ -8,6 +9,7 @@ import {
   isBlockReasonKey,
   isStatusKey,
   parseStatus,
+  STATUS_LABEL_KEYS,
   STATUS_VALUES,
   withBlockReasonEntry,
   withStatusEntry,
@@ -197,5 +199,17 @@ describe('withBlockReasonEntry', () => {
     const entries = [...blocked, { key: 'blockiert_grund', value: 'alt' }]
     expect(withBlockReasonEntry(entries, '   ')).toEqual(blocked)
     expect(withBlockReasonEntry(blocked, '')).toEqual(blocked)
+  })
+})
+
+describe('STATUS_LABEL_KEYS', () => {
+  it('translates the display name of every status and leaves the data values German', () => {
+    expect(STATUS_VALUES).toEqual(['offen', 'in Arbeit', 'blockiert', 'fertig'])
+    const de = createTranslate('de')
+    expect(STATUS_VALUES.map((status) => de(STATUS_LABEL_KEYS[status]))).toEqual(['offen', 'in Arbeit', 'blockiert', 'fertig'])
+    const en = createTranslate('en')
+    expect(STATUS_VALUES.map((status) => en(STATUS_LABEL_KEYS[status]))).toEqual(['open', 'in progress', 'blocked', 'done'])
+    const fr = createTranslate('fr')
+    expect(STATUS_VALUES.map((status) => fr(STATUS_LABEL_KEYS[status]))).toEqual(['ouvert', 'en cours', 'bloqué', 'terminé'])
   })
 })

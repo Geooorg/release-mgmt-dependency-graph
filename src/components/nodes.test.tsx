@@ -314,4 +314,18 @@ describe('node components language', () => {
     renderNodes([box({ data: makeData({ status: 'offen', statusRaw: 'erledigt', statusKnown: false }) })])
     expect(screen.getByLabelText(label)).toBeInTheDocument()
   })
+
+  it.each([
+    ['en', ['Status: done', 'Status: in progress', 'Status: open', 'Status: open (not set)']],
+    ['fr', ['Statut : terminé', 'Statut : en cours', 'Statut : ouvert', 'Statut : ouvert (non défini)']],
+  ] as const)('names the status marks in %s', (locale, labels) => {
+    setTestLocale(locale)
+    renderNodes([
+      box({ id: 'f', data: makeData({ status: 'fertig' }) }),
+      box({ id: 'w', data: makeData({ status: 'in Arbeit' }) }),
+      box({ id: 'o', data: makeData({ status: 'offen', statusRaw: 'offen' }) }),
+      box({ id: 'n', data: makeData({ status: 'offen' }) }),
+    ])
+    for (const label of labels) expect(screen.getByLabelText(label)).toBeInTheDocument()
+  })
 })

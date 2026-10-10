@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
+import { setTestLocale } from '../test/locale'
 import { AnalysisPanel } from './AnalysisPanel'
 import type { AnalysisEntry, AnalysisPanelProps, AnalysisSelected } from './props'
 
@@ -435,5 +436,85 @@ describe('AnalysisPanel', () => {
       expect(block).toHaveTextContent('Status aus Mitgliedern: 2 von 5 fertig')
       expect(within(block).queryByLabelText('Status')).not.toBeInTheDocument()
     })
+  })
+})
+
+describe('AnalysisPanel languages', () => {
+  it.each([
+    ['en', 'Release analysis', 'Analysis: Whole project', '1 done', '3 open', '5 ready now', '6 waiting', 'Critical path (3 steps)', 'To clarify', 'Unknown status (1)', 'Copy as Markdown', 'Close analysis'],
+    ['fr', 'Analyse de la release', 'Analyse : Projet entier', '1 terminé', '3 ouvert', '5 réalisable maintenant', '6 en attente', 'Chemin critique (3 étapes)', 'À clarifier', 'Statut inconnu (1)', 'Copier en Markdown', 'Fermer l’analyse'],
+  ] as const)('translates headings, counters and sections in %s', (locale, label, title, done, open, ready, waiting, path, clarify, unknown, copy, close) => {
+    setTestLocale(locale)
+    render(
+      <AnalysisPanel
+        {...makeProps({ scope: 'project', selectionNames: [], unknownStatus: [{ id: 'u', name: 'Dienst U', raw: 'erledigt' }] })}
+      />,
+    )
+    expect(screen.getByRole('complementary', { name: label })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(title)
+    const counts = screen.getByRole('list', { name: locale === 'en' ? 'Project status' : 'État du projet' })
+    for (const text of [done, open, ready, waiting]) expect(counts).toHaveTextContent(text)
+    expect(screen.getByRole('heading', { name: path })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: clarify })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: unknown })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: copy })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: close })).toBeInTheDocument()
+  })
+
+  it.each([
+    ['en', 'Dienst B', 'waits for Dienst C', 'in progress'],
+    ['fr', 'Dienst B', 'attend Dienst C', 'en cours'],
+  ] as const)('translates entries and status chips in %s', (locale, name, waits, wip) => {
+    setTestLocale(locale)
+    render(<AnalysisPanel {...makeProps()} />)
+    const open = screen.getByRole('heading', { name: /\(2\)$/ }).closest('section')!
+    const button = within(open).getByRole('button', { name: new RegExp(name) })
+    expect(button).toHaveTextContent(waits)
+    expect(button).toHaveTextContent(wip)
+  })
+
+  it.each([
+    ['en', 'Status', 'open', 'in progress', 'blocked', 'done'],
+    ['fr', 'Statut', 'ouvert', 'en cours', 'bloqué', 'terminé'],
+  ] as const)('shows translated status names but keeps the German values in %s', (locale, label, ...names) => {
+    setTestLocale(locale)
+    render(
+      <AnalysisPanel
+        {...makeProps({ selected: { id: 'a', name: 'Dienst A', kind: 'node', status: 'offen', reason: '' } })}
+      />,
+    )
+    const select = screen.getByLabelText<HTMLSelectElement>(label)
+    expect([...select.options].map((option) => option.value)).toEqual(['offen', 'in Arbeit', 'blockiert', 'fertig'])
+    expect([...select.options].map((option) => option.text)).toEqual(names)
+  })
+
+  it.each([
+    ['en', 'Blocked: Freigabe fehlt', 'Blocked (no reason given)'],
+    ['fr', 'Bloqué : Freigabe fehlt', 'Bloqué (aucun motif indiqué)'],
+  ] as const)('translates the blocked flag in %s', (locale, withReason, without) => {
+    setTestLocale(locale)
+    render(
+      <AnalysisPanel
+        {...makeProps({
+          unfinished: [
+            entry('l', { name: 'Lib', status: 'blockiert', blocked: true, reason: 'Freigabe fehlt' }),
+            entry('k', { name: 'Kern', status: 'blockiert', blocked: true }),
+          ],
+        })}
+      />,
+    )
+    expect(screen.getByLabelText(withReason)).toBeInTheDocument()
+    expect(screen.getByLabelText(without)).toBeInTheDocument()
+  })
+
+  it.each([
+    ['en', 'No open prerequisites – can be released.', 'Done – prerequisites are no longer considered.'],
+    ['fr', 'Aucun prérequis ouvert – peut être livré.', 'Terminé – les prérequis ne sont plus examinés.'],
+  ] as const)('translates the empty prerequisite hints in %s', (locale, free, finished) => {
+    setTestLocale(locale)
+    const { rerender } = render(<AnalysisPanel {...makeProps({ unfinished: [] })} />)
+    expect(screen.getByText(free)).toBeInTheDocument()
+    rerender(<AnalysisPanel {...makeProps({ unfinished: [], selectionFinished: true })} />)
+    expect(screen.getByText(finished)).toBeInTheDocument()
   })
 })

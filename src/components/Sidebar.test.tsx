@@ -1128,6 +1128,17 @@ describe('Sidebar', () => {
     })
 
     it.each([
+      ['en', 'Status', ['open', 'in progress', 'blocked', 'done']],
+      ['fr', 'Statut', ['ouvert', 'en cours', 'bloqué', 'terminé']],
+    ] as const)('shows translated status names but keeps the German values in %s', (locale, label, names) => {
+      setTestLocale(locale)
+      render(<Sidebar {...makeProps()} />)
+      const select = screen.getByLabelText<HTMLSelectElement>(label)
+      expect([...select.options].map((option) => option.value)).toEqual(['offen', 'in Arbeit', 'blockiert', 'fertig'])
+      expect([...select.options].map((option) => option.text)).toEqual(names)
+    })
+
+    it.each([
       ['en', 'Status from members: 2 of 5 done', 'Status from members: no members'],
       ['fr', 'Statut des membres : 2 sur 5 terminés', 'Statut des membres : aucun membre'],
     ] as const)('summarises the group progress in %s', (locale, some, none) => {
