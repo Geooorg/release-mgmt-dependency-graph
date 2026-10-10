@@ -70,7 +70,18 @@ describe('Toolbar', () => {
     ]) {
       expect(screen.getByRole('button', { name: label })).toHaveAttribute('type', 'button')
     }
-    expect(screen.getAllByRole('separator')).toHaveLength(6)
+    expect(screen.getAllByRole('separator')).toHaveLength(5)
+  })
+
+  it('puts grouping, clipboard and history into a second row below the tool switch', () => {
+    render(<Toolbar {...makeProps()} />)
+    const tools = screen.getByRole('group', { name: 'Werkzeug' })
+    const secondRow = screen.getByRole('group', { name: 'Gruppen' }).parentElement as HTMLElement
+    expect(tools.closest('.toolbar__tools')).toBe(secondRow.closest('.toolbar__tools'))
+    for (const name of ['Gruppen', 'Zwischenablage', 'Verlauf']) {
+      expect(secondRow).toContainElement(screen.getByRole('group', { name }))
+    }
+    expect(secondRow).not.toContainElement(tools)
   })
 
   it('calls the matching handler for every button', async () => {

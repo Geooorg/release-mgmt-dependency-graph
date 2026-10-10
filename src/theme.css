@@ -23,6 +23,7 @@
   --success-600: #16a34a;
 
   --toolbar-height: 52px;
+  --toolbar-row: 32px;
   --sidebar-width: 340px;
 
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;

@@ -159,7 +159,7 @@ export function Toolbar({
       <Separator />
 
       {mode === 'build' ? (
-        <>
+        <div className="toolbar__tools">
           <Section label="Erstellen">
             <div className="tool-switch" role="group" aria-label="Werkzeug">
               {TOOLS.map(({ value, label, name, icon, shortcut, title }) => (
@@ -179,93 +179,129 @@ export function Toolbar({
             </div>
           </Section>
 
-          <Separator />
+          {/* Second row, left-aligned with the first tool button. */}
+          <div className="toolbar__edit">
+            <Section label="Gruppen">
+              <Tooltip
+                text="Markierte Objekte zu einer Gruppe (Sub-Graph) zusammenfassen"
+                hint={
+                  canGroup
+                    ? undefined
+                    : 'Zuerst ein oder mehrere Objekte markieren, die auf derselben Ebene liegen.'
+                }
+              >
+                <button
+                  type="button"
+                  className="ui-button ui-button--tool"
+                  aria-label="Gruppieren"
+                  disabled={!canGroup}
+                  onClick={onGroup}
+                >
+                  <GroupIcon />
+                </button>
+              </Tooltip>
+              <Tooltip
+                text="Markierte Gruppe auflösen – ihr Inhalt bleibt erhalten und rückt eine Ebene nach oben"
+                hint={canUngroup ? undefined : 'Zuerst eine Gruppe markieren.'}
+              >
+                <button
+                  type="button"
+                  className="ui-button ui-button--tool"
+                  aria-label="Gruppe auflösen"
+                  disabled={!canUngroup}
+                  onClick={onUngroup}
+                >
+                  <UngroupIcon />
+                </button>
+              </Tooltip>
+              <Tooltip
+                text="Markierte Objekte und Verbindungen löschen. Gruppen werden nur aufgelöst, ihr Inhalt bleibt."
+                shortcut="Entf"
+                hint={canDelete ? undefined : 'Zuerst etwas markieren.'}
+              >
+                <button
+                  type="button"
+                  className="ui-button ui-button--tool"
+                  aria-label="Löschen"
+                  disabled={!canDelete}
+                  onClick={onDelete}
+                >
+                  <TrashIcon />
+                </button>
+              </Tooltip>
+            </Section>
 
-          <Section label="Gruppen">
-            <Tooltip
-              text="Markierte Objekte zu einer Gruppe (Sub-Graph) zusammenfassen"
-              hint={
-                canGroup
-                  ? undefined
-                  : 'Zuerst ein oder mehrere Objekte markieren, die auf derselben Ebene liegen.'
-              }
-            >
-              <button
-                type="button"
-                className="ui-button ui-button--tool"
-                aria-label="Gruppieren"
-                disabled={!canGroup}
-                onClick={onGroup}
-              >
-                <GroupIcon />
-              </button>
-            </Tooltip>
-            <Tooltip
-              text="Markierte Gruppe auflösen – ihr Inhalt bleibt erhalten und rückt eine Ebene nach oben"
-              hint={canUngroup ? undefined : 'Zuerst eine Gruppe markieren.'}
-            >
-              <button
-                type="button"
-                className="ui-button ui-button--tool"
-                aria-label="Gruppe auflösen"
-                disabled={!canUngroup}
-                onClick={onUngroup}
-              >
-                <UngroupIcon />
-              </button>
-            </Tooltip>
-            <Tooltip
-              text="Markierte Objekte und Verbindungen löschen. Gruppen werden nur aufgelöst, ihr Inhalt bleibt."
-              shortcut="Entf"
-              hint={canDelete ? undefined : 'Zuerst etwas markieren.'}
-            >
-              <button
-                type="button"
-                className="ui-button ui-button--tool"
-                aria-label="Löschen"
-                disabled={!canDelete}
-                onClick={onDelete}
-              >
-                <TrashIcon />
-              </button>
-            </Tooltip>
-          </Section>
+            <Separator />
 
-          <Separator />
+            <Section label="Zwischenablage">
+              <Tooltip
+                text="Markierte Objekte und Gruppen kopieren (mit dem Inhalt der Gruppen, ohne Verbindungen)"
+                shortcut="Strg/Cmd + C"
+                hint={canCopy ? undefined : 'Zuerst Objekte oder Gruppen markieren.'}
+              >
+                <button
+                  type="button"
+                  className="ui-button ui-button--tool"
+                  aria-label="Kopieren"
+                  disabled={!canCopy}
+                  onClick={onCopy}
+                >
+                  <CopyIcon />
+                </button>
+              </Tooltip>
+              <Tooltip
+                text="Kopierte Elemente als neue Elemente einfügen (neue IDs, ohne Verbindungen)"
+                shortcut="Strg/Cmd + V"
+                hint={canPaste ? undefined : 'Zuerst etwas kopieren.'}
+              >
+                <button
+                  type="button"
+                  className="ui-button ui-button--tool"
+                  aria-label="Einfügen"
+                  disabled={!canPaste}
+                  onClick={onPaste}
+                >
+                  <PasteIcon />
+                </button>
+              </Tooltip>
+            </Section>
 
-          <Section label="Zwischenablage">
-            <Tooltip
-              text="Markierte Objekte und Gruppen kopieren (mit dem Inhalt der Gruppen, ohne Verbindungen)"
-              shortcut="Strg/Cmd + C"
-              hint={canCopy ? undefined : 'Zuerst Objekte oder Gruppen markieren.'}
-            >
-              <button
-                type="button"
-                className="ui-button ui-button--tool"
-                aria-label="Kopieren"
-                disabled={!canCopy}
-                onClick={onCopy}
+            <Separator />
+
+            <Section label="Verlauf">
+              <Tooltip
+                text="Letzte Änderung rückgängig machen"
+                shortcut="Strg/Cmd + Z"
+                hint={canUndo ? undefined : 'Es gibt nichts rückgängig zu machen.'}
               >
-                <CopyIcon />
-              </button>
-            </Tooltip>
-            <Tooltip
-              text="Kopierte Elemente als neue Elemente einfügen (neue IDs, ohne Verbindungen)"
-              shortcut="Strg/Cmd + V"
-              hint={canPaste ? undefined : 'Zuerst etwas kopieren.'}
-            >
-              <button
-                type="button"
-                className="ui-button ui-button--tool"
-                aria-label="Einfügen"
-                disabled={!canPaste}
-                onClick={onPaste}
+                <button
+                  type="button"
+                  className="ui-button ui-button--tool"
+                  aria-label="Rückgängig"
+                  disabled={!canUndo}
+                  onClick={onUndo}
+                >
+                  <UndoIcon />
+                </button>
+              </Tooltip>
+              <Tooltip
+                text="Rückgängig gemachte Änderung wiederherstellen"
+                shortcut="Strg/Cmd + Umschalt + Z"
+                hint={canRedo ? undefined : 'Es gibt nichts zu wiederholen.'}
               >
-                <PasteIcon />
-              </button>
-            </Tooltip>
-          </Section>
-        </>
+                <button
+                  type="button"
+                  className="ui-button ui-button--tool"
+                  aria-label="Wiederholen"
+                  disabled={!canRedo}
+                  onClick={onRedo}
+                >
+                  <RedoIcon />
+                </button>
+              </Tooltip>
+            </Section>
+          </div>
+        </div>
       ) : (
         <Section label="Analyse">
           <Tooltip text={HIGHLIGHT_HELP}>
@@ -295,45 +331,6 @@ export function Toolbar({
             </button>
           </Tooltip>
         </Section>
-      )}
-
-      {mode === 'build' && (
-        <>
-        <Separator />
-
-        <Section label="Verlauf">
-          <Tooltip
-            text="Letzte Änderung rückgängig machen"
-            shortcut="Strg/Cmd + Z"
-            hint={canUndo ? undefined : 'Es gibt nichts rückgängig zu machen.'}
-          >
-            <button
-              type="button"
-              className="ui-button ui-button--tool"
-              aria-label="Rückgängig"
-              disabled={!canUndo}
-              onClick={onUndo}
-            >
-              <UndoIcon />
-            </button>
-          </Tooltip>
-          <Tooltip
-            text="Rückgängig gemachte Änderung wiederherstellen"
-            shortcut="Strg/Cmd + Umschalt + Z"
-            hint={canRedo ? undefined : 'Es gibt nichts zu wiederholen.'}
-          >
-            <button
-              type="button"
-              className="ui-button ui-button--tool"
-              aria-label="Wiederholen"
-              disabled={!canRedo}
-              onClick={onRedo}
-            >
-              <RedoIcon />
-            </button>
-          </Tooltip>
-        </Section>
-        </>
       )}
 
       {cycleCount > 0 && (

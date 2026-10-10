@@ -20,6 +20,8 @@ npm run preview    # gebauten Stand lokal ansehen
 
 `dist/` kann von jedem statischen Webserver ausgeliefert werden (GitHub Pages, nginx, …).
 
+**Sicherheit:** Der Build setzt eine Content-Security-Policy als `<meta>` in `dist/index.html` (`csp.ts`; nur im Build, der Dev-Server braucht Inline-Skripte). Gegen Einbettung in fremde Seiten schützt nur ein HTTP-Header des Webservers: `Content-Security-Policy: frame-ancestors 'none'`. Der `localStorage` gilt pro Origin, nicht pro Pfad – bei Betrieb unter einem Unterpfad teilen sich alle Apps dieser Origin den Speicher.
+
 ## Anforderungen
 
 ### Graph

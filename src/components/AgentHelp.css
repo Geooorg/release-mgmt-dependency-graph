@@ -1,0 +1,44 @@
+.agent-help {
+  height: 100%;
+  overflow: auto;
+  padding: 24px max(16px, calc((100% - 760px) / 2));
+  background: var(--gray-50);
+  line-height: 1.55;
+}
+
+.agent-help h1 {
+  margin: 0 0 16px;
+  font-size: 22px;
+}
+
+.agent-help h2 {
+  margin: 28px 0 8px;
+  font-size: 17px;
+}
+
+.agent-help ul,
+.agent-help ol {
+  padding-left: 22px;
+}
+
+.agent-help li {
+  margin: 6px 0;
+}
+
+.agent-help code,
+.agent-help pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  background: var(--gray-200);
+  border-radius: 4px;
+}
+
+.agent-help code {
+  padding: 1px 5px;
+  overflow-wrap: anywhere;
+}
+
+.agent-help pre {
+  padding: 10px 12px;
+  overflow-x: auto;
+}

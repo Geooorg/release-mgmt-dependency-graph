@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://georgstach.de/release-management/graph.schema.json",
+  "title": "Release-Management: Abhängigkeitsgraph",
+  "description": "Austauschformat der App (JSON-Export, localStorage-Schlüssel release-management.graph.v1). Beschreibt die Struktur. Nicht ausdrückbar und erst beim Import der App geprüft: eindeutige ids, existierende parentId (nur Gruppen, keine Zyklen), source/target verweisen auf vorhandene Elemente, keine Selbstschleife und kein doppeltes (source, target)-Paar, keine doppelten Metadaten-Schlüssel. Die App trimmt Schlüssel und Werte beim Import und stellt den Eintrag name an die erste Stelle. Pfeil A -> B: A hängt von B ab (B wird zuerst released). Kinder müssen im Array nach ihrer Gruppe stehen (die App sortiert beim Import selbst). Dateien der Version 1 (Verbindungen mit label statt metadata) importiert die App weiterhin und wandelt label in den Namen um; dieses Schema beschreibt nur die aktuelle Version.",
+  "type": "object",
+  "required": ["version", "nodes", "edges"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "description": "Schema-Version dieses Formats.",
+      "const": 2
+    },
+    "projectName": {
+      "description": "Projektname; kommt im Namen der Export-Datei vor, daher nur A-Z a-z 0-9 - _ . erlaubt. Fehlt er, gilt „Release-Management“.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "nodes": {
+      "description": "Objekte und Gruppen.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "description": "Gerichtete Abhängigkeiten.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    }
+  },
+  "$defs": {
+    "metadataEntry": {
+      "description": "Ein Metadatenfeld. Bekannte Schlüssel: name (immer an erster Stelle), color (#rrggbb), status (offen | in Arbeit | blockiert | fertig), blockiert_grund (nur bei blockiert). Weitere Schlüssel sind frei.",
+      "type": "object",
+      "required": ["key", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "key": { "type": "string" },
+        "value": { "type": "string" }
+      }
+    },
+    "point": {
+      "type": "object",
+      "required": ["x", "y"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      }
+    },
+    "size": {
+      "type": "object",
+      "required": ["width", "height"],
+      "additionalProperties": false,
+      "properties": {
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "node": {
+      "description": "kind \"node\" ist ein Objekt (Standardgröße 160x56), kind \"group\" ein Container und benötigt eine Größe.",
+      "type": "object",
+      "required": ["id", "kind", "position", "metadata"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "UUID, wird einmal erzeugt und nie geändert.",
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": { "enum": ["node", "group"] },
+        "parentId": {
+          "description": "Id der umgebenden Gruppe; fehlt = oberste Ebene.",
+          "type": "string"
+        },
+        "position": {
+          "description": "Relativ zur Gruppe (parentId), sonst zum Ursprung der Fläche.",
+          "$ref": "#/$defs/point"
+        },
+        "size": { "$ref": "#/$defs/size" },
+        "metadata": {
+          "description": "Geordnete Liste von Schlüssel-Wert-Paaren (kein Objekt).",
+          "type": "array",
+          "items": { "$ref": "#/$defs/metadataEntry" }
+        }
+      },
+      "if": { "properties": { "kind": { "const": "group" } }, "required": ["kind"] },
+      "then": { "required": ["size"] }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["id", "source", "target"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "source": {
+          "description": "Die abhängige Einheit (Objekt oder Gruppe).",
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "description": "Die Einheit, von der source abhängt; der Pfeil zeigt hierhin.",
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceHandle": { "enum": ["top", "right", "bottom", "left"] },
+        "targetHandle": { "enum": ["top", "right", "bottom", "left"] },
+        "metadata": {
+          "description": "Optional, wie bei Objekten und Gruppen: der Eintrag name ist die Beschriftung der Verbindung. Ohne Beschriftung wird das Feld weggelassen.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/metadataEntry" }
+        }
+      }
+    }
+  }
+}
