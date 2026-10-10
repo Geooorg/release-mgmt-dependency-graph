@@ -1,4 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
+import type { MessageKey, MessageRef } from '../i18n/messages'
+import { createTranslate } from '../i18n/translate'
 import { contentFingerprint } from '../model/fingerprint'
 import { copyElements, pasteElements, type ElementClipboard } from '../model/clipboard'
 import * as graph from '../model/graph'
@@ -35,10 +37,13 @@ import type {
   Point,
   Size,
 } from '../model/types'
+import { getLocale } from './localeStore'
 
 export interface Notice {
   kind: 'info' | 'success' | 'error'
-  message: string
+  /** Translated when shown, so the banner follows a language change. */
+  message: MessageRef
+  /** Ready-made lines (import errors) in the language that was active when they arose. */
   details?: string[]
 }
 
@@ -188,12 +193,15 @@ export interface GraphState {
 /** Distance between a copy and the original (one grid step, as elsewhere on the canvas). */
 const PASTE_STEP = 24
 
-const CONNECTION_MESSAGES: Record<Exclude<ConnectionCheck, { ok: true }>['reason'], string> = {
-  'unknown-node': 'Das Element existiert nicht mehr.',
-  self: 'Ein Element kann nicht mit sich selbst verbunden werden.',
-  duplicate: 'Diese Verbindung existiert bereits.',
-  hierarchy: 'Eine Gruppe kann nicht mit ihrem eigenen Inhalt verbunden werden.',
+const CONNECTION_MESSAGES: Record<Exclude<ConnectionCheck, { ok: true }>['reason'], MessageKey> = {
+  'unknown-node': 'notice.connection.unknown-node',
+  self: 'notice.connection.self',
+  duplicate: 'notice.connection.duplicate',
+  hierarchy: 'notice.connection.hierarchy',
 }
+
+/** The language of the moment, for texts that end up in the data (default names, import errors). */
+const currentT = () => createTranslate(getLocale())
 
 export type GraphStore = StoreApi<GraphState>
 
@@ -277,7 +285,7 @@ export function createGraphStore(
     ): boolean => {
       const check = graph.checkConnection(content(), source, target)
       if (!check.ok) {
-        set({ notice: { kind: 'info', message: CONNECTION_MESSAGES[check.reason] } })
+        set({ notice: { kind: 'info', message: { key: CONNECTION_MESSAGES[check.reason] } } })
         return false
       }
       apply(graph.addEdge(content(), source, target, newId, handles))
@@ -354,7 +362,7 @@ export function createGraphStore(
 
       addNodeAt: (center) => {
         if (structureLocked()) return
-        const { content: next, nodeId } = placement.addNodeAtPoint(content(), center, newId)
+        const { content: next, nodeId } = placement.addNodeAtPoint(content(), center, newId, currentT()('node.defaultName'))
         apply(next)
         // Via the request: an invalid sidebar draft is still asked about before the new object takes over.
         requestSelection([nodeId], [])
@@ -442,7 +450,7 @@ export function createGraphStore(
         if (structureLocked()) return
         const check = graph.checkReconnection(content(), edgeId, ends.source, ends.target)
         if (!check.ok) {
-          set({ notice: { kind: 'info', message: CONNECTION_MESSAGES[check.reason] } })
+          set({ notice: { kind: 'info', message: { key: CONNECTION_MESSAGES[check.reason] } } })
           return
         }
         apply(graph.reconnectEdge(content(), edgeId, ends))
@@ -480,7 +488,10 @@ export function createGraphStore(
         set({
           clipboard: copied,
           pasteRound: 0,
-          notice: { kind: 'success', message: `${count} ${count === 1 ? 'Element' : 'Elemente'} kopiert.` },
+          notice: {
+            kind: 'success',
+            message: { key: count === 1 ? 'notice.copied_one' : 'notice.copied_other', params: { count } },
+          },
         })
       },
       paste: () => {
@@ -495,7 +506,7 @@ export function createGraphStore(
         if (structureLocked()) return
         const { selectedNodeIds, nodes } = get()
         if (!graph.canGroup(nodes, selectedNodeIds)) return
-        const result = graph.groupElements(content(), selectedNodeIds, newId)
+        const result = graph.groupElements(content(), selectedNodeIds, newId, currentT()('group.defaultName'))
         apply(result.content, withSelection([result.groupId], []))
       },
       ungroupSelection: () => {
@@ -556,7 +567,7 @@ export function createGraphStore(
           ...(refused && {
             notice: {
               kind: 'info' as const,
-              message: 'Element nicht in die Gruppe aufgenommen: Es besteht eine Verbindung zwischen beiden.',
+              message: { key: 'notice.dropRefused' as const },
             },
           }),
         })
@@ -610,13 +621,12 @@ export function createGraphStore(
           contentRevision: get().contentRevision + 1,
         }),
       importText: (text) => {
-        const result = parseModelJson(text)
+        const result = parseModelJson(text, currentT())
         if (!result.ok) {
           set({
             notice: {
               kind: 'error',
-              message:
-                'Import fehlgeschlagen – die Datei ist kein gültiges Modell. Das aktuelle Modell blieb unverändert.',
+              message: { key: 'notice.import.failed' },
               details: result.errors,
             },
           })
@@ -629,7 +639,7 @@ export function createGraphStore(
         })
         // The project now equals the file: nothing is lost by replacing it again.
         get().markExported()
-        set({ notice: { kind: 'success', message: 'Modell importiert.' } })
+        set({ notice: { kind: 'success', message: { key: 'notice.import.done' } } })
         return true
       },
       notify: (notice) => set({ notice }),

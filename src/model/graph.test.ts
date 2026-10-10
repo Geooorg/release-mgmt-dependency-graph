@@ -124,6 +124,10 @@ describe('createNode', () => {
     })
   })
 
+  it('takes a given default name', () => {
+    expect(createNode({ x: 0, y: 0 }, counter(), 'New object').metadata).toEqual([{ key: 'name', value: 'New object' }])
+  })
+
   it('sets neither size nor parentId', () => {
     const created = createNode({ x: 0, y: 0 }, counter())
     expect('size' in created).toBe(false)
@@ -322,6 +326,12 @@ describe('canGroup', () => {
 })
 
 describe('groupElements', () => {
+  it('takes a given default name for the new group', () => {
+    const c = content([node('a', 100, 100), node('b', 400, 200)])
+    const { content: result, groupId } = groupElements(c, ['a', 'b'], counter('g'), 'New group')
+    expect(find(result, groupId).metadata).toEqual([{ key: 'name', value: 'New group' }])
+  })
+
   it('wraps top-level elements into a new group with padding and header', () => {
     const c = content([node('a', 100, 100), node('b', 400, 200), node('far', 900, 900)])
     const { content: result, groupId } = groupElements(c, ['a', 'b'], counter('g'))

@@ -134,9 +134,10 @@ export function addNodeAtPoint(
   content: GraphContent,
   center: Point,
   newId: IdGenerator = defaultIdGenerator,
+  name?: string,
 ): { content: GraphContent; nodeId: string } {
   const { position, parentId } = placeNewNode(content.nodes, center)
-  const node = createNode(position, newId)
+  const node = createNode(position, newId, name)
   const added = { ...content, nodes: [...content.nodes, node] }
   // `reparent` keeps the on-screen position and turns it into one relative to the group.
   if (parentId === undefined) return { content: added, nodeId: node.id }

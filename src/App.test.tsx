@@ -9,6 +9,7 @@ import { serializeModel, toModel } from './model/serialize'
 import { downloadTextFile, pickTextFile } from './storage/fileIO'
 import { EXPORT_FINGERPRINT_KEY, UI_KEY } from './storage/uiPreferences'
 import { graphStore } from './store/appStore'
+import { setTestLocale } from './test/locale'
 
 vi.mock('./storage/fileIO', () => ({
   downloadTextFile: vi.fn(),
@@ -1162,5 +1163,47 @@ describe('App: analysis mode layout', () => {
       select(dependent.id)
       expect(within(panel()!).queryByText(/nicht mehr betrachtet/)).toBeNull()
     })
+  })
+})
+
+describe('App: texts in the chosen language', () => {
+  it('puts the project name into an English window title', () => {
+    setTestLocale('en')
+    render(<App />)
+    expect(document.title).toBe(`${graphStore.getState().projectName} – Dependencies`)
+  })
+
+  it.each([
+    ['de', 'Abhängigkeiten'],
+    ['fr', 'Dépendances'],
+  ] as const)('translates the window title in %s', (locale, word) => {
+    setTestLocale(locale)
+    render(<App />)
+    expect(document.title).toBe(`${graphStore.getState().projectName} – ${word}`)
+  })
+
+  it('follows a language change with title and banner', () => {
+    render(<App />)
+    const [a, b] = graphStore.getState().nodes
+    act(() => graphStore.getState().connect(a.id, b.id))
+    expect(screen.getByRole('status')).toHaveTextContent('Diese Verbindung existiert bereits.')
+
+    act(() => setTestLocale('en'))
+    expect(screen.getByRole('status')).toHaveTextContent('This connection already exists.')
+    expect(document.title).toMatch(/– Dependencies$/)
+  })
+
+  it('asks before discarding an invalid draft in English', async () => {
+    setTestLocale('en')
+    render(<App />)
+    select(graphStore.getState().nodes[0].id)
+    await userEvent.click(screen.getByRole('button', { name: 'Add field' }))
+    await userEvent.type(screen.getByLabelText('Field name'), 'nam')
+    await userEvent.type(screen.getByLabelText('Field name'), 'e')
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+
+    const asking = screen.getByRole('dialog', { name: 'Discard changes' })
+    expect(asking).toHaveTextContent('Discard invalid changes to “Projekt A”? (duplicate field name)')
+    expect(within(asking).getByRole('button', { name: 'Discard' })).toBeInTheDocument()
   })
 })

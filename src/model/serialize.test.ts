@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createTranslate } from '../i18n/translate'
 import { exportFileName, parseModel, parseModelJson, serializeModel, toModel } from './serialize'
 import type { ParseResult } from './serialize'
 import type { GraphContent, GraphModel } from './types'
@@ -923,5 +924,56 @@ describe('edge names', () => {
 
   it('ignores a label in a file of version 2 (it is an unknown property there)', () => {
     expect(edgeOf(edgeInput({ label: 'x' }))).toEqual({ id: 'e1', source: 'n1', target: 'n2' })
+  })
+})
+
+describe('parse messages in the chosen language', () => {
+  const en = createTranslate('en')
+  const fr = createTranslate('fr')
+
+  it('translates an invalid JSON text', () => {
+    const result = parseModelJson('kaputt', en)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.errors[0].startsWith('Not a valid JSON file: ')).toBe(true)
+  })
+
+  it('translates structural errors (fr)', () => {
+    const result = parseModelJson('{}', fr)
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.errors).toEqual([
+      'La version (version) est absente. La version attendue est 2.',
+      'Le champ "nodes" doit être une liste.',
+      'Le champ "edges" doit être une liste.',
+    ])
+  })
+
+  it('translates element, edge and parent errors with their values (en)', () => {
+    const input = validInput()
+    input.nodes[0].size = undefined
+    input.nodes[1].parentId = 'nope'
+    input.edges = [{ id: 'e9', source: 'n1', target: 'n1' }]
+    const result = parseModel(input, en)
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        'Node 1 (id "g1"): A group needs a size (size).',
+        'Node 2 (id "n1"): parentId "nope" does not refer to an existing node.',
+        'Edge 1 (id "e9"): source and target are identical.',
+      ]),
+    )
+  })
+
+  it('names the project name rule in the chosen language', () => {
+    const input = { ...validInput(), projectName: 'kein gültiger Name' }
+    const result = parseModel(input, en)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.errors[0]).toContain('Allowed: A-Z a-z 0-9 - _ .')
+  })
+
+  it('keeps German by default', () => {
+    const result = parseModel(null)
+    expect(result).toEqual({ ok: false, errors: ['Die Datei enthält kein gültiges Graph-Objekt.'] })
   })
 })

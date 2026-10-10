@@ -16,6 +16,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from 'react'
 import { NodeNameEditContext } from '../components/nodeNameEdit'
 import { nodeTypes } from '../components/nodeTypes'
+import { useT } from '../i18n/react'
 import type { CycleResult } from '../model/cycles'
 import { findDependencies } from '../model/dependency'
 import { checkConnection, checkReconnection } from '../model/graph'
@@ -51,6 +52,7 @@ interface CanvasProps {
 }
 
 export function Canvas({ cycles, analysis, critical }: CanvasProps) {
+  const t = useT()
   const nodes = useGraph((s) => s.nodes)
   const edges = useGraph((s) => s.edges)
   const selectedNodeIds = useGraph((s) => s.selectedNodeIds)
@@ -83,17 +85,21 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
 
   const flowNodes = useMemo(
     () =>
-      toFlowNodes(nodes, {
-        selectedIds: new Set(selectedNodeIds),
-        connectSourceId,
-        dropTargetId,
-        dependencyNodeIds: highlight.nodeIds,
-        dependencyEdgeIds: highlight.edgeIds,
-        cycleNodeIds: cycles.nodeIds,
-        analysis,
-        revealedId,
-      }),
-    [nodes, selectedNodeIds, connectSourceId, dropTargetId, highlight, cycles, analysis, revealedId],
+      toFlowNodes(
+        nodes,
+        {
+          selectedIds: new Set(selectedNodeIds),
+          connectSourceId,
+          dropTargetId,
+          dependencyNodeIds: highlight.nodeIds,
+          dependencyEdgeIds: highlight.edgeIds,
+          cycleNodeIds: cycles.nodeIds,
+          analysis,
+          revealedId,
+        },
+        t,
+      ),
+    [nodes, selectedNodeIds, connectSourceId, dropTargetId, highlight, cycles, analysis, revealedId, t],
   )
   const flowEdges = useMemo(
     () => toFlowEdges(edges, new Set(selectedEdgeIds), highlight.edgeIds, nodes, cycles.edgeIds),

@@ -1,3 +1,4 @@
+import { createTranslate, type Translate } from '../i18n/translate'
 import { parseModelJson, serializeModel, toModel } from '../model/serialize'
 import type { GraphContent } from '../model/types'
 
@@ -21,14 +22,17 @@ export function getStorage(): Storage | null {
 
 /**
  * Reads the model of a previous session. An unparsable/invalid value is moved to
- * `CORRUPT_KEY` (so it is not silently overwritten) and reported as 'invalid'.
+ * `CORRUPT_KEY` (so it is not silently overwritten) and reported as 'invalid' with errors in the language of `t`.
  */
-export function loadStoredContent(storage: Storage | null = getStorage()): LoadResult {
+export function loadStoredContent(
+  storage: Storage | null = getStorage(),
+  t: Translate = createTranslate('de'),
+): LoadResult {
   if (!storage) return { status: 'unavailable' }
   try {
     const raw = storage.getItem(STORAGE_KEY)
     if (raw === null) return { status: 'empty' }
-    const result = parseModelJson(raw)
+    const result = parseModelJson(raw, t)
     if (result.ok) {
       const { nodes, edges, projectName } = result.model
       return { status: 'loaded', content: { nodes, edges, projectName } }

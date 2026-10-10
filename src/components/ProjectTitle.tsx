@@ -61,7 +61,7 @@ export function ProjectTitle({ name, onRename }: ProjectTitleProps) {
   if (!editing) {
     return (
       <h1 className="toolbar__title">
-        <Tooltip text={t('projectTitle.tooltip')} hint={t('projectTitle.rule')}>
+        <Tooltip text={t('projectTitle.tooltip')} hint={t('projectName.rule')}>
           <button
             type="button"
             className="project-title"
@@ -99,10 +99,10 @@ export function ProjectTitle({ name, onRename }: ProjectTitleProps) {
       />
       {problem ? (
         <span className="project-title__hint project-title__hint--error" role="alert">
-          {problem} {t('projectTitle.rule')}
+          {problem} {t('projectName.rule')}
         </span>
       ) : (
-        <span className="project-title__hint">{t('projectTitle.rule')}</span>
+        <span className="project-title__hint">{t('projectName.rule')}</span>
       )}
     </h1>
   )

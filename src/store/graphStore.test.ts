@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { contentFingerprint } from '../model/fingerprint'
 import { getAbsolutePosition } from '../model/graph'
 import { serializeModel, toModel } from '../model/serialize'
+import { setTestLocale } from '../test/locale'
 import { box, content, counterIds, edge, group } from '../test/fixtures'
 import { createGraphStore, selectSidebarTarget, type GraphStore } from './graphStore'
 
@@ -106,7 +107,7 @@ describe('graphStore', () => {
         store.getState().reconnectEdge('e2', { source: 'a', target: 'b' })
 
         expect(store.getState().edges[1]).toEqual(edge('e2', 'b', 'a'))
-        expect(store.getState().notice?.message).toBe('Diese Verbindung existiert bereits.')
+        expect(store.getState().notice?.message).toEqual({ key: 'notice.connection.duplicate' })
       })
 
       it('is locked while analysing', () => {
@@ -152,7 +153,7 @@ describe('graphStore', () => {
 
         store.getState().connectToNode('g', 'm')
         expect(store.getState().edges).toEqual([])
-        expect(store.getState().notice?.message).toBe('Eine Gruppe kann nicht mit ihrem eigenen Inhalt verbunden werden.')
+        expect(store.getState().notice?.message).toEqual({ key: 'notice.connection.hierarchy' })
 
         store.getState().connectToNode('a', 'b')
         store.getState().connectToNode('a', 'b')
@@ -186,7 +187,21 @@ describe('graphStore', () => {
         expect(store.getState().clipboard?.entries.map((e) => e.node.id)).toEqual(['a'])
         expect(store.getState().nodes).toBe(before)
         expect(store.getState().history.past).toHaveLength(0)
-        expect(store.getState().notice).toMatchObject({ kind: 'success', message: '1 Element kopiert.' })
+        expect(store.getState().notice).toMatchObject({
+          kind: 'success',
+          message: { key: 'notice.copied_one', params: { count: 1 } },
+        })
+      })
+
+      it('reports the number of copied elements as a plural message', () => {
+        const store = withGroup()
+        select(store, 'a', 'b')
+        store.getState().copySelection()
+
+        expect(store.getState().notice).toMatchObject({
+          kind: 'success',
+          message: { key: 'notice.copied_other', params: { count: 2 } },
+        })
       })
 
       it('does nothing without a selection', () => {
@@ -928,6 +943,41 @@ describe('graphStore', () => {
       const store = createGraphStore(twoNodes())
       expect(store.getState().importText('<xml/>')).toBe(false)
       expect(store.getState().notice?.details?.[0]).toMatch(/JSON/)
+    })
+  })
+
+  describe('texts in the current language', () => {
+    it.each([
+      ['de', 'Neues Objekt', 'Neue Gruppe'],
+      ['en', 'New object', 'New group'],
+      ['fr', 'Nouvel objet', 'Nouveau groupe'],
+    ] as const)('names new objects and groups in %s', (locale, objectName, groupName) => {
+      setTestLocale(locale)
+      const store = createGraphStore(twoNodes(), counterIds())
+      store.getState().addNodeAt({ x: 90, y: 528 })
+      expect(store.getState().nodes[2].metadata[0].value).toBe(objectName)
+
+      store.getState().applyNodeSelection([
+        { id: 'a', selected: true },
+        { id: 'b', selected: true },
+      ])
+      store.getState().groupSelection()
+      const created = store.getState().nodes.find((n) => n.kind === 'group')
+      expect(created?.metadata[0].value).toBe(groupName)
+    })
+
+    it('writes the import errors in the language of the moment', () => {
+      setTestLocale('en')
+      const store = createGraphStore(twoNodes())
+      expect(store.getState().importText('<xml/>')).toBe(false)
+      expect(store.getState().notice?.details?.[0]).toMatch(/^Not a valid JSON file: /)
+      expect(store.getState().notice?.message).toEqual({ key: 'notice.import.failed' })
+    })
+
+    it('reports a successful import as a message key', () => {
+      const store = createGraphStore(twoNodes())
+      store.getState().importText(JSON.stringify({ version: 2, nodes: [], edges: [] }))
+      expect(store.getState().notice).toEqual({ kind: 'success', message: { key: 'notice.import.done' } })
     })
   })
 

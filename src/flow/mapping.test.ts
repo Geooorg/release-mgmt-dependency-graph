@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createTranslate } from '../i18n/translate'
 import { analyzeProject } from '../model/releaseAnalysis'
 import { box, content, edge, group, withStatus } from '../test/fixtures'
 import { toFlowEdges, toFlowNodes } from './mapping'
@@ -263,5 +264,42 @@ describe('toFlowNodes status, waiting and blocked', () => {
       expect(g.data.blockedTitle).toBe('Enthält blockierte Objekte: m, n')
       expect(g.data.waitingTitle).toBeUndefined()
     })
+  })
+})
+
+describe('toFlowNodes tooltips in the chosen language', () => {
+  const ui = (analysis: ReturnType<typeof analyzeProject>) => ({
+    selectedIds: new Set<string>(),
+    connectSourceId: null,
+    dropTargetId: null,
+    dependencyNodeIds: new Set<string>(),
+    dependencyEdgeIds: new Set<string>(),
+    cycleNodeIds: new Set<string>(),
+    analysis,
+    revealedId: null,
+  })
+  const model = content(
+    [
+      box('a', 0, 0),
+      box('c', 2, 0),
+      withStatus(box('d', 3, 0), 'blockiert'),
+      group('g', 0, 100, 300, 200),
+      withStatus(box('m', 24, 156, 'g'), 'blockiert'),
+    ],
+    [edge('ac', 'a', 'c'), edge('dc', 'd', 'c')],
+  )
+
+  it('says what an object waits for in English', () => {
+    const flows = toFlowNodes(model.nodes, ui(analyzeProject(model)), createTranslate('en'))
+    expect(flows.find((n) => n.id === 'a')?.data.waitingTitle).toBe('Waiting for: c')
+  })
+
+  it('translates the blocked tooltips of objects and groups', () => {
+    const t = createTranslate('fr')
+    const flows = toFlowNodes(model.nodes, ui(analyzeProject(model)), t)
+    expect(flows.find((n) => n.id === 'd')?.data.blockedTitle).toBe(
+      'Bloqué (aucun motif indiqué) – attend aussi : c',
+    )
+    expect(flows.find((n) => n.id === 'g')?.data.blockedTitle).toBe('Contient des objets bloqués : m')
   })
 })

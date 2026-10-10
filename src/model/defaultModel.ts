@@ -1,3 +1,4 @@
+import { createTranslate, type Translate } from '../i18n/translate'
 import { addEdge, createNode, defaultIdGenerator } from './graph'
 import { normalizeMetadata } from './metadata'
 import { NAME_KEY, NODE_SIZE } from './types'
@@ -14,9 +15,12 @@ function namedNode(name: string, x: number, newId: IdGenerator): ModelNode {
 }
 
 /** Initial graph for first-time users: two connected plain nodes "Projekt A" -> "Projekt B", side by side. */
-export function createDefaultContent(newId: IdGenerator = defaultIdGenerator): GraphContent {
+export function createDefaultContent(
+  newId: IdGenerator = defaultIdGenerator,
+  t: Translate = createTranslate('de'),
+): GraphContent {
   // Ids are drawn in a fixed order: node A, node B, edge.
-  const a = namedNode('Projekt A', START.x, newId)
-  const b = namedNode('Projekt B', START.x + NODE_SIZE.width + GAP, newId)
+  const a = namedNode(t('starter.projectA'), START.x, newId)
+  const b = namedNode(t('starter.projectB'), START.x + NODE_SIZE.width + GAP, newId)
   return addEdge({ nodes: [a, b], edges: [] }, a.id, b.id, newId)
 }

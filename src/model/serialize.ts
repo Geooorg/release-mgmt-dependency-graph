@@ -1,6 +1,7 @@
+import { createTranslate, type Translate } from '../i18n/translate'
 import { sortParentsFirst } from './graph'
 import { findDuplicateKeys, normalizeMetadata, tidyEdgeMetadata } from './metadata'
-import { DEFAULT_PROJECT_NAME, PROJECT_NAME_RULE, isValidProjectName } from './projectName'
+import { DEFAULT_PROJECT_NAME, isValidProjectName } from './projectName'
 import { HANDLE_SIDES, LEGACY_SCHEMA_VERSION, NAME_KEY, SCHEMA_VERSION } from './types'
 import type {
   ElementKind,
@@ -90,21 +91,22 @@ export function exportFileName(
 // Import
 // ---------------------------------------------------------------------------
 
-/** `JSON.parse` + `parseModel`; invalid JSON yields `{ ok: false, errors: ['Keine gültige JSON-Datei: ...'] }`. */
-export function parseModelJson(text: string): ParseResult {
+/** `JSON.parse` + `parseModel`; invalid JSON yields a single `parse.json` error (the reason is the engine's own text). */
+export function parseModelJson(text: string, t: Translate = createTranslate('de')): ParseResult {
   let parsed: unknown
   try {
     parsed = JSON.parse(text)
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
-    return { ok: false, errors: [`Keine gültige JSON-Datei: ${reason}`] }
+    return { ok: false, errors: [t('parse.json', { reason })] }
   }
-  return parseModel(parsed)
+  return parseModel(parsed, t)
 }
 
 /**
  * Validates and normalizes untrusted input (parsed JSON from localStorage or an imported file).
- * Collects ALL problems as human-readable German messages (max 20) instead of stopping at the first.
+ * Collects ALL problems as human-readable messages in the language of `t` (German by default, max 20)
+ * instead of stopping at the first.
  * Rules:
  *  - top-level object with `version === 2`, or the older `version === 1` whose edge `label` becomes the
  *    `name` metadata entry (else error mentioning the unsupported/missing version)
@@ -119,9 +121,9 @@ export function parseModelJson(text: string): ParseResult {
  *  - unknown extra properties are ignored
  * On success the model has nodes ordered parents first.
  */
-export function parseModel(input: unknown): ParseResult {
+export function parseModel(input: unknown, t: Translate = createTranslate('de')): ParseResult {
   if (!isRecord(input)) {
-    return { ok: false, errors: ['Die Datei enthält kein gültiges Graph-Objekt.'] }
+    return { ok: false, errors: [t('parse.notObject')] }
   }
 
   const errors: string[] = []
@@ -129,32 +131,32 @@ export function parseModel(input: unknown): ParseResult {
     if (errors.length < MAX_ERRORS) errors.push(message)
   }
 
-  checkVersion(input.version, report)
+  checkVersion(input.version, report, t)
 
   let projectName: string | undefined
   if (input.projectName !== undefined) {
     if (typeof input.projectName === 'string' && isValidProjectName(input.projectName)) {
       projectName = input.projectName
     } else {
-      report(`projectName ist ungültig: muss 1 bis 100 Zeichen lang sein. ${PROJECT_NAME_RULE}`)
+      report(t('parse.projectName', { rule: t('projectName.rule') }))
     }
   }
 
   let nodes: ModelNode[] = []
   let nodeIds = new Set<string>()
   if (Array.isArray(input.nodes)) {
-    const parsed = parseNodes(input.nodes, report)
+    const parsed = parseNodes(input.nodes, report, t)
     nodes = parsed.nodes
     nodeIds = parsed.ids
   } else {
-    report('Das Feld "nodes" muss eine Liste sein.')
+    report(t('parse.nodesNotList'))
   }
 
   let edges: ModelEdge[] = []
   if (Array.isArray(input.edges)) {
-    edges = parseEdges(input.edges, nodeIds, report, input.version === LEGACY_SCHEMA_VERSION)
+    edges = parseEdges(input.edges, nodeIds, report, input.version === LEGACY_SCHEMA_VERSION, t)
   } else {
-    report('Das Feld "edges" muss eine Liste sein.')
+    report(t('parse.edgesNotList'))
   }
 
   if (errors.length > 0) return { ok: false, errors }
@@ -169,12 +171,12 @@ export function parseModel(input: unknown): ParseResult {
   }
 }
 
-function checkVersion(version: unknown, report: Report): void {
+function checkVersion(version: unknown, report: Report, t: Translate): void {
   if (version === SCHEMA_VERSION || version === LEGACY_SCHEMA_VERSION) return
   if (version === undefined) {
-    report(`Die Versionsangabe (version) fehlt. Erwartet wird Version ${SCHEMA_VERSION}.`)
+    report(t('parse.version.missing', { expected: SCHEMA_VERSION }))
   } else {
-    report(`Nicht unterstützte Version: ${show(version)}. Erwartet wird Version ${SCHEMA_VERSION}.`)
+    report(t('parse.version.unsupported', { value: show(version, t), expected: SCHEMA_VERSION }))
   }
 }
 
@@ -187,15 +189,15 @@ interface ParsedNodes {
   ids: Set<string>
 }
 
-function parseNodes(raw: readonly unknown[], report: Report): ParsedNodes {
+function parseNodes(raw: readonly unknown[], report: Report, t: Translate): ParsedNodes {
   const firstIndexById = new Map<string, number>()
   const nodes: ModelNode[] = []
   raw.forEach((value, index) => {
-    const node = parseNode(value, index, firstIndexById, report)
+    const node = parseNode(value, index, firstIndexById, report, t)
     if (node !== undefined) nodes.push(node)
   })
 
-  checkParents(nodes, firstIndexById, report)
+  checkParents(nodes, firstIndexById, report, t)
   return { nodes, ids: new Set(firstIndexById.keys()) }
 }
 
@@ -204,52 +206,53 @@ function parseNode(
   index: number,
   firstIndexById: Map<string, number>,
   report: Report,
+  t: Translate,
 ): ModelNode | undefined {
   if (!isRecord(value)) {
-    report(`Knoten ${index + 1} ist kein Objekt.`)
+    report(t('parse.node.notObject', { index: index + 1 }))
     return undefined
   }
 
   const label = isNonEmptyString(value.id)
-    ? `Knoten ${index + 1} (id ${quote(value.id)})`
-    : `Knoten ${index + 1}`
+    ? t('parse.node.labelWithId', { index: index + 1, id: quote(value.id) })
+    : t('parse.node.label', { index: index + 1 })
   const problems: string[] = []
   const fail = (message: string): void => {
-    problems.push(`${label}: ${message}`)
+    problems.push(t('parse.problem', { label, message }))
   }
 
   const id = isNonEmptyString(value.id) ? value.id : undefined
   if (id === undefined) {
-    fail('Die id fehlt oder ist kein nicht-leerer Text.')
+    fail(t('parse.id.invalid'))
   } else if (firstIndexById.has(id)) {
-    fail(`Die id ist bereits bei Knoten ${(firstIndexById.get(id) ?? 0) + 1} vergeben.`)
+    fail(t('parse.node.idTaken', { index: (firstIndexById.get(id) ?? 0) + 1 }))
   } else {
     firstIndexById.set(id, index)
   }
 
   const kind = parseKind(value.kind)
-  if (kind === undefined) fail('kind muss "node" oder "group" sein.')
+  if (kind === undefined) fail(t('parse.node.kind'))
 
   const position = parsePoint(value.position)
-  if (position === undefined) fail('position benötigt endliche Zahlen x und y.')
+  if (position === undefined) fail(t('parse.node.position'))
 
   let size: Size | undefined
   if (value.size !== undefined) {
     size = parseSize(value.size)
-    if (size === undefined) fail('size benötigt endliche Zahlen width und height größer als 0.')
+    if (size === undefined) fail(t('parse.node.size'))
   } else if (kind === 'group') {
-    fail('Eine Gruppe benötigt eine Größe (size).')
+    fail(t('parse.node.groupSize'))
   }
 
-  const metadata = parseMetadata(value.metadata, fail)
+  const metadata = parseMetadata(value.metadata, fail, t)
   for (const key of findDuplicateKeys(metadata)) {
-    fail(`Der Metadaten-Schlüssel ${quote(key)} kommt mehrfach vor.`)
+    fail(t('parse.metadata.duplicateKey', { key: quote(key) }))
   }
 
   let parentId: string | undefined
   if (value.parentId !== undefined) {
     if (typeof value.parentId === 'string') parentId = value.parentId
-    else fail('parentId muss ein Text sein.')
+    else fail(t('parse.node.parentIdType'))
   }
 
   if (problems.length > 0 || id === undefined || kind === undefined || position === undefined) {
@@ -285,10 +288,10 @@ function parseSize(value: unknown): Size | undefined {
 }
 
 /** Missing metadata is tolerated; invalid entries are reported and skipped. Result is normalized. */
-function parseMetadata(value: unknown, fail: (message: string) => void): MetadataEntry[] {
+function parseMetadata(value: unknown, fail: (message: string) => void, t: Translate): MetadataEntry[] {
   if (value === undefined) return normalizeMetadata([])
   if (!Array.isArray(value)) {
-    fail('metadata muss eine Liste sein.')
+    fail(t('parse.metadata.notList'))
     return normalizeMetadata([])
   }
   const entries: MetadataEntry[] = []
@@ -296,7 +299,7 @@ function parseMetadata(value: unknown, fail: (message: string) => void): Metadat
     if (isRecord(entry) && typeof entry.key === 'string' && typeof entry.value === 'string') {
       entries.push({ key: entry.key, value: entry.value })
     } else {
-      fail(`metadata[${index}] benötigt die Texte key und value.`)
+      fail(t('parse.metadata.entry', { index }))
     }
   })
   return normalizeMetadata(entries)
@@ -307,25 +310,27 @@ function checkParents(
   nodes: readonly ModelNode[],
   firstIndexById: ReadonlyMap<string, number>,
   report: Report,
+  t: Translate,
 ): void {
   const byId = new Map(nodes.map((node) => [node.id, node]))
   const parentOf = new Map<string, string>()
 
   for (const node of nodes) {
     if (node.parentId === undefined) continue
-    const label = `Knoten ${(firstIndexById.get(node.id) ?? 0) + 1} (id ${quote(node.id)})`
+    const label = t('parse.node.labelWithId', { index: (firstIndexById.get(node.id) ?? 0) + 1, id: quote(node.id) })
+    const problem = (message: string) => report(t('parse.problem', { label, message }))
     const parent = byId.get(node.parentId)
     if (parent !== undefined) {
       if (parent.kind === 'group') parentOf.set(node.id, parent.id)
-      else report(`${label}: parentId ${quote(node.parentId)} verweist auf einen Knoten, der keine Gruppe ist.`)
+      else problem(t('parse.parent.notGroup', { id: quote(node.parentId) }))
     } else if (!firstIndexById.has(node.parentId)) {
       // A parent that exists but is itself invalid has already been reported.
-      report(`${label}: parentId ${quote(node.parentId)} verweist auf keinen vorhandenen Knoten.`)
+      problem(t('parse.parent.missing', { id: quote(node.parentId) }))
     }
   }
 
   for (const cycle of findCycles(nodes, parentOf)) {
-    report(`Zyklus in der Gruppenzuordnung (parentId): ${cycle.map(quote).join(' → ')}.`)
+    report(t('parse.parent.cycle', { path: cycle.map(quote).join(' → ') }))
   }
 }
 
@@ -359,6 +364,7 @@ function parseEdges(
   nodeIds: ReadonlySet<string>,
   report: Report,
   legacy: boolean,
+  t: Translate,
 ): ModelEdge[] {
   const firstIndexById = new Map<string, number>()
   const firstIndexByPair = new Map<string, number>()
@@ -366,39 +372,39 @@ function parseEdges(
 
   raw.forEach((value, index) => {
     if (!isRecord(value)) {
-      report(`Kante ${index + 1} ist kein Objekt.`)
+      report(t('parse.edge.notObject', { index: index + 1 }))
       return
     }
     const label = isNonEmptyString(value.id)
-      ? `Kante ${index + 1} (id ${quote(value.id)})`
-      : `Kante ${index + 1}`
+      ? t('parse.edge.labelWithId', { index: index + 1, id: quote(value.id) })
+      : t('parse.edge.label', { index: index + 1 })
     const problems: string[] = []
     const fail = (message: string): void => {
-      problems.push(`${label}: ${message}`)
+      problems.push(t('parse.problem', { label, message }))
     }
 
     const id = isNonEmptyString(value.id) ? value.id : undefined
     if (id === undefined) {
-      fail('Die id fehlt oder ist kein nicht-leerer Text.')
+      fail(t('parse.id.invalid'))
     } else if (firstIndexById.has(id)) {
-      fail(`Die id ist bereits bei Kante ${(firstIndexById.get(id) ?? 0) + 1} vergeben.`)
+      fail(t('parse.edge.idTaken', { index: (firstIndexById.get(id) ?? 0) + 1 }))
     } else {
       firstIndexById.set(id, index)
     }
 
     const { source, target } = value
     if (typeof source !== 'string' || typeof target !== 'string') {
-      fail('source und target müssen Texte sein.')
+      fail(t('parse.edge.endpointType'))
     } else {
-      if (!nodeIds.has(source)) fail(`source ${quote(source)} verweist auf keinen vorhandenen Knoten.`)
-      if (!nodeIds.has(target)) fail(`target ${quote(target)} verweist auf keinen vorhandenen Knoten.`)
+      if (!nodeIds.has(source)) fail(t('parse.edge.sourceMissing', { id: quote(source) }))
+      if (!nodeIds.has(target)) fail(t('parse.edge.targetMissing', { id: quote(target) }))
       if (source === target) {
-        fail('source und target sind identisch.')
+        fail(t('parse.edge.selfLoop'))
       } else {
         const pair = JSON.stringify([source, target])
         const firstWithPair = firstIndexByPair.get(pair)
         if (firstWithPair !== undefined) {
-          fail(`Es gibt bereits eine Kante von ${quote(source)} nach ${quote(target)} (Kante ${firstWithPair + 1}).`)
+          fail(t('parse.edge.duplicate', { source: quote(source), target: quote(target), index: firstWithPair + 1 }))
         } else {
           firstIndexByPair.set(pair, index)
         }
@@ -412,7 +418,7 @@ function parseEdges(
       if (typeof raw === 'string' && (HANDLE_SIDES as readonly string[]).includes(raw)) {
         handles[field] = raw as HandleSide
       } else {
-        fail(`${field} muss ${HANDLE_SIDES.map((side) => quote(side)).join(', ')} sein.`)
+        fail(t('parse.edge.handle', { field, sides: HANDLE_SIDES.map((side) => quote(side)).join(', ') }))
       }
     }
 
@@ -421,11 +427,11 @@ function parseEdges(
       // Version 1: the caption was a plain `label`.
       if (value.label !== undefined) {
         if (typeof value.label === 'string') metadata = tidyEdgeMetadata([{ key: NAME_KEY, value: value.label }])
-        else fail('label muss ein Text sein.')
+        else fail(t('parse.edge.labelType'))
       }
     } else if (value.metadata !== undefined) {
-      const entries = parseMetadata(value.metadata, fail)
-      for (const key of findDuplicateKeys(entries)) fail(`Der Metadaten-Schlüssel ${quote(key)} kommt mehrfach vor.`)
+      const entries = parseMetadata(value.metadata, fail, t)
+      for (const key of findDuplicateKeys(entries)) fail(t('parse.metadata.duplicateKey', { key: quote(key) }))
       metadata = tidyEdgeMetadata(entries)
     }
 
@@ -459,8 +465,8 @@ function quote(text: string): string {
 }
 
 /** Untrusted value for error messages. */
-function show(value: unknown): string {
+function show(value: unknown, t: Translate): string {
   if (typeof value === 'string') return quote(value)
   if (value === null || typeof value === 'number' || typeof value === 'boolean') return String(value)
-  return Array.isArray(value) ? 'Liste' : 'Objekt'
+  return t(Array.isArray(value) ? 'parse.value.list' : 'parse.value.object')
 }

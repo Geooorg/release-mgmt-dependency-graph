@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createTranslate } from '../i18n/translate'
 import { serializeModel, toModel } from '../model/serialize'
 import { box, content, edge, memoryStorage } from '../test/fixtures'
 import { CORRUPT_KEY, loadStoredContent, saveContent, STORAGE_KEY } from './localStorage'
@@ -55,6 +56,12 @@ describe('localStorage persistence', () => {
     expect(loaded.status).toBe('invalid')
     expect(storage.getItem(CORRUPT_KEY)).toBe('{"version": 99}')
     expect(storage.getItem(STORAGE_KEY)).toBeNull()
+  })
+
+  it('writes the errors of invalid data in the given language', () => {
+    const storage = memoryStorage({ [STORAGE_KEY]: 'not json' })
+    const loaded = loadStoredContent(storage, createTranslate('en'))
+    expect(loaded.status === 'invalid' && loaded.errors[0].startsWith('Not a valid JSON file: ')).toBe(true)
   })
 
   it('quarantines unparsable JSON', () => {

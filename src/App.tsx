@@ -263,8 +263,8 @@ function AppShell() {
   }, [])
 
   useEffect(() => {
-    document.title = `${projectName} – Abhängigkeiten`
-  }, [projectName])
+    document.title = t('app.title', { name: projectName })
+  }, [projectName, t])
 
   useEffect(() => {
     if (!notice || notice.kind === 'error') return
@@ -284,12 +284,9 @@ function AppShell() {
     const state = graphStore.getState()
     const text = formatAnalysisMarkdown({ nodes, edges, projectName }, analysis, selection, t)
     if (await copyText(text)) {
-      state.notify({ kind: 'success', message: 'Analyse in die Zwischenablage kopiert.' })
+      state.notify({ kind: 'success', message: { key: 'notice.analysis.copied' } })
     } else {
-      state.notify({
-        kind: 'error',
-        message: 'Die Analyse konnte nicht in die Zwischenablage kopiert werden.',
-      })
+      state.notify({ kind: 'error', message: { key: 'notice.analysis.copyFailed' } })
     }
   }
 
@@ -341,7 +338,7 @@ function AppShell() {
 
   // Validated here first so the dialog (which covers the banner) can show what is wrong.
   const importJson = (text: string) => {
-    const result = parseModelJson(text)
+    const result = parseModelJson(text, t)
     if (!result.ok) {
       setJsonImport((current) => current && { ...current, errors: result.errors })
       return
@@ -420,7 +417,7 @@ function AppShell() {
           {searchOpen && <SearchBar onSearch={runSearch} onClose={toggleSearch} />}
           <div className="banner-host">
             <Banner
-              message={notice?.message ?? null}
+              message={notice ? t(notice.message.key, notice.message.params) : null}
               kind={notice?.kind ?? 'info'}
               details={notice?.details}
               onDismiss={() => graphStore.getState().dismissNotice()}
@@ -467,9 +464,11 @@ function AppShell() {
       </div>
       <ConfirmDialog
         open={sidebarChangePending}
-        title="Änderungen verwerfen"
-        message={`Ungültige Änderungen an „${sidebarNode ? displayName(sidebarNode) : 'Verbindung'}“ verwerfen? (doppelter Feldname)`}
-        confirmLabel="Verwerfen"
+        title={t('app.discard.title')}
+        message={t('app.discard.message', {
+          name: sidebarNode ? displayName(sidebarNode) : t('sidebar.title.edge'),
+        })}
+        confirmLabel={t('app.discard.confirm')}
         onConfirm={() => graphStore.getState().confirmSidebarChange()}
         onCancel={() => graphStore.getState().cancelSidebarChange()}
       />

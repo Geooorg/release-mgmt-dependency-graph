@@ -5,13 +5,7 @@ import { describe, expect, it } from 'vitest'
  * list; the test fails for a file that is clean but still listed, so the list cannot go stale.
  */
 const PENDING: readonly string[] = [
-  'App.tsx',
   'components/AgentHelp.tsx',
-  'flow/mapping.ts',
-  'model/graph.ts',
-  'model/serialize.ts',
-  'store/appStore.ts',
-  'store/graphStore.ts',
 ]
 
 const CATALOGS = new Set(['i18n/de.ts', 'i18n/en.ts', 'i18n/fr.ts'])

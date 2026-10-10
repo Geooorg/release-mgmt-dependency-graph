@@ -1,4 +1,5 @@
 import { MarkerType, type Edge } from '@xyflow/react'
+import { createTranslate, type Translate } from '../i18n/translate'
 import { getSize, pickSides, sortParentsFirst } from '../model/graph'
 import { displayName, getColor, getContrastColor, getEdgeName, getName } from '../model/metadata'
 import { joinNames, type ProjectAnalysis } from '../model/releaseAnalysis'
@@ -28,13 +29,12 @@ const EDGE_COLOR_CYCLE_SELECTED = '#6b21a8'
 const CYCLE_DASH = '6 4'
 const NO_IDS: ReadonlySet<string> = new Set()
 
-/** "Prefix: A, B, …" with at most five names. */
-function listNames(prefix: string, names: readonly string[]): string {
-  return `${prefix}: ${joinNames(names)}`
-}
-
-/** Model nodes -> React Flow nodes (parents first, sizes fixed from the model). */
-export function toFlowNodes(nodes: readonly ModelNode[], ui: FlowUiState): AppFlowNode[] {
+/** Model nodes -> React Flow nodes (parents first, sizes fixed from the model); tooltips are written in the language of `t`. */
+export function toFlowNodes(
+  nodes: readonly ModelNode[],
+  ui: FlowUiState,
+  t: Translate = createTranslate('de'),
+): AppFlowNode[] {
   const names = new Map(nodes.map((n) => [n.id, displayName(n)]))
   const namesOf = (ids: readonly string[]) => ids.map((id) => names.get(id) ?? id.slice(0, 8))
   const { analysis } = ui
@@ -43,12 +43,12 @@ export function toFlowNodes(nodes: readonly ModelNode[], ui: FlowUiState): AppFl
   const blockedTitle = (node: ModelNode): string | undefined => {
     if (!analysis?.blockedIds.has(node.id)) return undefined
     if (node.kind === 'group') {
-      return listNames('Enthält blockierte Objekte', namesOf(analysis.blockedMembers.get(node.id) ?? []))
+      return t('node.blockedMembers', { names: joinNames(namesOf(analysis.blockedMembers.get(node.id) ?? [])) })
     }
     const reason = analysis.blockReasons.get(node.id)
-    const title = reason === undefined ? 'Blockiert (kein Grund angegeben)' : `Blockiert: ${reason}`
+    const title = reason === undefined ? t('analysis.blocked.noReason') : t('analysis.blocked.reason', { reason })
     const waiting = analysis.waitingFor.get(node.id) ?? []
-    return waiting.length > 0 ? `${title} – ${listNames('wartet außerdem auf', namesOf(waiting))}` : title
+    return waiting.length > 0 ? t('node.blockedAlsoWaiting', { title, names: joinNames(namesOf(waiting)) }) : title
   }
 
   // Hourglass: unfinished, not blocked, with an unfinished direct prerequisite (a group: a member waits).
@@ -56,9 +56,9 @@ export function toFlowNodes(nodes: readonly ModelNode[], ui: FlowUiState): AppFl
   const waitingTitle = (node: ModelNode): string | undefined => {
     if (!analysis?.waitingIds.has(node.id)) return undefined
     if (node.kind === 'group') {
-      return listNames('Enthält wartende Objekte', namesOf(analysis.waitingMembers.get(node.id) ?? []))
+      return t('node.waitingMembers', { names: joinNames(namesOf(analysis.waitingMembers.get(node.id) ?? [])) })
     }
-    return listNames('Wartet auf', namesOf(analysis.waitingFor.get(node.id) ?? []))
+    return t('analysis.waitingMark', { names: joinNames(namesOf(analysis.waitingFor.get(node.id) ?? [])) })
   }
 
   return sortParentsFirst(nodes).map((node) => {

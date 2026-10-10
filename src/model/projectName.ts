@@ -3,9 +3,6 @@ export const DEFAULT_PROJECT_NAME = 'Release-Management'
 /** Keeps the export file name within what file systems accept. */
 export const MAX_PROJECT_NAME_LENGTH = 100
 
-/** Human-readable form of the allowed characters (for hints). */
-export const PROJECT_NAME_RULE = 'Erlaubt: A-Z a-z 0-9 - _ .'
-
 const DISALLOWED = /[^A-Za-z0-9._-]/g
 const VALID = /^[A-Za-z0-9._-]+$/
 

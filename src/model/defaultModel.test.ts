@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createTranslate } from '../i18n/translate'
 import { createDefaultContent } from './defaultModel'
 import { checkConnection } from './graph'
 import { getName } from './metadata'
@@ -20,6 +21,11 @@ describe('createDefaultContent', () => {
     expect(edges).toHaveLength(1)
     expect(edges[0].source).toBe(nodes[0].id)
     expect(edges[0].target).toBe(nodes[1].id)
+  })
+
+  it('names the starter objects in the chosen language', () => {
+    const { nodes } = createDefaultContent(counter(), createTranslate('en'))
+    expect(nodes.map((n) => getName(n.metadata))).toEqual(['Project A', 'Project B'])
   })
 
   it('draws ids from the injected generator in the order node A, node B, edge', () => {

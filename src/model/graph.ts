@@ -1,3 +1,4 @@
+import { createTranslate } from '../i18n/translate'
 import { getEdgeName, getName, isValidColor, normalizeMetadata, tidyEdgeMetadata, withColorEntry } from './metadata'
 import {
   BLOCK_REASON_KEY,
@@ -102,13 +103,21 @@ function updateNode(
  * their doc comment (throw) or return the input `content` unchanged (no-op).
  */
 
-/** Creates a plain node: kind 'node', name 'Neues Objekt', metadata normalized, no explicit size. */
-export function createNode(position: Point, newId: IdGenerator = defaultIdGenerator): ModelNode {
+/** Names of new elements when the caller passes none (German, the language of the data; the store passes the UI language). */
+const DEFAULT_NODE_NAME = createTranslate('de')('node.defaultName')
+const DEFAULT_GROUP_NAME = createTranslate('de')('group.defaultName')
+
+/** Creates a plain node: kind 'node', metadata normalized with the given name, no explicit size. */
+export function createNode(
+  position: Point,
+  newId: IdGenerator = defaultIdGenerator,
+  name: string = DEFAULT_NODE_NAME,
+): ModelNode {
   return {
     id: newId(),
     kind: 'node',
     position: { x: position.x, y: position.y },
-    metadata: normalizeMetadata([{ key: NAME_KEY, value: 'Neues Objekt' }]),
+    metadata: normalizeMetadata([{ key: NAME_KEY, value: name }]),
   }
 }
 
@@ -164,7 +173,7 @@ export function canGroup(nodes: readonly ModelNode[], ids: readonly string[]): b
 }
 
 /**
- * Wraps the given elements into a NEW group (kind 'group', name 'Neue Gruppe').
+ * Wraps the given elements into a NEW group (kind 'group', named `name`).
  * The group gets the common parent of the elements. Its rectangle is the bounding box of the
  * elements (in the common parent's coordinate space) enlarged by GROUP_PADDING on all sides and
  * additionally by GROUP_HEADER_HEIGHT on top. Members become children of the group and their
@@ -175,6 +184,7 @@ export function groupElements(
   content: GraphContent,
   ids: readonly string[],
   newId: IdGenerator = defaultIdGenerator,
+  name: string = DEFAULT_GROUP_NAME,
 ): { content: GraphContent; groupId: string } {
   if (!canGroup(content.nodes, ids)) {
     throw new Error('Cannot group: selection is empty, unknown, duplicated or has different parents')
@@ -198,7 +208,7 @@ export function groupElements(
       width: right - left + 2 * GROUP_PADDING,
       height: bottom - top + 2 * GROUP_PADDING + GROUP_HEADER_HEIGHT,
     },
-    metadata: normalizeMetadata([{ key: NAME_KEY, value: 'Neue Gruppe' }]),
+    metadata: normalizeMetadata([{ key: NAME_KEY, value: name }]),
   }
   if (parentId !== undefined) group.parentId = parentId
 
