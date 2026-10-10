@@ -194,6 +194,25 @@
   background: #fff;
 }
 
+.toolbar__file-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Second row below Export: help and language. */
+.toolbar__file-extra {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--toolbar-row);
+}
+
+.toolbar .toolbar__language {
+  width: 112px;
+  min-height: var(--toolbar-row);
+}
+
 .toolbar__field {
   display: flex;
   align-items: center;

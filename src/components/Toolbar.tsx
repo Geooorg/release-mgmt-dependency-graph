@@ -1,4 +1,7 @@
 import type { ReactNode } from 'react'
+import { LOCALE_NAMES, LOCALES, parseLocale } from '../i18n/locale'
+import type { MessageKey } from '../i18n/messages'
+import { useT } from '../i18n/react'
 import type { Highlight, Tool, WorkMode } from '../model/workMode'
 import {
   AddObjectIcon,
@@ -10,6 +13,7 @@ import {
   CycleIcon,
   GraphIcon,
   GroupIcon,
+  HelpIcon,
   PasteIcon,
   SearchIcon,
   RedoIcon,
@@ -25,67 +29,63 @@ import './components.css'
 
 const ICON_SIZE = 16
 
-const MODES: readonly { value: WorkMode; label: string; icon: ReactNode; title: string }[] = [
+const MODES: readonly { value: WorkMode; labelKey: MessageKey; titleKey: MessageKey; icon: ReactNode }[] = [
   {
     value: 'build',
-    label: 'Editieren',
+    labelKey: 'toolbar.mode.build',
+    titleKey: 'toolbar.mode.build.title',
     icon: <GraphIcon size={ICON_SIZE} />,
-    title: 'Den Graphen aufbauen: Objekte anlegen, verbinden, gruppieren und löschen. Ohne Analyse-Hervorhebung.',
   },
   {
     value: 'analyze',
-    label: 'Analysieren',
+    labelKey: 'toolbar.mode.analyze',
+    titleKey: 'toolbar.mode.analyze.title',
     icon: <WandIcon size={ICON_SIZE} />,
-    title:
-      'Das Release analysieren: kritischer Pfad, Abhängigkeiten und Release-Analyse. Die Struktur ist gesperrt (nichts anlegen, verbinden, löschen oder umgruppieren); Status und Metadaten bleiben bearbeitbar.',
   },
 ]
 
 /** The visible text is short; `name` is the full accessible name (and keeps the button named when the text is hidden on narrow windows). */
 const TOOLS: readonly {
   value: Tool
-  label: string
-  name: string
+  labelKey: MessageKey
+  nameKey: MessageKey
+  titleKey: MessageKey
   icon: ReactNode
   shortcut: string
-  title: string
 }[] = [
   {
     value: 'select',
-    label: 'Auswählen',
-    name: 'Auswählen',
+    labelKey: 'toolbar.tool.select.label',
+    nameKey: 'toolbar.tool.select.name',
+    titleKey: 'toolbar.tool.select.title',
     icon: <CursorIcon size={ICON_SIZE} />,
     shortcut: 'V',
-    title: 'Elemente anklicken, markieren und verschieben; die Sidebar zeigt die Auswahl. Konnektoren am Rand eines Objekts lassen sich auf ein anderes Element ziehen.',
   },
   {
     value: 'create',
-    label: 'Objekt',
-    name: 'Objekt anlegen',
+    labelKey: 'toolbar.tool.create.label',
+    nameKey: 'toolbar.tool.create.name',
+    titleKey: 'toolbar.tool.create.title',
     icon: <AddObjectIcon size={ICON_SIZE} />,
     shortcut: 'N',
-    title: 'Auf eine freie Stelle der Fläche klicken, um dort ein Objekt anzulegen (in einer Gruppe: als Mitglied). Das Werkzeug bleibt aktiv; Esc beendet es.',
   },
   {
     value: 'connect',
-    label: 'Verbinden',
-    name: 'Verbinden',
+    labelKey: 'toolbar.tool.connect.label',
+    nameKey: 'toolbar.tool.connect.name',
+    titleKey: 'toolbar.tool.connect.title',
     icon: <ConnectIcon size={ICON_SIZE} />,
     shortcut: 'C',
-    title: 'Zwei Objekte nacheinander anklicken (erst Quelle, dann Ziel), um sie zu verbinden. Esc beendet das Werkzeug.',
   },
 ]
 
-const HIGHLIGHTS: readonly { value: Highlight; label: string }[] = [
-  { value: 'critical', label: 'Kritischer Pfad' },
-  { value: 'outgoing', label: '→ Voraussetzungen' },
-  { value: 'incoming', label: '← Betroffene' },
-  { value: 'both', label: '↔ Beide' },
-  { value: 'off', label: 'Keine' },
+const HIGHLIGHTS: readonly { value: Highlight; labelKey: MessageKey }[] = [
+  { value: 'critical', labelKey: 'toolbar.highlight.critical' },
+  { value: 'outgoing', labelKey: 'toolbar.highlight.outgoing' },
+  { value: 'incoming', labelKey: 'toolbar.highlight.incoming' },
+  { value: 'both', labelKey: 'toolbar.highlight.both' },
+  { value: 'off', labelKey: 'toolbar.highlight.off' },
 ]
-
-const HIGHLIGHT_HELP =
-  'Was im Graph dick rot gezeichnet wird. Kritischer Pfad: die längste Kette offener Voraussetzungen der Auswahl bzw. des Projekts. → Voraussetzungen: wovon die markierte Auswahl (direkt oder indirekt) abhängt. ← Betroffene: was von ihr abhängt. ↔ Beide: der gesamte verbundene Teilgraph.'
 
 function Separator() {
   return <span className="toolbar__separator" role="separator" aria-orientation="vertical" />
@@ -133,16 +133,21 @@ export function Toolbar({
   onImport,
   onShowJson,
   onPasteJson,
+  locale,
+  onLocaleChange,
+  onHelp,
 }: ToolbarProps) {
+  const t = useT()
   const dependencyHighlight = highlight === 'outgoing' || highlight === 'incoming' || highlight === 'both'
+  const cycleWord = t(cycleCount === 1 ? 'toolbar.cycles.word_one' : 'toolbar.cycles.word_other')
 
   return (
-    <header className="toolbar" role="toolbar" aria-label="Werkzeuge">
+    <header className="toolbar" role="toolbar" aria-label={t('toolbar.label')}>
       <ProjectTitle name={projectName} onRename={onRenameProject} />
 
-      <div className="mode-switch" role="group" aria-label="Arbeitsmodus">
-        {MODES.map(({ value, label, icon, title }) => (
-          <Tooltip key={value} text={title}>
+      <div className="mode-switch" role="group" aria-label={t('toolbar.mode.group')}>
+        {MODES.map(({ value, labelKey, titleKey, icon }) => (
+          <Tooltip key={value} text={t(titleKey)}>
             <button
               type="button"
               className="ui-button"
@@ -150,7 +155,7 @@ export function Toolbar({
               onClick={() => onModeChange(value)}
             >
               {icon}
-              {label}
+              {t(labelKey)}
             </button>
           </Tooltip>
         ))}
@@ -160,19 +165,19 @@ export function Toolbar({
 
       {mode === 'build' ? (
         <div className="toolbar__tools">
-          <Section label="Erstellen">
-            <div className="tool-switch" role="group" aria-label="Werkzeug">
-              {TOOLS.map(({ value, label, name, icon, shortcut, title }) => (
-                <Tooltip key={value} text={title} shortcut={shortcut}>
+          <Section label={t('toolbar.section.create')}>
+            <div className="tool-switch" role="group" aria-label={t('toolbar.tool.group')}>
+              {TOOLS.map(({ value, labelKey, nameKey, titleKey, icon, shortcut }) => (
+                <Tooltip key={value} text={t(titleKey)} shortcut={shortcut}>
                   <button
                     type="button"
                     className="ui-button"
-                    aria-label={name}
+                    aria-label={t(nameKey)}
                     aria-pressed={tool === value}
                     onClick={() => onToolChange(value)}
                   >
                     {icon}
-                    <span className="tool-switch__label">{label}</span>
+                    <span className="tool-switch__label">{t(labelKey)}</span>
                   </button>
                 </Tooltip>
               ))}
@@ -181,33 +186,23 @@ export function Toolbar({
 
           {/* Second row, left-aligned with the first tool button. */}
           <div className="toolbar__edit">
-            <Section label="Gruppen">
-              <Tooltip
-                text="Markierte Objekte zu einer Gruppe (Sub-Graph) zusammenfassen"
-                hint={
-                  canGroup
-                    ? undefined
-                    : 'Zuerst ein oder mehrere Objekte markieren, die auf derselben Ebene liegen.'
-                }
-              >
+            <Section label={t('toolbar.section.groups')}>
+              <Tooltip text={t('toolbar.group.title')} hint={canGroup ? undefined : t('toolbar.group.hint')}>
                 <button
                   type="button"
                   className="ui-button ui-button--tool"
-                  aria-label="Gruppieren"
+                  aria-label={t('toolbar.group')}
                   disabled={!canGroup}
                   onClick={onGroup}
                 >
                   <GroupIcon />
                 </button>
               </Tooltip>
-              <Tooltip
-                text="Markierte Gruppe auflösen – ihr Inhalt bleibt erhalten und rückt eine Ebene nach oben"
-                hint={canUngroup ? undefined : 'Zuerst eine Gruppe markieren.'}
-              >
+              <Tooltip text={t('toolbar.ungroup.title')} hint={canUngroup ? undefined : t('toolbar.ungroup.hint')}>
                 <button
                   type="button"
                   className="ui-button ui-button--tool"
-                  aria-label="Gruppe auflösen"
+                  aria-label={t('toolbar.ungroup')}
                   disabled={!canUngroup}
                   onClick={onUngroup}
                 >
@@ -215,14 +210,14 @@ export function Toolbar({
                 </button>
               </Tooltip>
               <Tooltip
-                text="Markierte Objekte und Verbindungen löschen. Gruppen werden nur aufgelöst, ihr Inhalt bleibt."
-                shortcut="Entf"
-                hint={canDelete ? undefined : 'Zuerst etwas markieren.'}
+                text={t('toolbar.delete.title')}
+                shortcut={t('shortcut.delete')}
+                hint={canDelete ? undefined : t('toolbar.delete.hint')}
               >
                 <button
                   type="button"
                   className="ui-button ui-button--tool"
-                  aria-label="Löschen"
+                  aria-label={t('toolbar.delete')}
                   disabled={!canDelete}
                   onClick={onDelete}
                 >
@@ -233,16 +228,16 @@ export function Toolbar({
 
             <Separator />
 
-            <Section label="Zwischenablage">
+            <Section label={t('toolbar.section.clipboard')}>
               <Tooltip
-                text="Markierte Objekte und Gruppen kopieren (mit dem Inhalt der Gruppen, ohne Verbindungen)"
-                shortcut="Strg/Cmd + C"
-                hint={canCopy ? undefined : 'Zuerst Objekte oder Gruppen markieren.'}
+                text={t('toolbar.copy.title')}
+                shortcut={t('shortcut.copy')}
+                hint={canCopy ? undefined : t('toolbar.copy.hint')}
               >
                 <button
                   type="button"
                   className="ui-button ui-button--tool"
-                  aria-label="Kopieren"
+                  aria-label={t('toolbar.copy')}
                   disabled={!canCopy}
                   onClick={onCopy}
                 >
@@ -250,14 +245,14 @@ export function Toolbar({
                 </button>
               </Tooltip>
               <Tooltip
-                text="Kopierte Elemente als neue Elemente einfügen (neue IDs, ohne Verbindungen)"
-                shortcut="Strg/Cmd + V"
-                hint={canPaste ? undefined : 'Zuerst etwas kopieren.'}
+                text={t('toolbar.paste.title')}
+                shortcut={t('shortcut.paste')}
+                hint={canPaste ? undefined : t('toolbar.paste.hint')}
               >
                 <button
                   type="button"
                   className="ui-button ui-button--tool"
-                  aria-label="Einfügen"
+                  aria-label={t('toolbar.paste')}
                   disabled={!canPaste}
                   onClick={onPaste}
                 >
@@ -268,16 +263,16 @@ export function Toolbar({
 
             <Separator />
 
-            <Section label="Verlauf">
+            <Section label={t('toolbar.section.history')}>
               <Tooltip
-                text="Letzte Änderung rückgängig machen"
-                shortcut="Strg/Cmd + Z"
-                hint={canUndo ? undefined : 'Es gibt nichts rückgängig zu machen.'}
+                text={t('toolbar.undo.title')}
+                shortcut={t('shortcut.undo')}
+                hint={canUndo ? undefined : t('toolbar.undo.hint')}
               >
                 <button
                   type="button"
                   className="ui-button ui-button--tool"
-                  aria-label="Rückgängig"
+                  aria-label={t('toolbar.undo')}
                   disabled={!canUndo}
                   onClick={onUndo}
                 >
@@ -285,14 +280,14 @@ export function Toolbar({
                 </button>
               </Tooltip>
               <Tooltip
-                text="Rückgängig gemachte Änderung wiederherstellen"
-                shortcut="Strg/Cmd + Umschalt + Z"
-                hint={canRedo ? undefined : 'Es gibt nichts zu wiederholen.'}
+                text={t('toolbar.redo.title')}
+                shortcut={t('shortcut.redo')}
+                hint={canRedo ? undefined : t('toolbar.redo.hint')}
               >
                 <button
                   type="button"
                   className="ui-button ui-button--tool"
-                  aria-label="Wiederholen"
+                  aria-label={t('toolbar.redo')}
                   disabled={!canRedo}
                   onClick={onRedo}
                 >
@@ -303,18 +298,18 @@ export function Toolbar({
           </div>
         </div>
       ) : (
-        <Section label="Analyse">
-          <Tooltip text={HIGHLIGHT_HELP}>
+        <Section label={t('toolbar.section.analysis')}>
+          <Tooltip text={t('toolbar.highlight.help')}>
             <label className="toolbar__field">
-              <span>Hervorhebung</span>
+              <span>{t('toolbar.highlight.label')}</span>
               <select
                 className="ui-input toolbar__select"
                 value={highlight}
                 onChange={(event) => onHighlightChange(event.target.value as Highlight)}
               >
-                {HIGHLIGHTS.map(({ value, label }) => (
+                {HIGHLIGHTS.map(({ value, labelKey }) => (
                   <option key={value} value={value}>
-                    {label}
+                    {t(labelKey)}
                   </option>
                 ))}
               </select>
@@ -322,12 +317,12 @@ export function Toolbar({
           </Tooltip>
           {dependencyHighlight && selectionEmpty && (
             <span className="toolbar__hint" role="status">
-              Objekt markieren …
+              {t('toolbar.highlight.pick')}
             </span>
           )}
-          <Tooltip text="Das Release-Analyse-Panel ein- oder ausblenden: Status-Zähler, Zu klären, kritischer Pfad und offene Voraussetzungen der Auswahl bzw. des Projekts.">
+          <Tooltip text={t('toolbar.panel.title')}>
             <button type="button" className="ui-button" aria-pressed={panelVisible} onClick={onTogglePanel}>
-              Panel
+              {t('toolbar.panel')}
             </button>
           </Tooltip>
         </Section>
@@ -336,17 +331,17 @@ export function Toolbar({
       {cycleCount > 0 && (
         <>
           <Separator />
-          <Section label="Zyklen">
-            <Tooltip text="Zyklische Abhängigkeiten verhindern eine gültige Release-Reihenfolge. Klicken wählt den nächsten Zyklus aus.">
+          <Section label={t('toolbar.section.cycles')}>
+            <Tooltip text={t('toolbar.cycles.title')}>
               <button
                 type="button"
                 className="ui-button ui-button--cycle"
-                aria-label={cycleCount === 1 ? '1 Zyklus' : `${cycleCount} Zyklen`}
+                aria-label={t.plural('cycle.count', cycleCount)}
                 onClick={onFocusCycle}
               >
                 <CycleIcon />
                 <span>{cycleCount}</span>
-                <span className="cycle-button__word">{cycleCount === 1 ? ' Zyklus' : ' Zyklen'}</span>
+                <span className="cycle-button__word"> {cycleWord}</span>
               </button>
             </Tooltip>
           </Section>
@@ -355,12 +350,12 @@ export function Toolbar({
 
       <Separator />
 
-      <Section label="Suche">
-        <Tooltip text="Objekt oder Gruppe über den Namen suchen (Anfang des Namens, Groß-/Kleinschreibung egal). Enter springt zum Treffer, nochmal Enter zum nächsten.">
+      <Section label={t('toolbar.section.search')}>
+        <Tooltip text={t('toolbar.search.title')}>
           <button
             type="button"
             className="ui-button ui-button--tool"
-            aria-label="Suchen"
+            aria-label={t('toolbar.search')}
             aria-pressed={searchOpen}
             onClick={onToggleSearch}
           >
@@ -374,28 +369,68 @@ export function Toolbar({
       {/* Sticky: stays reachable when a narrow window scrolls the toolbar sideways. */}
       <div className="toolbar__file">
         <Separator />
-        <Section label="Datei">
-          <Tooltip text="Das Projekt als JSON-Datei herunterladen">
-            <button type="button" className="ui-button" onClick={onExport}>
-              Export
-            </button>
-          </Tooltip>
-          <Tooltip text="Das Projekt als JSON-Text anzeigen (nur lesen) und in die Zwischenablage kopieren">
-            <button type="button" className="ui-button ui-button--tool" aria-label="JSON anzeigen" onClick={onShowJson}>
-              <BracesIcon />
-            </button>
-          </Tooltip>
-          <Tooltip text="Ein Projekt aus einer JSON-Datei laden. Es ersetzt das aktuelle Projekt; vorher wird gefragt und bei nicht exportierten Änderungen gewarnt.">
-            <button type="button" className="ui-button" onClick={onImport}>
-              Import
-            </button>
-          </Tooltip>
-          <Tooltip text="Ein Projekt aus eingefügtem JSON-Text laden. Es ersetzt das aktuelle Projekt; bei nicht exportierten Änderungen wird gewarnt.">
-            <button type="button" className="ui-button ui-button--tool" aria-label="JSON einfügen" onClick={onPasteJson}>
-              <ClipboardIcon />
-            </button>
-          </Tooltip>
-        </Section>
+        <div className="toolbar__file-body">
+          <Section label={t('toolbar.section.file')}>
+            <Tooltip text={t('toolbar.export.title')}>
+              <button type="button" className="ui-button" onClick={onExport}>
+                {t('toolbar.export')}
+              </button>
+            </Tooltip>
+            <Tooltip text={t('toolbar.showJson.title')}>
+              <button
+                type="button"
+                className="ui-button ui-button--tool"
+                aria-label={t('toolbar.showJson')}
+                onClick={onShowJson}
+              >
+                <BracesIcon />
+              </button>
+            </Tooltip>
+            <Tooltip text={t('toolbar.import.title')}>
+              <button type="button" className="ui-button" onClick={onImport}>
+                {t('toolbar.import')}
+              </button>
+            </Tooltip>
+            <Tooltip text={t('toolbar.pasteJson.title')}>
+              <button
+                type="button"
+                className="ui-button ui-button--tool"
+                aria-label={t('toolbar.pasteJson')}
+                onClick={onPasteJson}
+              >
+                <ClipboardIcon />
+              </button>
+            </Tooltip>
+          </Section>
+
+          {/* Second row, left-aligned below Export. */}
+          <div className="toolbar__file-extra">
+            <Tooltip text={t('toolbar.help.title')}>
+              <button
+                type="button"
+                className="ui-button ui-button--tool"
+                aria-label={t('toolbar.help')}
+                onClick={onHelp}
+              >
+                <HelpIcon />
+              </button>
+            </Tooltip>
+            <Tooltip text={t('toolbar.language.title')}>
+              <select
+                className="ui-input toolbar__select toolbar__language"
+                aria-label={t('language.label')}
+                value={locale}
+                onChange={(event) => onLocaleChange(parseLocale(event.target.value))}
+              >
+                {LOCALES.map((value) => (
+                  <option key={value} value={value}>
+                    {LOCALE_NAMES[value]}
+                  </option>
+                ))}
+              </select>
+            </Tooltip>
+          </div>
+        </div>
       </div>
     </header>
   )

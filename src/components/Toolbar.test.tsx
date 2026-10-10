@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import { setTestLocale } from '../test/locale'
 import { Toolbar } from './Toolbar'
 import type { ToolbarProps } from './props'
 
@@ -39,6 +40,9 @@ function makeProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
     onImport: vi.fn(),
     onShowJson: vi.fn(),
     onPasteJson: vi.fn(),
+    locale: 'de',
+    onLocaleChange: vi.fn(),
+    onHelp: vi.fn(),
     ...overrides,
   }
 }
@@ -67,10 +71,62 @@ describe('Toolbar', () => {
       'JSON anzeigen',
       'Import',
       'JSON einfügen',
+      'Hilfe',
     ]) {
       expect(screen.getByRole('button', { name: label })).toHaveAttribute('type', 'button')
     }
     expect(screen.getAllByRole('separator')).toHaveLength(5)
+  })
+
+  it('puts help and the language switch in a second row below Export', () => {
+    render(<Toolbar {...makeProps()} />)
+
+    const exportBody = screen.getByRole('button', { name: 'Export' }).closest('.toolbar__file-body')
+    expect(exportBody).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Hilfe' }).closest('.toolbar__file-body')).toBe(exportBody)
+    expect(screen.getByRole('combobox', { name: 'Sprache' }).closest('.toolbar__file-body')).toBe(exportBody)
+    expect(screen.getByRole('button', { name: 'Hilfe' }).closest('.toolbar__file-extra')).not.toBeNull()
+  })
+
+  it('offers the languages in their own names and reports a change', async () => {
+    setTestLocale('en')
+    const props = makeProps({ locale: 'en' })
+    render(<Toolbar {...props} />)
+
+    const select = screen.getByRole('combobox', { name: 'Language' })
+    expect(select).toHaveValue('en')
+    expect(within(select).getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'Deutsch',
+      'English',
+      'Français',
+    ])
+    await userEvent.setup().selectOptions(select, 'fr')
+    expect(props.onLocaleChange).toHaveBeenCalledWith('fr')
+  })
+
+  it('opens the help', async () => {
+    const props = makeProps()
+    render(<Toolbar {...props} />)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Hilfe' }))
+    expect(props.onHelp).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['en', 'Undo', 'Group', 'Export', 'Edit'],
+    ['fr', 'Annuler', 'Regrouper', 'Exporter', 'Éditer'],
+  ] as const)('labels the buttons in %s', (locale, undo, group, exportLabel, edit) => {
+    setTestLocale(locale)
+    render(<Toolbar {...makeProps({ locale })} />)
+
+    for (const name of [undo, group, exportLabel, edit]) {
+      expect(screen.getByRole('button', { name })).toBeInTheDocument()
+    }
+  })
+
+  it('names the cycle button with the plural of the language', () => {
+    setTestLocale('en')
+    render(<Toolbar {...makeProps({ cycleCount: 2 })} />)
+    expect(screen.getByRole('button', { name: '2 cycles' })).toBeInTheDocument()
   })
 
   it('puts grouping, clipboard and history into a second row below the tool switch', () => {
@@ -314,7 +370,7 @@ describe('Toolbar', () => {
         expect(screen.getByRole('group', { name })).toBeInTheDocument()
       }
       expect(screen.queryByRole('group', { name: 'Analyse' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+      expect(screen.queryByRole('combobox', { name: 'Hervorhebung' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Panel' })).not.toBeInTheDocument()
     })
   })

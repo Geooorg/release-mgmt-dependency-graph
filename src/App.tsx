@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnalysisPanel } from './components/AnalysisPanel'
 import { Banner } from './components/Banner'
 import { ConfirmDialog } from './components/ConfirmDialog'
+import { HelpDialog } from './components/HelpDialog'
 import { ImportDialog } from './components/ImportDialog'
 import { JsonExportDialog } from './components/JsonExportDialog'
 import { JsonImportDialog } from './components/JsonImportDialog'
@@ -18,6 +19,7 @@ import type {
   SearchOutcome,
 } from './components/props'
 import { Canvas } from './flow/Canvas'
+import { useLocale } from './i18n/react'
 import { findCycles } from './model/cycles'
 import { canGroup } from './model/graph'
 import { contentFingerprint } from './model/fingerprint'
@@ -38,6 +40,7 @@ import type { GraphContent } from './model/types'
 import { copyText } from './storage/clipboard'
 import { downloadTextFile, pickTextFile } from './storage/fileIO'
 import { graphStore, useGraph } from './store/appStore'
+import { setLocale } from './store/localeStore'
 import './App.css'
 
 const NOTICE_AUTO_DISMISS_MS = 5000
@@ -109,6 +112,8 @@ function AppShell() {
   const [importDialog, setImportDialog] = useState<{ unsaved: boolean } | null>(null)
   // JSON as text instead of a file: the shown text (null = closed) and the paste dialog with its last errors.
   const [searchOpen, setSearchOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const locale = useLocale()
   const lastSearch = useRef<{ query: string; id: string | null }>({ query: '', id: null })
   const [jsonExport, setJsonExport] = useState<string | null>(null)
   const [jsonImport, setJsonImport] = useState<{ unsaved: boolean; errors: string[] } | null>(null)
@@ -403,6 +408,9 @@ function AppShell() {
         onImport={requestImport}
         onShowJson={showJson}
         onPasteJson={() => setJsonImport({ unsaved: hasUnexportedChanges(), errors: [] })}
+        locale={locale}
+        onLocaleChange={setLocale}
+        onHelp={() => setHelpOpen(true)}
       />
       <div className="workspace">
         <main className="canvas">
@@ -488,6 +496,7 @@ function AppShell() {
         onImport={importJson}
         onCancel={() => setJsonImport(null)}
       />
+      <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   )
 }

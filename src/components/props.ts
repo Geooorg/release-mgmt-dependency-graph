@@ -1,3 +1,4 @@
+import type { Locale } from '../i18n/locale'
 import type { Status } from '../model/status'
 import type { ElementKind, MetadataEntry } from '../model/types'
 import type { Highlight, Tool, WorkMode } from '../model/workMode'
@@ -48,6 +49,11 @@ export interface ToolbarProps {
   onShowJson: () => void
   /** Open the dialog to import pasted JSON text. */
   onPasteJson: () => void
+  /** The interface language shown in the language switch. */
+  locale: Locale
+  onLocaleChange: (locale: Locale) => void
+  /** Open the help overlay. */
+  onHelp: () => void
 }
 
 /** Result of one search step: how many elements match and which one (1-based) was jumped to; 0 of 0 = none. */
