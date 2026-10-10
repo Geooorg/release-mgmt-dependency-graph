@@ -1381,6 +1381,39 @@ ol.analysis-list > li::before {
   margin: 12px 0;
 }
 
+/* ---------- Help dialog ---------- */
+
+.help-dialog__body {
+  max-height: min(65vh, 560px);
+  margin-bottom: 16px;
+  padding-right: 8px;
+  overflow-y: auto;
+}
+
+.help-dialog__intro {
+  margin: 0 0 12px;
+  color: var(--gray-600);
+}
+
+.help-dialog__section h3 {
+  margin: 16px 0 6px;
+  color: var(--blue-900);
+  font-size: 15px;
+}
+
+.help-dialog__section p {
+  margin: 0 0 6px;
+}
+
+.help-dialog__section ul {
+  margin: 0 0 6px;
+  padding-left: 20px;
+}
+
+.help-dialog__section li {
+  margin: 2px 0;
+}
+
 /* ---------- Inline name editor on objects and groups ---------- */
 
 .node-name-input {

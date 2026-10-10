@@ -165,6 +165,11 @@ export interface JsonImportDialogProps {
   onCancel: () => void
 }
 
+export interface HelpDialogProps {
+  open: boolean
+  onClose: () => void
+}
+
 export type BannerKind = 'info' | 'success' | 'error'
 
 export interface BannerProps {
