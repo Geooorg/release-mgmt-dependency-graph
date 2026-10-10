@@ -3,16 +3,17 @@ import { contentFingerprint } from '../model/fingerprint'
 import { getAbsolutePosition } from '../model/graph'
 import { serializeModel, toModel } from '../model/serialize'
 import { box, content, counterIds, edge, group } from '../test/fixtures'
-import { createGraphStore, type GraphStore } from './graphStore'
+import { createGraphStore, selectSidebarTarget, type GraphStore } from './graphStore'
 
 const twoNodes = () => content([box('a', 0, 0), box('b', 300, 0)])
+const withEdgeStore = () => createGraphStore(content([box('a', 0, 0), box('b', 300, 0)], [edge('e', 'a', 'b')]), counterIds())
 
 describe('graphStore', () => {
   describe('nodes', () => {
-    it('adds a node at the position and selects only it', () => {
+    it('adds a node centred on the point and selects only it', () => {
       const store = createGraphStore(twoNodes(), counterIds())
       store.getState().applyNodeSelection([{ id: 'a', selected: true }])
-      store.getState().addNodeAt({ x: 10, y: 500 })
+      store.getState().addNodeAt({ x: 90, y: 528 })
       const state = store.getState()
       expect(state.nodes).toHaveLength(3)
       expect(state.nodes[2]).toMatchObject({ id: 'id-1', kind: 'node', position: { x: 10, y: 500 } })
@@ -21,7 +22,7 @@ describe('graphStore', () => {
 
     it('shifts a new node away from existing elements instead of stacking on them', () => {
       const store = createGraphStore(twoNodes(), counterIds())
-      store.getState().addNodeAt({ x: 10, y: 20 })
+      store.getState().addNodeAt({ x: 90, y: 48 })
       const added = store.getState().nodes[2]
       const overlapsA =
         added.position.x < 160 && added.position.y < 56 && added.position.x + 160 > 0 && added.position.y + 56 > 0
@@ -30,7 +31,7 @@ describe('graphStore', () => {
 
     it('stores normalized metadata', () => {
       const store = createGraphStore(twoNodes(), counterIds())
-      store.getState().saveMetadata('a', [
+      store.getState().updateMetadata('a', [
         { key: ' name ', value: ' Alpha ' },
         { key: '', value: 'ignored' },
         { key: 'owner', value: '' },
@@ -51,6 +52,10 @@ describe('graphStore', () => {
   })
 
   describe('selection and sidebar', () => {
+    const withEdge = () =>
+      createGraphStore(content([box('a', 0, 0), box('b', 300, 0)], [edge('e', 'a', 'b')]))
+    const target = (store: GraphStore) => selectSidebarTarget(store.getState())
+
     it('adds and removes selected ids', () => {
       const store = createGraphStore(twoNodes())
       store.getState().applyNodeSelection([{ id: 'a', selected: true }, { id: 'b', selected: true }])
@@ -65,131 +70,302 @@ describe('graphStore', () => {
       store.getState().openSidebar('a')
       expect(store.getState().nodes).toBe(nodes)
       expect(store.getState().edges).toBe(edges)
-      expect(store.getState().sidebarId).toBe('a')
+      expect(target(store)).toEqual({ kind: 'node', id: 'a' })
+    })
+
+    it('follows the selection: one click shows the element, the next click switches', () => {
+      const store = withEdge()
+      const s = () => store.getState()
+      s().applyNodeSelection([{ id: 'a', selected: true }])
+      expect(target(store)).toEqual({ kind: 'node', id: 'a' })
+      // React Flow reports a click on another element as deselect + select in one go.
+      s().applyNodeSelection([{ id: 'a', selected: false }, { id: 'b', selected: true }])
+      expect(target(store)).toEqual({ kind: 'node', id: 'b' })
+      s().applyNodeSelection([{ id: 'b', selected: false }])
+      s().applyEdgeSelection([{ id: 'e', selected: true }])
+      expect(target(store)).toEqual({ kind: 'edge', id: 'e' })
+    })
+
+    it('several selected elements give a hint target, none closes the sidebar', () => {
+      const store = withEdge()
+      store.getState().applyNodeSelection([{ id: 'a', selected: true }, { id: 'b', selected: true }])
+      expect(target(store)).toEqual({ kind: 'multiple', count: 2 })
+      store.getState().applyEdgeSelection([{ id: 'e', selected: true }])
+      expect(target(store)).toEqual({ kind: 'multiple', count: 3 })
+      store.getState().applyNodeSelection([{ id: 'a', selected: false }, { id: 'b', selected: false }])
+      store.getState().applyEdgeSelection([{ id: 'e', selected: false }])
+      expect(target(store)).toEqual({ kind: 'none' })
+    })
+
+    it('openSidebar / openEdgeSidebar select exactly that element, exclusive of each other', () => {
+      const store = withEdge()
+      const s = () => store.getState()
+      s().openSidebar('a')
+      s().openEdgeSidebar('e')
+      expect(s().selectedNodeIds).toEqual([])
+      expect(s().selectedEdgeIds).toEqual(['e'])
+      s().openSidebar('a')
+      expect(s().selectedNodeIds).toEqual(['a'])
+      expect(s().selectedEdgeIds).toEqual([])
+      s().openEdgeSidebar('e')
+      s().closeSidebar()
+      expect(target(store)).toEqual({ kind: 'none' })
+    })
+
+    it('closing clears the whole selection', () => {
+      const store = withEdge()
+      store.getState().applyNodeSelection([{ id: 'a', selected: true }, { id: 'b', selected: true }])
+      store.getState().closeSidebar()
+      expect(store.getState().selectedNodeIds).toEqual([])
     })
 
     it('ignores openSidebar for unknown ids', () => {
-      const store = createGraphStore(twoNodes())
+      const store = withEdge()
       store.getState().openSidebar('nope')
-      expect(store.getState().sidebarId).toBeNull()
+      store.getState().openEdgeSidebar('nope')
+      expect(target(store)).toEqual({ kind: 'none' })
+    })
+
+    it('does not touch the selection state when the same element is opened again or nothing is open', () => {
+      const store = withEdge()
+      store.getState().closeSidebar()
+      const empty = store.getState().selectedNodeIds
+      store.getState().closeSidebar()
+      expect(store.getState().selectedNodeIds).toBe(empty)
+      store.getState().openSidebar('a')
+      const selected = store.getState().selectedNodeIds
+      store.getState().openSidebar('a')
+      expect(store.getState().selectedNodeIds).toBe(selected)
+    })
+
+    it('freezes the selection while connecting, so the sidebar neither opens nor switches', () => {
+      const store = withEdge()
+      const s = () => store.getState()
+      s().openSidebar('a')
+      s().setTool('connect')
+      s().applyNodeSelection([{ id: 'a', selected: false }, { id: 'b', selected: true }])
+      s().applyEdgeSelection([{ id: 'e', selected: true }])
+      s().openSidebar('b')
+      s().openEdgeSidebar('e')
+      expect(target(store)).toEqual({ kind: 'node', id: 'a' })
+      // The close button still works.
+      s().closeSidebar()
+      expect(target(store)).toEqual({ kind: 'none' })
+      s().setTool('select')
+      s().applyNodeSelection([{ id: 'b', selected: true }])
+      expect(target(store)).toEqual({ kind: 'node', id: 'b' })
+    })
+
+    it('opens for a node that is dragged, switching from the old one in one step', () => {
+      const store = withEdge()
+      store.getState().openSidebar('a')
+      const seen: string[] = []
+      store.subscribe((state) => seen.push(selectSidebarTarget(state).kind))
+      store.getState().applyNodeSelection([{ id: 'a', selected: false }, { id: 'b', selected: true }])
+      expect(seen).toEqual(['node'])
     })
   })
 
-  describe('unsaved sidebar changes', () => {
+  describe('invalid sidebar draft', () => {
     const withEdge = () =>
       createGraphStore(content([box('a', 0, 0), box('b', 300, 0)], [edge('e', 'a', 'b')]))
-    const dirtySidebar = (open: (store: GraphStore) => void = (s) => s.getState().openSidebar('a')) => {
+    const invalidSidebar = (open: (store: GraphStore) => void = (s) => s.getState().openSidebar('a')) => {
       const store = withEdge()
       open(store)
-      store.getState().setSidebarDirty(true)
+      store.getState().setSidebarInvalid(true)
       return store
     }
+    const target = (store: GraphStore) => selectSidebarTarget(store.getState())
 
-    it('closes and switches right away while nothing is unsaved', () => {
+    it('closes and switches right away while the draft is valid', () => {
       const store = withEdge()
       const s = () => store.getState()
       s().openSidebar('a')
       s().openSidebar('b')
-      expect(s().sidebarId).toBe('b')
+      expect(target(store)).toEqual({ kind: 'node', id: 'b' })
       s().openEdgeSidebar('e')
-      expect(s().sidebarEdgeId).toBe('e')
       s().closeSidebar()
-      expect(s().sidebarEdgeId).toBeNull()
+      expect(target(store)).toEqual({ kind: 'none' })
       expect(s().pendingSidebarChange).toBeNull()
     })
 
     it('holds back closing, keeps the sidebar and asks', () => {
-      const store = dirtySidebar()
+      const store = invalidSidebar()
       store.getState().closeSidebar()
-      expect(store.getState().sidebarId).toBe('a')
-      expect(store.getState().pendingSidebarChange).toEqual({ kind: 'close' })
+      expect(target(store)).toEqual({ kind: 'node', id: 'a' })
+      expect(store.getState().pendingSidebarChange).toEqual({ nodeIds: [], edgeIds: [], focus: false })
     })
 
-    it('closes after confirming and forgets the unsaved state', () => {
-      const store = dirtySidebar()
+    it('closes after confirming and forgets the invalid flag', () => {
+      const store = invalidSidebar()
       store.getState().closeSidebar()
       store.getState().confirmSidebarChange()
       const s = store.getState()
-      expect(s.sidebarId).toBeNull()
+      expect(target(store)).toEqual({ kind: 'none' })
       expect(s.pendingSidebarChange).toBeNull()
-      expect(s.sidebarDirty).toBe(false)
+      expect(s.sidebarInvalid).toBe(false)
     })
 
     it('keeps everything when cancelling', () => {
-      const store = dirtySidebar()
+      const store = invalidSidebar()
       store.getState().closeSidebar()
       store.getState().cancelSidebarChange()
       const s = store.getState()
-      expect(s.sidebarId).toBe('a')
+      expect(target(store)).toEqual({ kind: 'node', id: 'a' })
       expect(s.pendingSidebarChange).toBeNull()
-      expect(s.sidebarDirty).toBe(true)
+      expect(s.sidebarInvalid).toBe(true)
     })
 
-    it('holds back opening another element and opens it after confirming', () => {
-      const store = dirtySidebar()
-      store.getState().openSidebar('b')
-      expect(store.getState().sidebarId).toBe('a')
-      expect(store.getState().pendingSidebarChange).toEqual({ kind: 'node', id: 'b' })
+    it('holds back a click on another element and shows it after confirming', () => {
+      const store = invalidSidebar()
+      store.getState().applyNodeSelection([{ id: 'a', selected: false }, { id: 'b', selected: true }])
+      expect(target(store)).toEqual({ kind: 'node', id: 'a' })
+      expect(store.getState().pendingSidebarChange).toEqual({ nodeIds: ['b'], edgeIds: [], focus: false })
       store.getState().confirmSidebarChange()
-      expect(store.getState().sidebarId).toBe('b')
-      expect(store.getState().sidebarEdgeId).toBeNull()
-      expect(store.getState().sidebarDirty).toBe(false)
+      expect(target(store)).toEqual({ kind: 'node', id: 'b' })
+      expect(store.getState().sidebarInvalid).toBe(false)
       expect(store.getState().pendingSidebarChange).toBeNull()
     })
 
-    it('guards the switch between element and edge sidebar in both directions', () => {
-      const toEdge = dirtySidebar()
-      toEdge.getState().openEdgeSidebar('e')
-      expect(toEdge.getState().sidebarEdgeId).toBeNull()
-      expect(toEdge.getState().pendingSidebarChange).toEqual({ kind: 'edge', id: 'e' })
-      toEdge.getState().confirmSidebarChange()
-      expect(toEdge.getState().sidebarEdgeId).toBe('e')
-      expect(toEdge.getState().sidebarId).toBeNull()
+    it('collects the events of one click on an edge into one held-back change', () => {
+      const store = invalidSidebar()
+      // Clicking an edge: the node is deselected first, then the edge selected.
+      store.getState().applyNodeSelection([{ id: 'a', selected: false }])
+      store.getState().applyEdgeSelection([{ id: 'e', selected: true }])
+      expect(store.getState().pendingSidebarChange).toEqual({ nodeIds: [], edgeIds: ['e'], focus: false })
+      store.getState().confirmSidebarChange()
+      expect(target(store)).toEqual({ kind: 'edge', id: 'e' })
+    })
 
-      const toNode = dirtySidebar((s) => s.getState().openEdgeSidebar('e'))
+    it('does not ask when the selection ends up on the same element again', () => {
+      const store = invalidSidebar()
+      store.getState().applyNodeSelection([{ id: 'a', selected: false }])
+      store.getState().applyNodeSelection([{ id: 'a', selected: true }])
+      expect(store.getState().pendingSidebarChange).toBeNull()
+      expect(store.getState().sidebarInvalid).toBe(true)
+      expect(target(store)).toEqual({ kind: 'node', id: 'a' })
+    })
+
+    it('holds back a multi-selection and the focus request of the cycle button', () => {
+      const store = invalidSidebar()
+      store.getState().applyNodeSelection([{ id: 'b', selected: true }])
+      expect(store.getState().pendingSidebarChange).toEqual({ nodeIds: ['a', 'b'], edgeIds: [], focus: false })
+      store.getState().cancelSidebarChange()
+      store.getState().focusNodes(['b'])
+      expect(store.getState().focusRequest).toBeNull()
+      store.getState().confirmSidebarChange()
+      expect(target(store)).toEqual({ kind: 'node', id: 'b' })
+      expect(store.getState().focusRequest).toEqual({ id: 1, nodeIds: ['b'] })
+    })
+
+    it('guards the switch between element and edge sidebar in both directions', () => {
+      const toEdge = invalidSidebar()
+      toEdge.getState().openEdgeSidebar('e')
+      expect(target(toEdge)).toEqual({ kind: 'node', id: 'a' })
+      toEdge.getState().confirmSidebarChange()
+      expect(target(toEdge)).toEqual({ kind: 'edge', id: 'e' })
+
+      const toNode = invalidSidebar((s) => s.getState().openEdgeSidebar('e'))
       toNode.getState().openSidebar('a')
-      expect(toNode.getState().sidebarEdgeId).toBe('e')
+      expect(target(toNode)).toEqual({ kind: 'edge', id: 'e' })
       toNode.getState().cancelSidebarChange()
       toNode.getState().openSidebar('a')
       toNode.getState().confirmSidebarChange()
-      expect(toNode.getState().sidebarId).toBe('a')
-      expect(toNode.getState().sidebarEdgeId).toBeNull()
+      expect(target(toNode)).toEqual({ kind: 'node', id: 'a' })
     })
 
     it('does not ask when the very same element is opened again or the id is unknown', () => {
-      const store = dirtySidebar()
+      const store = invalidSidebar()
       store.getState().openSidebar('a')
       store.getState().openSidebar('ghost')
       store.getState().openEdgeSidebar('ghost')
       expect(store.getState().pendingSidebarChange).toBeNull()
-      expect(store.getState().sidebarId).toBe('a')
+      expect(target(store)).toEqual({ kind: 'node', id: 'a' })
     })
 
-    it('ignores a stale unsaved flag while no sidebar is open', () => {
+    it('ignores a stale invalid flag while no sidebar is open', () => {
       const store = withEdge()
-      store.getState().setSidebarDirty(true)
+      store.getState().setSidebarInvalid(true)
       store.getState().openSidebar('a')
-      expect(store.getState().sidebarId).toBe('a')
+      expect(target(store)).toEqual({ kind: 'node', id: 'a' })
       expect(store.getState().pendingSidebarChange).toBeNull()
     })
 
     it('is UI state only: no model change and no undo step', () => {
-      const store = dirtySidebar()
+      const store = invalidSidebar()
       const { nodes, edges, history } = store.getState()
       store.getState().closeSidebar()
       store.getState().confirmSidebarChange()
-      store.getState().setSidebarDirty(true)
+      store.getState().setSidebarInvalid(true)
       expect(store.getState().nodes).toBe(nodes)
       expect(store.getState().edges).toBe(edges)
       expect(store.getState().history).toBe(history)
     })
 
     it('drops the question and the flag when an import replaces the model', () => {
-      const store = dirtySidebar()
+      const store = invalidSidebar()
       store.getState().closeSidebar()
       store.getState().replaceContent(content([box('x', 0, 0)]))
       expect(store.getState().pendingSidebarChange).toBeNull()
-      expect(store.getState().sidebarDirty).toBe(false)
+      expect(store.getState().sidebarInvalid).toBe(false)
+    })
+
+    it('forgets the flag when the shown element vanishes, but keeps it when something else is undone', () => {
+      const vanished = invalidSidebar()
+      vanished.getState().deleteSelection()
+      expect(vanished.getState().sidebarInvalid).toBe(false)
+
+      const kept = invalidSidebar()
+      kept.getState().moveNode('b', { x: 1, y: 1 })
+      kept.getState().undo()
+      expect(target(kept)).toEqual({ kind: 'node', id: 'a' })
+      expect(kept.getState().sidebarInvalid).toBe(true)
+    })
+  })
+
+  describe('live sidebar edits', () => {
+    const edit = (store: GraphStore, name: string) =>
+      store.getState().updateMetadata('a', [{ key: 'name', value: name }])
+
+    it('every update is an undo step of its own outside of a gesture', () => {
+      const store = createGraphStore(twoNodes())
+      edit(store, 'x')
+      edit(store, 'xy')
+      expect(store.getState().history.past).toHaveLength(2)
+    })
+
+    it('bundles the updates of one field edit into a single undo step', () => {
+      const store = createGraphStore(twoNodes())
+      store.getState().beginGesture()
+      edit(store, 'x')
+      edit(store, 'xy')
+      edit(store, 'xyz')
+      store.getState().endGesture()
+      expect(store.getState().history.past).toHaveLength(1)
+      store.getState().undo()
+      expect(store.getState().nodes[0].metadata[0].value).toBe('a')
+    })
+
+    it('drops an edit that changed nothing (empty gesture)', () => {
+      const store = createGraphStore(twoNodes())
+      store.getState().beginGesture()
+      store.getState().endGesture()
+      store.getState().beginGesture()
+      store.getState().updateEdgeLabel('nope', 'x')
+      store.getState().endGesture()
+      expect(store.getState().history.past).toHaveLength(0)
+    })
+
+    it('undo during an open edit ends it, so the next edit is a step again', () => {
+      const store = createGraphStore(twoNodes())
+      edit(store, 'x')
+      store.getState().beginGesture()
+      edit(store, 'xy')
+      store.getState().undo()
+      expect(store.getState().gesture).toBe(false)
+      expect(store.getState().nodes[0].metadata[0].value).toBe('x')
+      store.getState().redo()
+      expect(store.getState().nodes[0].metadata[0].value).toBe('xy')
     })
   })
 
@@ -207,34 +383,39 @@ describe('graphStore', () => {
       expect(store.getState().notice?.kind).toBe('info')
     })
 
-    it('connect mode: pick source, then target creates the edge and stays active', () => {
+    it('connect tool: pick source, then target creates the edge and stays active', () => {
       const store = createGraphStore(twoNodes(), counterIds())
       const s = () => store.getState()
-      s().pickForConnect('a') // ignored while off
-      expect(s().connectMode).toBe('off')
-      s().toggleConnectMode()
-      expect(s().connectMode).toBe('pickSource')
+      s().pickForConnect('a') // ignored with another tool
+      expect(s().connectSourceId).toBeNull()
+      s().setTool('connect')
+      expect(s().tool).toBe('connect')
+      expect(s().connectSourceId).toBeNull()
       s().pickForConnect('a')
-      expect(s().connectMode).toBe('pickTarget')
       expect(s().connectSourceId).toBe('a')
       s().pickForConnect('b')
       expect(s().edges).toEqual([
         { id: 'id-1', source: 'a', target: 'b', sourceHandle: 'right', targetHandle: 'left' },
       ])
-      expect(s().connectMode).toBe('pickSource')
+      expect(s().tool).toBe('connect')
       expect(s().connectSourceId).toBeNull()
     })
 
-    it('connect mode: clicking the source again cancels it; toggling leaves the mode', () => {
+    it('connect tool: clicking the source again or the empty pane cancels it; switching tools leaves it', () => {
       const store = createGraphStore(twoNodes())
       const s = () => store.getState()
-      s().toggleConnectMode()
+      s().setTool('connect')
       s().pickForConnect('a')
       s().pickForConnect('a')
-      expect(s().connectMode).toBe('pickSource')
+      expect(s().connectSourceId).toBeNull()
       expect(s().edges).toHaveLength(0)
-      s().toggleConnectMode()
-      expect(s().connectMode).toBe('off')
+      s().pickForConnect('a')
+      s().clearConnectSource()
+      expect(s().connectSourceId).toBeNull()
+      s().pickForConnect('a')
+      s().setTool('select')
+      expect(s().tool).toBe('select')
+      expect(s().connectSourceId).toBeNull()
     })
   })
 
@@ -266,11 +447,12 @@ describe('graphStore', () => {
       store.getState().applyNodeSelection([{ id: 'g', selected: true }])
       store.getState().openSidebar('g')
       store.getState().ungroupSelection()
-      const { nodes, selectedNodeIds, sidebarId } = store.getState()
+      const { nodes, selectedNodeIds } = store.getState()
       expect(nodes.map((n) => n.id)).toEqual(['c'])
       expect(getAbsolutePosition(nodes, 'c')).toEqual(before)
       expect(selectedNodeIds).toEqual(['c'])
-      expect(sidebarId).toBeNull()
+      // The sidebar follows: the dissolved group is gone, the released child is the single selection.
+      expect(selectSidebarTarget(store.getState())).toEqual({ kind: 'node', id: 'c' })
     })
   })
 
@@ -283,7 +465,7 @@ describe('graphStore', () => {
       const state = store.getState()
       expect(state.nodes.map((n) => n.id)).toEqual(['b'])
       expect(state.edges).toEqual([])
-      expect(state.sidebarId).toBeNull()
+      expect(selectSidebarTarget(store.getState())).toEqual({ kind: 'none' })
       expect(state.selectedNodeIds).toEqual([])
     })
 
@@ -443,30 +625,9 @@ describe('graphStore', () => {
     const withEdge = () =>
       createGraphStore(content([box('a', 0, 0), box('b', 300, 0)], [edge('e', 'a', 'b')]))
 
-    it('opens the sidebar for an edge and closes the one for a node (and vice versa)', () => {
-      const store = withEdge()
-      const s = () => store.getState()
-      s().openSidebar('a')
-      s().openEdgeSidebar('e')
-      expect(s().sidebarEdgeId).toBe('e')
-      expect(s().sidebarId).toBeNull()
-      s().openSidebar('a')
-      expect(s().sidebarId).toBe('a')
-      expect(s().sidebarEdgeId).toBeNull()
-      s().openEdgeSidebar('e')
-      s().closeSidebar()
-      expect(s().sidebarEdgeId).toBeNull()
-    })
-
-    it('ignores unknown edge ids', () => {
-      const store = withEdge()
-      store.getState().openEdgeSidebar('nope')
-      expect(store.getState().sidebarEdgeId).toBeNull()
-    })
-
     it('saves a trimmed label and can undo it', () => {
       const store = withEdge()
-      store.getState().saveEdgeLabel('e', '  braucht  ')
+      store.getState().updateEdgeLabel('e', '  braucht  ')
       expect(store.getState().edges[0].label).toBe('braucht')
       store.getState().undo()
       expect(store.getState().edges[0].label).toBeUndefined()
@@ -474,7 +635,7 @@ describe('graphStore', () => {
 
     it('does not record an unchanged label as an undo step', () => {
       const store = withEdge()
-      store.getState().saveEdgeLabel('e', '   ')
+      store.getState().updateEdgeLabel('e', '   ')
       expect(store.getState().history.past).toHaveLength(0)
     })
 
@@ -484,21 +645,21 @@ describe('graphStore', () => {
       s().openEdgeSidebar('e')
       s().applyEdgeSelection([{ id: 'e', selected: true }])
       s().deleteSelection()
-      expect(s().sidebarEdgeId).toBeNull()
+      expect(selectSidebarTarget(store.getState())).toEqual({ kind: 'none' })
 
       const other = withEdge()
       other.getState().connect('b', 'a')
       const added = other.getState().edges[1].id
       other.getState().openEdgeSidebar(added)
       other.getState().undo()
-      expect(other.getState().sidebarEdgeId).toBeNull()
+      expect(selectSidebarTarget(other.getState())).toEqual({ kind: 'none' })
     })
 
     it('closes the edge sidebar when an import replaces the model', () => {
       const store = withEdge()
       store.getState().openEdgeSidebar('e')
       store.getState().replaceContent(content([box('x', 0, 0)]))
-      expect(store.getState().sidebarEdgeId).toBeNull()
+      expect(selectSidebarTarget(store.getState())).toEqual({ kind: 'none' })
     })
   })
 
@@ -561,7 +722,7 @@ describe('graphStore', () => {
     it('undoes connecting, metadata changes, grouping, ungrouping and deleting', () => {
       const store = createGraphStore(twoNodes(), counterIds())
       s(store).connect('a', 'b')
-      s(store).saveMetadata('a', [{ key: 'name', value: 'Renamed' }])
+      s(store).updateMetadata('a', [{ key: 'name', value: 'Renamed' }])
       s(store).applyNodeSelection([{ id: 'a', selected: true }, { id: 'b', selected: true }])
       s(store).groupSelection()
       s(store).ungroupSelection() // a and b stay selected
@@ -582,11 +743,11 @@ describe('graphStore', () => {
       expect(s(store).history.past).toHaveLength(0)
     })
 
-    it('does not record selection, sidebar or connect-mode changes', () => {
+    it('does not record selection, sidebar or tool changes', () => {
       const store = createGraphStore(twoNodes())
       s(store).applyNodeSelection([{ id: 'a', selected: true }])
       s(store).openSidebar('a')
-      s(store).toggleConnectMode()
+      s(store).setTool('connect')
       s(store).setMode('analyze')
       s(store).setHighlight('both')
       s(store).setAnalysisPanelVisible(false)
@@ -648,7 +809,7 @@ describe('graphStore', () => {
       s(store).openSidebar('id-1')
       s(store).undo()
       expect(s(store).selectedNodeIds).toEqual([])
-      expect(s(store).sidebarId).toBeNull()
+      expect(selectSidebarTarget(store.getState())).toEqual({ kind: 'none' })
     })
 
     it('makes an import undoable', () => {
@@ -680,13 +841,90 @@ describe('graphStore', () => {
       ])
     })
 
-    it('connect mode attaches the facing sides', () => {
+    it('connect tool attaches the facing sides', () => {
       const store = createGraphStore(twoNodes(), counterIds())
       const s = () => store.getState()
-      s().toggleConnectMode()
+      s().setTool('connect')
       s().pickForConnect('a')
       s().pickForConnect('b')
       expect(s().edges[0]).toMatchObject({ sourceHandle: 'right', targetHandle: 'left' })
+    })
+  })
+
+  describe('tools', () => {
+    it('starts with the select tool and switches between the three exclusively', () => {
+      const store = createGraphStore(twoNodes())
+      const s = () => store.getState()
+      expect(s().tool).toBe('select')
+      s().setTool('create')
+      expect(s().tool).toBe('create')
+      s().setTool('connect')
+      expect(s().tool).toBe('connect')
+      s().setTool('select')
+      expect(s().tool).toBe('select')
+    })
+
+    it('drops a picked source when the tool changes and records nothing', () => {
+      const store = createGraphStore(twoNodes())
+      const s = () => store.getState()
+      s().setTool('connect')
+      s().pickForConnect('a')
+      s().setTool('create')
+      expect(s().connectSourceId).toBeNull()
+      s().pickForConnect('b')
+      expect(s().connectSourceId).toBeNull()
+      expect(s().history.past).toHaveLength(0)
+    })
+
+    it('keeps the selection free with the create tool', () => {
+      const store = withEdgeStore()
+      const s = () => store.getState()
+      s().setTool('create')
+      s().applyNodeSelection([{ id: 'a', selected: true }])
+      expect(selectSidebarTarget(store.getState())).toEqual({ kind: 'node', id: 'a' })
+      s().openSidebar('b')
+      expect(selectSidebarTarget(store.getState())).toEqual({ kind: 'node', id: 'b' })
+    })
+
+    it('creates an object in the deepest group at the point, with a relative position, and selects it', () => {
+      const store = createGraphStore(content([group('g', 100, 200, 600, 400)]), counterIds())
+      store.getState().setTool('create')
+      store.getState().addNodeAt({ x: 400, y: 400 })
+      const added = store.getState().nodes.find((n) => n.id === 'id-1')!
+      expect(added.parentId).toBe('g')
+      expect(getAbsolutePosition(store.getState().nodes, 'id-1')).toEqual({ x: 320, y: 372 })
+      expect(store.getState().selectedNodeIds).toEqual(['id-1'])
+      expect(store.getState().tool).toBe('create')
+    })
+
+    it('asks before an invalid sidebar draft is dropped for the new object', () => {
+      const store = withEdgeStore()
+      const s = () => store.getState()
+      s().openSidebar('a')
+      s().setSidebarInvalid(true)
+      s().addNodeAt({ x: 900, y: 500 })
+      expect(s().nodes).toHaveLength(3)
+      expect(s().selectedNodeIds).toEqual(['a'])
+      expect(s().pendingSidebarChange).toMatchObject({ nodeIds: ['id-1'] })
+      s().confirmSidebarChange()
+      expect(s().selectedNodeIds).toEqual(['id-1'])
+    })
+  })
+
+  describe('status', () => {
+    it('sets the status as one undo step, also while analysing', () => {
+      const store = createGraphStore(twoNodes(), counterIds(), null, { mode: 'analyze' })
+      const s = () => store.getState()
+      s().setStatus('a', 'fertig')
+      expect(s().nodes[0].metadata).toEqual([
+        { key: 'name', value: 'a' },
+        { key: 'status', value: 'fertig' },
+      ])
+      expect(s().history.past).toHaveLength(1)
+      s().setStatus('a', 'fertig')
+      expect(s().history.past).toHaveLength(1)
+      s().undo()
+      expect(s().nodes[0].metadata).toEqual([{ key: 'name', value: 'a' }])
     })
   })
 
@@ -722,14 +960,14 @@ describe('graphStore', () => {
       expect(s().selectedNodeIds).toEqual(['a'])
     })
 
-    it('ends the connect mode when switching to analysis', () => {
+    it('goes back to the select tool when switching to analysis', () => {
       const store = createGraphStore(twoNodes())
       const s = () => store.getState()
-      s().toggleConnectMode()
+      s().setTool('connect')
       s().pickForConnect('a')
-      expect(s().connectMode).toBe('pickTarget')
+      expect(s().connectSourceId).toBe('a')
       s().setMode('analyze')
-      expect(s().connectMode).toBe('off')
+      expect(s().tool).toBe('select')
       expect(s().connectSourceId).toBeNull()
     })
 
@@ -760,15 +998,17 @@ describe('graphStore', () => {
         expect(store.getState().history.past).toHaveLength(0)
       })
 
-      it('does not connect, neither directly nor in connect mode', () => {
+      it('does not connect, neither directly nor with the connect tool', () => {
         const { s } = analyzing(content([box('a', 0, 0), box('b', 300, 0), box('c', 600, 0)], []))
         s().connect('a', 'b')
-        s().toggleConnectMode()
-        expect(s().connectMode).toBe('off')
+        s().setTool('connect')
+        expect(s().tool).toBe('select')
+        s().setTool('create')
+        expect(s().tool).toBe('select')
         s().pickForConnect('a')
         s().pickForConnect('b')
         expect(s().edges).toEqual([])
-        expect(s().connectMode).toBe('off')
+        expect(s().tool).toBe('select')
       })
 
       it('does not delete, group or ungroup', () => {
@@ -809,11 +1049,11 @@ describe('graphStore', () => {
 
       it('still allows editing metadata, edge labels, the project name, status and undo', () => {
         const { s } = analyzing()
-        s().saveMetadata('a', [
+        s().updateMetadata('a', [
           { key: 'name', value: 'A' },
           { key: 'status', value: 'fertig' },
         ])
-        s().saveEdgeLabel('e', 'braucht')
+        s().updateEdgeLabel('e', 'braucht')
         expect(s().renameProject('Neu')).toBe(true)
         expect(s().nodes[0].metadata[1]).toEqual({ key: 'status', value: 'fertig' })
         expect(s().edges[0].label).toBe('braucht')
@@ -950,12 +1190,12 @@ describe('graphStore', () => {
       const s = () => store.getState()
       s().applyNodeSelection([{ id: 'a', selected: true }])
       s().openSidebar('a')
-      s().toggleConnectMode()
+      s().setTool('create')
       s().replaceContent(content([box('x', 0, 0)]))
       expect(s().nodes.map((n) => n.id)).toEqual(['x'])
       expect(s().selectedNodeIds).toEqual([])
-      expect(s().sidebarId).toBeNull()
-      expect(s().connectMode).toBe('off')
+      expect(selectSidebarTarget(store.getState())).toEqual({ kind: 'none' })
+      expect(s().tool).toBe('select')
       expect(s().contentRevision).toBe(1)
     })
   })

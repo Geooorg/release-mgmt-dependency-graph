@@ -1,7 +1,6 @@
-import type { ConnectMode } from '../flow/types'
 import type { Status } from '../model/status'
 import type { ElementKind, MetadataEntry } from '../model/types'
-import type { Highlight, WorkMode } from '../model/workMode'
+import type { Highlight, Tool, WorkMode } from '../model/workMode'
 
 export interface ToolbarProps {
   projectName: string
@@ -9,7 +8,9 @@ export interface ToolbarProps {
   /** `build` shows the structure tools, `analyze` the analysis tools (and locks the structure). */
   mode: WorkMode
   onModeChange: (mode: WorkMode) => void
-  connectMode: ConnectMode
+  /** Build mode: the active tool (select, create object, connect). */
+  tool: Tool
+  onToolChange: (tool: Tool) => void
   canGroup: boolean
   canUngroup: boolean
   canDelete: boolean
@@ -29,13 +30,17 @@ export interface ToolbarProps {
   onTogglePanel: () => void
   onUndo: () => void
   onRedo: () => void
-  onAddNode: () => void
-  onToggleConnect: () => void
   onGroup: () => void
   onUngroup: () => void
   onDelete: () => void
   onExport: () => void
   onImport: () => void
+}
+
+export interface ToolHintProps {
+  tool: Tool
+  /** Connect tool: the source is picked, the target is next. */
+  sourcePicked: boolean
 }
 
 export interface SidebarElement {
@@ -48,13 +53,28 @@ export interface SidebarElement {
 }
 
 export interface SidebarProps {
-  /** null = sidebar closed (render nothing). */
+  /** null = no single element to edit. */
   element: SidebarElement | null
-  /** Called with already normalized metadata (trimmed, empty keys dropped, `name` first). */
-  onSave: (metadata: MetadataEntry[]) => void
+  /** With `element === null`: more than one selected element shows a hint instead of a form; otherwise the sidebar is closed. */
+  selectionCount: number
+  /**
+   * Live edit: called with every valid draft, already normalized (trimmed, empty keys dropped, `name`
+   * first). An invalid draft (duplicate field names) is not reported; the owner keeps the last valid state.
+   */
+  onChange: (metadata: MetadataEntry[]) => void
+  /**
+   * A field edit begins / ends (typing: first change to leaving the field). The owner bundles
+   * everything in between into one undo step. `onEditStart` may be called repeatedly; `onEditEnd`
+   * also when the form goes away.
+   */
+  onEditStart: () => void
+  onEditEnd: () => void
+  /** Closes the sidebar and clears the selection. */
   onClose: () => void
-  /** Whether the open form has unsaved changes; `false` again once it closes or another element opens. */
-  onDirtyChange: (dirty: boolean) => void
+  /** Hidden but kept (analysis mode): the form with its draft stays alive for when the sidebar returns. */
+  hidden?: boolean
+  /** Whether the open form holds an invalid draft that is not in the model; `false` again once it closes. */
+  onInvalidChange: (invalid: boolean) => void
 }
 
 export interface ConfirmDialogProps {
@@ -128,7 +148,22 @@ export interface AnalysisCounts {
   ready: number
 }
 
+/** The single selected element, shown at the top of the panel for its status. */
+export interface AnalysisSelected {
+  id: string
+  name: string
+  kind: 'node' | 'group'
+  /** Objects: trimmed raw value of the status entry, '' = none. May be none of the three statuses. */
+  status: string
+  /** Groups: finished and total objects inside (read-only). */
+  progress?: { done: number; total: number }
+}
+
 export interface AnalysisPanelProps {
+  /** Exactly one object or group selected; null otherwise. */
+  selected: AnalysisSelected | null
+  /** Sets the status of the selected object. */
+  onStatusChange: (status: Status) => void
   /** `project`: nothing selected, the figures cover the whole project. */
   scope: 'selection' | 'project'
   /** Names of the selected elements (empty for the whole project). */

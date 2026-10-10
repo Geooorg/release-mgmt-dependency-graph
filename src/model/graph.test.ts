@@ -7,6 +7,8 @@ import {
   defaultIdGenerator,
   deleteElements,
   findDropTargetGroup,
+  findGroupAtPoint,
+  setStatus,
   getAbsolutePosition,
   getAncestorIds,
   getSize,
@@ -925,6 +927,93 @@ describe('updateMetadata', () => {
     const result = updateMetadata(c, 'a', [{ key: 'name', value: 'changed' }])
     expect(find(c, 'a').metadata).toEqual([{ key: 'name', value: 'a' }])
     expect(find(result, 'a').metadata).toEqual([{ key: 'name', value: 'changed' }])
+  })
+})
+
+describe('findGroupAtPoint', () => {
+  const nodes = [
+    group('G1', 0, 0, 1000, 800),
+    group('G2', 100, 100, 400, 300, { parentId: 'G1' }), // canvas (100,100)-(500,400)
+    node('n', 200, 200),
+  ]
+
+  it('picks the deepest group containing the point', () => {
+    expect(findGroupAtPoint(nodes, { x: 300, y: 300 })).toBe('G2')
+    expect(findGroupAtPoint(nodes, { x: 800, y: 600 })).toBe('G1')
+  })
+
+  it('returns undefined outside every group', () => {
+    expect(findGroupAtPoint(nodes, { x: 1500, y: 100 })).toBeUndefined()
+    expect(findGroupAtPoint([node('a', 0, 0)], { x: 5, y: 5 })).toBeUndefined()
+  })
+
+  it('treats the rectangle borders as inside', () => {
+    expect(findGroupAtPoint(nodes, { x: 500, y: 400 })).toBe('G2')
+  })
+
+  it('skips the excluded element and its descendants', () => {
+    expect(findGroupAtPoint(nodes, { x: 300, y: 300 }, 'G2')).toBe('G1')
+    expect(findGroupAtPoint(nodes, { x: 300, y: 300 }, 'G1')).toBeUndefined()
+  })
+})
+
+describe('setStatus', () => {
+  it('adds a canonical status entry after name and colour', () => {
+    const a = node('a', 0, 0, {
+      metadata: [
+        { key: 'name', value: 'A' },
+        { key: 'color', value: '#16a34a' },
+        { key: 'owner', value: 'X' },
+      ],
+    })
+    expect(find(setStatus(content([a]), 'a', 'in Arbeit'), 'a').metadata).toEqual([
+      { key: 'name', value: 'A' },
+      { key: 'color', value: '#16a34a' },
+      { key: 'status', value: 'in Arbeit' },
+      { key: 'owner', value: 'X' },
+    ])
+  })
+
+  it('replaces the first status entry in place and writes the key canonically', () => {
+    const a = node('a', 0, 0, {
+      metadata: [
+        { key: 'name', value: 'A' },
+        { key: 'owner', value: 'X' },
+        { key: ' Status ', value: 'erledigt' },
+      ],
+    })
+    expect(find(setStatus(content([a]), 'a', 'fertig'), 'a').metadata).toEqual([
+      { key: 'name', value: 'A' },
+      { key: 'owner', value: 'X' },
+      { key: 'status', value: 'fertig' },
+    ])
+  })
+
+  it('returns the same reference when the status is already set', () => {
+    const a = node('a', 0, 0, {
+      metadata: [
+        { key: 'name', value: 'A' },
+        { key: 'status', value: 'fertig' },
+      ],
+    })
+    const c = content([a])
+    expect(setStatus(c, 'a', 'fertig')).toBe(c)
+  })
+
+  it('ignores groups and unknown ids', () => {
+    const c = content([group('g', 0, 0, 100, 100)])
+    expect(setStatus(c, 'g', 'fertig')).toBe(c)
+    expect(setStatus(c, 'nope', 'fertig')).toBe(c)
+  })
+
+  it('does not mutate its input', () => {
+    const c = deepFreeze(content([node('a', 0, 0)]))
+    const result = setStatus(c, 'a', 'fertig')
+    expect(find(c, 'a').metadata).toEqual([{ key: 'name', value: 'a' }])
+    expect(find(result, 'a').metadata).toEqual([
+      { key: 'name', value: 'a' },
+      { key: 'status', value: 'fertig' },
+    ])
   })
 })
 

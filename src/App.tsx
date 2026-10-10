@@ -1,17 +1,21 @@
-import { ReactFlowProvider, useReactFlow } from '@xyflow/react'
+import { ReactFlowProvider } from '@xyflow/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnalysisPanel } from './components/AnalysisPanel'
 import { Banner } from './components/Banner'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { ImportDialog } from './components/ImportDialog'
 import { Sidebar } from './components/Sidebar'
+import { ToolHint } from './components/ToolHint'
 import { Toolbar } from './components/Toolbar'
-import type { AnalysisEntry, AnalysisPanelProps } from './components/props'
+import type { AnalysisEntry, AnalysisPanelProps, AnalysisSelected } from './components/props'
 import { Canvas } from './flow/Canvas'
 import { findCycles } from './model/cycles'
 import { canGroup } from './model/graph'
 import { contentFingerprint } from './model/fingerprint'
 import { displayName } from './model/metadata'
+import { sidebarTarget } from './model/sidebarTarget'
+import { getStatusInfo } from './model/status'
+import type { Tool } from './model/workMode'
 import {
   analyzeProject,
   analyzeSelection,
@@ -20,7 +24,7 @@ import {
   type SelectionAnalysis,
 } from './model/releaseAnalysis'
 import { exportFileName, serializeModel, toModel } from './model/serialize'
-import { NODE_SIZE, type GraphContent } from './model/types'
+import type { GraphContent } from './model/types'
 import { copyText } from './storage/clipboard'
 import { downloadTextFile, pickTextFile } from './storage/fileIO'
 import { graphStore, useGraph } from './store/appStore'
@@ -28,8 +32,13 @@ import './App.css'
 
 const NOTICE_AUTO_DISMISS_MS = 5000
 
-// Module-level so the identity is stable: the sidebar form reports through it in effects.
-const reportSidebarDirty = (dirty: boolean) => graphStore.getState().setSidebarDirty(dirty)
+// Module-level so the identities are stable: the sidebar form reports through them in effects.
+const reportSidebarInvalid = (invalid: boolean) => graphStore.getState().setSidebarInvalid(invalid)
+const beginSidebarEdit = () => graphStore.getState().beginGesture()
+const endSidebarEdit = () => graphStore.getState().endGesture()
+
+/** Keyboard shortcuts of the build mode tools. */
+const TOOL_KEYS: Record<string, Tool> = { v: 'select', n: 'create', c: 'connect' }
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -41,7 +50,7 @@ function toPanelProps(
   content: GraphContent,
   project: ProjectAnalysis,
   selection: SelectionAnalysis,
-): Omit<AnalysisPanelProps, 'onReveal' | 'onCopy' | 'onClose'> {
+): Omit<AnalysisPanelProps, 'selected' | 'onStatusChange' | 'onReveal' | 'onCopy' | 'onClose'> {
   const byId = new Map(content.nodes.map((n) => [n.id, n]))
   const nameOf = (id: string) => {
     const node = byId.get(id)
@@ -83,12 +92,12 @@ function toPanelProps(
 }
 
 function AppShell() {
-  const { screenToFlowPosition } = useReactFlow()
   // Set while the import dialog is open; `unsaved` is decided when it opens.
   const [importDialog, setImportDialog] = useState<{ unsaved: boolean } | null>(null)
 
   const projectName = useGraph((s) => s.projectName)
-  const connectMode = useGraph((s) => s.connectMode)
+  const tool = useGraph((s) => s.tool)
+  const connectSourcePicked = useGraph((s) => s.connectSourceId !== null)
   const groupable = useGraph((s) => canGroup(s.nodes, s.selectedNodeIds))
   const ungroupable = useGraph((s) =>
     s.nodes.some((n) => n.kind === 'group' && s.selectedNodeIds.includes(n.id)),
@@ -110,6 +119,7 @@ function AppShell() {
   const panelVisible = analyzing && panelShown
   const drawCritical = analyzing && highlight === 'critical'
   const selectedNodeIds = useGraph((s) => s.selectedNodeIds)
+  const selectedEdgeIds = useGraph((s) => s.selectedEdgeIds)
   // The selection analysis feeds the panel and the critical path highlight; skip it when neither is shown.
   const selection = useMemo(
     () => (panelVisible || drawCritical ? analyzeSelection({ nodes, edges }, selectedNodeIds) : null),
@@ -130,12 +140,30 @@ function AppShell() {
     [panelVisible, selection, nodes, edges, analysis],
   )
   const nextCycle = useRef(0)
-  const sidebarNode = useGraph((s) =>
-    s.sidebarId ? (s.nodes.find((n) => n.id === s.sidebarId) ?? null) : null,
+  // The sidebar follows the selection: one element is edited, several only get a hint.
+  const target = useMemo(
+    () => sidebarTarget(selectedNodeIds, selectedEdgeIds),
+    [selectedNodeIds, selectedEdgeIds],
   )
-  const sidebarEdge = useGraph((s) =>
-    s.sidebarEdgeId ? (s.edges.find((e) => e.id === s.sidebarEdgeId) ?? null) : null,
+  const sidebarNode = useMemo(
+    () => (target.kind === 'node' ? (nodes.find((n) => n.id === target.id) ?? null) : null),
+    [target, nodes],
   )
+  const sidebarEdge = useMemo(
+    () => (target.kind === 'edge' ? (edges.find((e) => e.id === target.id) ?? null) : null),
+    [target, edges],
+  )
+  // The panel edits the status of a single selected object; for a group it shows the progress.
+  const panelSelected = useMemo<AnalysisSelected | null>(() => {
+    if (!sidebarNode) return null
+    return {
+      id: sidebarNode.id,
+      name: displayName(sidebarNode),
+      kind: sidebarNode.kind,
+      status: sidebarNode.kind === 'node' ? (getStatusInfo(sidebarNode.metadata).raw ?? '') : '',
+      progress: sidebarNode.kind === 'group' ? analysis.groupProgress.get(sidebarNode.id) : undefined,
+    }
+  }, [sidebarNode, analysis])
   const sidebarChangePending = useGraph((s) => s.pendingSidebarChange !== null)
   const sidebarElement = useMemo(() => {
     if (sidebarNode) {
@@ -169,13 +197,16 @@ function AppShell() {
       } else if (modifier && key === 'y') {
         event.preventDefault()
         state.redo()
+      } else if (!modifier && !event.altKey && state.mode === 'build' && Object.hasOwn(TOOL_KEYS, key)) {
+        state.setTool(TOOL_KEYS[key])
       } else if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault()
         state.deleteSelection()
       } else if (event.key === 'Escape') {
-        // One level at a time: first the connect mode, then the analysis panel (the sidebar stays).
-        if (state.connectMode !== 'off') state.exitConnectMode()
-        else if (state.mode === 'analyze') state.setAnalysisPanelVisible(false)
+        // One level at a time: the tool, then the analysis panel, finally the selection (and with it the sidebar).
+        if (state.tool !== 'select') state.setTool('select')
+        else if (state.mode === 'analyze' && state.analysisPanelVisible) state.setAnalysisPanelVisible(false)
+        else state.closeSidebar()
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -211,18 +242,6 @@ function AppShell() {
         message: 'Die Analyse konnte nicht in die Zwischenablage kopiert werden.',
       })
     }
-  }
-
-  const addNode = () => {
-    const pane = document.querySelector('.react-flow')?.getBoundingClientRect()
-    const center = pane
-      ? { x: pane.left + pane.width / 2, y: pane.top + pane.height / 2 }
-      : { x: 400, y: 300 }
-    const origin = screenToFlowPosition(center)
-    graphStore.getState().addNodeAt({
-      x: origin.x - NODE_SIZE.width / 2,
-      y: origin.y - NODE_SIZE.height / 2,
-    })
   }
 
   const exportModel = () => {
@@ -270,7 +289,8 @@ function AppShell() {
         onRenameProject={(name) => graphStore.getState().renameProject(name)}
         mode={mode}
         onModeChange={(next) => graphStore.getState().setMode(next)}
-        connectMode={connectMode}
+        tool={tool}
+        onToolChange={(next) => graphStore.getState().setTool(next)}
         canGroup={groupable}
         canUngroup={ungroupable}
         canDelete={deletable}
@@ -285,8 +305,6 @@ function AppShell() {
         onTogglePanel={() => graphStore.getState().setAnalysisPanelVisible(!panelShown)}
         onUndo={() => graphStore.getState().undo()}
         onRedo={() => graphStore.getState().redo()}
-        onAddNode={addNode}
-        onToggleConnect={() => graphStore.getState().toggleConnectMode()}
         onGroup={() => graphStore.getState().groupSelection()}
         onUngroup={() => graphStore.getState().ungroupSelection()}
         onDelete={() => graphStore.getState().deleteSelection()}
@@ -294,16 +312,9 @@ function AppShell() {
         onImport={requestImport}
       />
       <div className="workspace">
-        <main className={panelVisible ? 'canvas canvas--analysis' : 'canvas'}>
+        <main className="canvas">
           <Canvas cycles={cycles} analysis={analysis} critical={critical} />
-          {panelProps && (
-            <AnalysisPanel
-              {...panelProps}
-              onReveal={(id) => graphStore.getState().revealNode(id)}
-              onCopy={() => void copyAnalysis()}
-              onClose={() => graphStore.getState().setAnalysisPanelVisible(false)}
-            />
-          )}
+          <ToolHint tool={tool} sourcePicked={connectSourcePicked} />
           <div className="banner-host">
             <Banner
               message={notice?.message ?? null}
@@ -313,25 +324,42 @@ function AppShell() {
             />
           </div>
         </main>
+        {panelProps && (
+          <AnalysisPanel
+            {...panelProps}
+            selected={panelSelected}
+            onStatusChange={(status) => {
+              if (panelSelected) graphStore.getState().setStatus(panelSelected.id, status)
+            }}
+            onReveal={(id) => graphStore.getState().revealNode(id)}
+            onCopy={() => void copyAnalysis()}
+            onClose={() => graphStore.getState().setAnalysisPanelVisible(false)}
+          />
+        )}
+        {/* Hidden, not unmounted, while analysing: the selection and an unfinished sidebar draft stay as they are. */}
         <Sidebar
+          hidden={analyzing}
           element={sidebarElement}
-          onSave={(metadata) => {
+          selectionCount={selectedNodeIds.length + selectedEdgeIds.length}
+          onChange={(metadata) => {
             if (!sidebarElement) return
             const state = graphStore.getState()
             if (sidebarElement.kind === 'edge') {
-              state.saveEdgeLabel(sidebarElement.id, metadata.find((m) => m.key === 'label')?.value ?? '')
+              state.updateEdgeLabel(sidebarElement.id, metadata.find((m) => m.key === 'label')?.value ?? '')
             } else {
-              state.saveMetadata(sidebarElement.id, metadata)
+              state.updateMetadata(sidebarElement.id, metadata)
             }
           }}
+          onEditStart={beginSidebarEdit}
+          onEditEnd={endSidebarEdit}
           onClose={() => graphStore.getState().closeSidebar()}
-          onDirtyChange={reportSidebarDirty}
+          onInvalidChange={reportSidebarInvalid}
         />
       </div>
       <ConfirmDialog
         open={sidebarChangePending}
         title="Änderungen verwerfen"
-        message={`Ungespeicherte Änderungen an „${sidebarNode ? displayName(sidebarNode) : 'Verbindung'}“ verwerfen?`}
+        message={`Ungültige Änderungen an „${sidebarNode ? displayName(sidebarNode) : 'Verbindung'}“ verwerfen? (doppelter Feldname)`}
         confirmLabel="Verwerfen"
         onConfirm={() => graphStore.getState().confirmSidebarChange()}
         onCancel={() => graphStore.getState().cancelSidebarChange()}

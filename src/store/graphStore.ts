@@ -1,5 +1,4 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
-import type { ConnectMode } from '../flow/types'
 import { contentFingerprint } from '../model/fingerprint'
 import * as graph from '../model/graph'
 import {
@@ -13,8 +12,17 @@ import {
 import * as placement from '../model/placement'
 import { DEFAULT_PROJECT_NAME, isValidProjectName } from '../model/projectName'
 import { parseModelJson } from '../model/serialize'
-import { DEFAULT_HIGHLIGHT, DEFAULT_WORK_MODE, type Highlight, type WorkMode } from '../model/workMode'
+import { isSameTarget, sidebarTarget, type SidebarTarget } from '../model/sidebarTarget'
+import {
+  DEFAULT_HIGHLIGHT,
+  DEFAULT_TOOL,
+  DEFAULT_WORK_MODE,
+  type Highlight,
+  type Tool,
+  type WorkMode,
+} from '../model/workMode'
 import type { ConnectionCheck } from '../model/graph'
+import type { Status } from '../model/status'
 import type {
   GraphContent,
   HandleSide,
@@ -37,8 +45,16 @@ export interface Selection {
   selected: boolean
 }
 
-/** A sidebar change that waits for the user to decide about unsaved edits. */
-export type SidebarChange = { kind: 'close' } | { kind: 'node'; id: string } | { kind: 'edge'; id: string }
+/**
+ * A selection change that waits for the user to decide about an invalid sidebar draft. The sidebar
+ * follows the selection, so every way of switching or closing it is a new selection.
+ */
+export interface SidebarChange {
+  nodeIds: string[]
+  edgeIds: string[]
+  /** Also ask the canvas to show the nodes once the change goes through. */
+  focus: boolean
+}
 
 export interface GraphState {
   // --- model (single source of truth, persisted) ---
@@ -50,14 +66,13 @@ export interface GraphState {
   // --- UI state (never persisted, never triggers a save) ---
   selectedNodeIds: string[]
   selectedEdgeIds: string[]
-  sidebarId: string | null
-  /** Edge whose label is being edited (mutually exclusive with `sidebarId`). */
-  sidebarEdgeId: string | null
-  /** The open sidebar form has unsaved edits (reported by the form). */
-  sidebarDirty: boolean
-  /** Closing or switching the sidebar that was held back because of unsaved edits; asked about in a dialog. */
+  /** The open sidebar form holds an invalid draft (duplicate field names) that is not in the model (reported by the form). */
+  sidebarInvalid: boolean
+  /** Selection change (switch or close of the sidebar) held back because of an invalid draft; asked about in a dialog. */
   pendingSidebarChange: SidebarChange | null
-  connectMode: ConnectMode
+  /** Build mode tool (select, create, connect); always `select` while analysing. */
+  tool: Tool
+  /** Connect tool: the picked source, waiting for the target; null = the source is still to be picked. */
   connectSourceId: string | null
   dropTargetId: string | null
   notice: Notice | null
@@ -80,10 +95,14 @@ export interface GraphState {
   /** Element briefly highlighted after `revealNode`; cleared by the canvas. */
   revealedId: string | null
 
-  addNodeAt: (position: Point) => void
+  /** Adds an object centred on this canvas point (member of the group there, if any) and selects it. */
+  addNodeAt: (center: Point) => void
   moveNode: (id: string, position: Point) => void
   resizeNode: (id: string, size: Size) => void
-  saveMetadata: (id: string, entries: readonly MetadataEntry[]) => void
+  /** Live sidebar edit: stores the normalized entries right away. */
+  updateMetadata: (id: string, entries: readonly MetadataEntry[]) => void
+  /** Sets the status of an object (also in analysis mode); one undo step. */
+  setStatus: (id: string, status: Status) => void
 
   applyNodeSelection: (changes: readonly Selection[]) => void
   applyEdgeSelection: (changes: readonly Selection[]) => void
@@ -94,15 +113,18 @@ export interface GraphState {
   clearReveal: () => void
   /** Returns false (and changes nothing) if `name` is not a valid project name. */
   renameProject: (name: string) => boolean
+  /** Selects exactly this element, which opens its sidebar (no-op with the connect tool). Asks first if the draft is invalid. */
   openSidebar: (id: string) => void
+  /** Selects exactly this edge, which opens its sidebar (no-op with the connect tool). Asks first if the draft is invalid. */
   openEdgeSidebar: (id: string) => void
-  saveEdgeLabel: (id: string, label: string) => void
-  /** Asks first (see `pendingSidebarChange`) if the open form has unsaved edits. */
+  /** Live sidebar edit of an edge label. */
+  updateEdgeLabel: (id: string, label: string) => void
+  /** Clears the selection, which closes the sidebar. Asks first (see `pendingSidebarChange`) if the draft is invalid. */
   closeSidebar: () => void
-  setSidebarDirty: (dirty: boolean) => void
-  /** Carries out the held-back change and discards the unsaved edits. */
+  setSidebarInvalid: (invalid: boolean) => void
+  /** Carries out the held-back change and discards the invalid draft. */
   confirmSidebarChange: () => void
-  /** Keeps the sidebar and its edits as they are. */
+  /** Keeps the sidebar and its draft as they are. */
   cancelSidebarChange: () => void
 
   connect: (
@@ -111,9 +133,11 @@ export interface GraphState {
     sourceHandle?: HandleSide,
     targetHandle?: HandleSide,
   ) => void
-  toggleConnectMode: () => void
-  exitConnectMode: () => void
+  /** Switches the tool (leaving `connect` drops a picked source); only `select` is possible while analysing. */
+  setTool: (tool: Tool) => void
+  /** Connect tool: first click picks the source, the second connects it to the target (same element again cancels). */
   pickForConnect: (id: string) => void
+  /** Connect tool: forget the picked source (click on the empty pane). */
   clearConnectSource: () => void
 
   groupSelection: () => void
@@ -127,7 +151,7 @@ export interface GraphState {
   /** Start/end a drag or resize: everything in between becomes one undo step. */
   beginGesture: () => void
   endGesture: () => void
-  /** Switching to analysis ends the connect mode and shows the panel; no undo step. */
+  /** Switching to analysis resets the tool to `select` and shows the panel; no undo step. */
   setMode: (mode: WorkMode) => void
   setHighlight: (highlight: Highlight) => void
   setAnalysisPanelVisible: (visible: boolean) => void
@@ -149,6 +173,10 @@ const CONNECTION_MESSAGES: Record<Exclude<ConnectionCheck, { ok: true }>['reason
 }
 
 export type GraphStore = StoreApi<GraphState>
+
+/** What the sidebar shows right now: derived from the selection, not kept separately. */
+export const selectSidebarTarget = (state: GraphState): SidebarTarget =>
+  sidebarTarget(state.selectedNodeIds, state.selectedEdgeIds)
 
 /** UI state restored from the previous session. */
 export interface InitialUi {
@@ -191,17 +219,15 @@ export function createGraphStore(
 
     /** UI state that references elements must not outlive them (after undo, delete, …). */
     const pruneUi = (next: GraphContent): Partial<GraphState> => {
-      const { selectedNodeIds, selectedEdgeIds, sidebarId, sidebarEdgeId, connectSourceId, connectMode } =
-        get()
+      const { selectedNodeIds, selectedEdgeIds, connectSourceId } = get()
       const hasNode = (id: string | null) => id !== null && next.nodes.some((n) => n.id === id)
       const sourceGone = connectSourceId !== null && !hasNode(connectSourceId)
       return {
-        selectedNodeIds: selectedNodeIds.filter(hasNode),
-        selectedEdgeIds: selectedEdgeIds.filter((id) => next.edges.some((e) => e.id === id)),
-        sidebarId: hasNode(sidebarId) ? sidebarId : null,
-        sidebarEdgeId: next.edges.some((e) => e.id === sidebarEdgeId) ? sidebarEdgeId : null,
+        ...withSelection(
+          selectedNodeIds.filter(hasNode),
+          selectedEdgeIds.filter((id) => next.edges.some((e) => e.id === id)),
+        ),
         connectSourceId: sourceGone ? null : connectSourceId,
-        connectMode: sourceGone && connectMode === 'pickTarget' ? 'pickSource' : connectMode,
         dropTargetId: null,
       }
     }
@@ -235,20 +261,39 @@ export function createGraphStore(
       return true
     }
 
-    const showSidebar = (change: SidebarChange) =>
-      set({
-        sidebarId: change.kind === 'node' ? change.id : null,
-        sidebarEdgeId: change.kind === 'edge' ? change.id : null,
-        sidebarDirty: false,
+    /**
+     * The new selection as UI state. The sidebar follows the selection, so a changed target also
+     * ends the old form: its invalid draft and any held-back change are gone.
+     */
+    const withSelection = (nodeIds: string[], edgeIds: string[]): Partial<GraphState> => {
+      const { selectedNodeIds, selectedEdgeIds, sidebarInvalid } = get()
+      const same = isSameTarget(
+        sidebarTarget(selectedNodeIds, selectedEdgeIds),
+        sidebarTarget(nodeIds, edgeIds),
+      )
+      return {
+        selectedNodeIds: nodeIds,
+        selectedEdgeIds: edgeIds,
+        sidebarInvalid: same ? sidebarInvalid : false,
         pendingSidebarChange: null,
-      })
+      }
+    }
 
-    /** Unsaved edits in the open form are never dropped silently: the change waits for the dialog. */
-    const requestSidebarChange = (change: SidebarChange) => {
-      const { sidebarId, sidebarEdgeId, sidebarDirty } = get()
-      const open = sidebarId !== null || sidebarEdgeId !== null
-      if (open && sidebarDirty) set({ pendingSidebarChange: change })
-      else showSidebar(change)
+    const focusFor = (nodeIds: string[]): Partial<GraphState> => ({
+      focusRequest: { id: (get().focusRequest?.id ?? 0) + 1, nodeIds },
+    })
+
+    /** An invalid draft in the open form is never dropped silently: leaving it waits for the dialog. */
+    const requestSelection = (nodeIds: string[], edgeIds: string[], focus = false) => {
+      const { selectedNodeIds, selectedEdgeIds, sidebarInvalid } = get()
+      const current = sidebarTarget(selectedNodeIds, selectedEdgeIds)
+      // The flag only counts while a form is actually shown.
+      const leaving =
+        sidebarInvalid &&
+        (current.kind === 'node' || current.kind === 'edge') &&
+        !isSameTarget(current, sidebarTarget(nodeIds, edgeIds))
+      if (leaving) set({ pendingSidebarChange: { nodeIds, edgeIds, focus } })
+      else set({ ...withSelection(nodeIds, edgeIds), ...(focus && focusFor(nodeIds)) })
     }
 
     const mergeSelection = (current: string[], changes: readonly Selection[]): string[] => {
@@ -266,11 +311,9 @@ export function createGraphStore(
       projectName: initial.projectName ?? DEFAULT_PROJECT_NAME,
       selectedNodeIds: [],
       selectedEdgeIds: [],
-      sidebarId: null,
-      sidebarEdgeId: null,
-      sidebarDirty: false,
+      sidebarInvalid: false,
       pendingSidebarChange: null,
-      connectMode: 'off',
+      tool: DEFAULT_TOOL,
       connectSourceId: null,
       dropTargetId: null,
       notice: initialNotice,
@@ -284,31 +327,42 @@ export function createGraphStore(
       focusRequest: null,
       revealedId: null,
 
-      addNodeAt: (position) => {
+      addNodeAt: (center) => {
         if (structureLocked()) return
-        const node = graph.createNode(placement.findFreePosition(get().nodes, position), newId)
-        apply(
-          { nodes: [...get().nodes, node], edges: get().edges },
-          { selectedNodeIds: [node.id], selectedEdgeIds: [] },
-        )
+        const { content: next, nodeId } = placement.addNodeAtPoint(content(), center, newId)
+        apply(next)
+        // Via the request: an invalid sidebar draft is still asked about before the new object takes over.
+        requestSelection([nodeId], [])
       },
       moveNode: (id, position) => apply(graph.moveNode(content(), id, position)),
       resizeNode: (id, size) => apply(graph.resizeNode(content(), id, size)),
-      saveMetadata: (id, entries) => apply(graph.updateMetadata(content(), id, entries)),
+      updateMetadata: (id, entries) => apply(graph.updateMetadata(content(), id, entries)),
+      setStatus: (id, status) => apply(graph.setStatus(content(), id, status)),
 
-      applyNodeSelection: (changes) =>
-        set({ selectedNodeIds: mergeSelection(get().selectedNodeIds, changes) }),
-      applyEdgeSelection: (changes) =>
-        set({ selectedEdgeIds: mergeSelection(get().selectedEdgeIds, changes) }),
+      // The selection is frozen while connecting: clicks pick source and target there and must not
+      // switch the sidebar. A change that is held back (see `requestSelection`) is extended, not replaced:
+      // one click arrives as several events (deselect the old, select the new element).
+      applyNodeSelection: (changes) => {
+        if (get().tool === 'connect') return
+        const { pendingSidebarChange: held, selectedNodeIds, selectedEdgeIds } = get()
+        requestSelection(
+          mergeSelection(held?.nodeIds ?? selectedNodeIds, changes),
+          held?.edgeIds ?? selectedEdgeIds,
+        )
+      },
+      applyEdgeSelection: (changes) => {
+        if (get().tool === 'connect') return
+        const { pendingSidebarChange: held, selectedNodeIds, selectedEdgeIds } = get()
+        requestSelection(
+          held?.nodeIds ?? selectedNodeIds,
+          mergeSelection(held?.edgeIds ?? selectedEdgeIds, changes),
+        )
+      },
       focusNodes: (ids) => {
         const known = new Set(get().nodes.map((n) => n.id))
         const nodeIds = ids.filter((id) => known.has(id))
         if (nodeIds.length === 0) return
-        set({
-          selectedNodeIds: nodeIds,
-          selectedEdgeIds: [],
-          focusRequest: { id: (get().focusRequest?.id ?? 0) + 1, nodeIds },
-        })
+        requestSelection(nodeIds, [], true)
       },
       revealNode: (id) => {
         if (!get().nodes.some((n) => n.id === id)) return
@@ -326,23 +380,29 @@ export function createGraphStore(
         return true
       },
       openSidebar: (id) => {
-        const { nodes, sidebarId } = get()
-        if (!nodes.some((node) => node.id === id) || sidebarId === id) return
-        requestSidebarChange({ kind: 'node', id })
+        const { nodes, tool, selectedNodeIds, selectedEdgeIds } = get()
+        if (tool === 'connect' || !nodes.some((node) => node.id === id)) return
+        if (isSameTarget(sidebarTarget(selectedNodeIds, selectedEdgeIds), { kind: 'node', id })) return
+        requestSelection([id], [])
       },
       openEdgeSidebar: (id) => {
-        const { edges, sidebarEdgeId } = get()
-        if (!edges.some((e) => e.id === id) || sidebarEdgeId === id) return
-        requestSidebarChange({ kind: 'edge', id })
+        const { edges, tool, selectedNodeIds, selectedEdgeIds } = get()
+        if (tool === 'connect' || !edges.some((e) => e.id === id)) return
+        if (isSameTarget(sidebarTarget(selectedNodeIds, selectedEdgeIds), { kind: 'edge', id })) return
+        requestSelection([], [id])
       },
-      saveEdgeLabel: (id, label) => apply(graph.updateEdgeLabel(content(), id, label)),
-      closeSidebar: () => requestSidebarChange({ kind: 'close' }),
-      setSidebarDirty: (dirty) => {
-        if (get().sidebarDirty !== dirty) set({ sidebarDirty: dirty })
+      updateEdgeLabel: (id, label) => apply(graph.updateEdgeLabel(content(), id, label)),
+      closeSidebar: () => {
+        const { selectedNodeIds, selectedEdgeIds } = get()
+        if (selectedNodeIds.length + selectedEdgeIds.length > 0) requestSelection([], [])
+      },
+      setSidebarInvalid: (invalid) => {
+        if (get().sidebarInvalid !== invalid) set({ sidebarInvalid: invalid })
       },
       confirmSidebarChange: () => {
         const change = get().pendingSidebarChange
-        if (change) showSidebar(change)
+        if (!change) return
+        set({ ...withSelection(change.nodeIds, change.edgeIds), ...(change.focus && focusFor(change.nodeIds)) })
       },
       cancelSidebarChange: () => set({ pendingSidebarChange: null }),
 
@@ -350,28 +410,24 @@ export function createGraphStore(
         if (structureLocked()) return
         tryConnect(source, target, { sourceHandle, targetHandle })
       },
-      toggleConnectMode: () => {
-        if (structureLocked()) return
-        set(
-          get().connectMode === 'off'
-            ? { connectMode: 'pickSource', connectSourceId: null }
-            : { connectMode: 'off', connectSourceId: null },
-        )
+      setTool: (tool) => {
+        if (tool !== 'select' && structureLocked()) return
+        if (get().tool === tool) return
+        set({ tool, connectSourceId: null })
       },
-      exitConnectMode: () => set({ connectMode: 'off', connectSourceId: null }),
       clearConnectSource: () => {
-        if (get().connectMode === 'pickTarget') set({ connectMode: 'pickSource', connectSourceId: null })
+        if (get().connectSourceId !== null) set({ connectSourceId: null })
       },
       pickForConnect: (id) => {
-        const { connectMode, connectSourceId } = get()
-        if (connectMode === 'off' || structureLocked()) return
+        const { tool, connectSourceId } = get()
+        if (tool !== 'connect' || structureLocked()) return
         if (connectSourceId === null) {
-          set({ connectMode: 'pickTarget', connectSourceId: id })
+          set({ connectSourceId: id })
         } else if (connectSourceId === id) {
-          set({ connectMode: 'pickSource', connectSourceId: null })
+          set({ connectSourceId: null })
         } else {
           tryConnect(connectSourceId, id, graph.pickSides(get().nodes, connectSourceId, id))
-          set({ connectMode: 'pickSource', connectSourceId: null })
+          set({ connectSourceId: null })
         }
       },
 
@@ -380,7 +436,7 @@ export function createGraphStore(
         const { selectedNodeIds, nodes } = get()
         if (!graph.canGroup(nodes, selectedNodeIds)) return
         const result = graph.groupElements(content(), selectedNodeIds, newId)
-        apply(result.content, { selectedNodeIds: [result.groupId], selectedEdgeIds: [] })
+        apply(result.content, withSelection([result.groupId], []))
       },
       ungroupSelection: () => {
         if (structureLocked()) return
@@ -392,11 +448,10 @@ export function createGraphStore(
         const released = nodes.filter((n) => n.parentId && groupIds.has(n.parentId)).map((n) => n.id)
         let next = content()
         for (const groupId of groupIds) next = graph.ungroup(next, groupId)
-        const { sidebarId } = get()
-        apply(next, {
-          selectedNodeIds: [...selectedNodeIds.filter((id) => !groupIds.has(id)), ...released],
-          sidebarId: sidebarId && groupIds.has(sidebarId) ? null : sidebarId,
-        })
+        apply(
+          next,
+          withSelection([...selectedNodeIds.filter((id) => !groupIds.has(id)), ...released], get().selectedEdgeIds),
+        )
       },
       deleteSelection: () => {
         if (structureLocked()) return
@@ -406,7 +461,7 @@ export function createGraphStore(
           nodeIds: selectedNodeIds,
           edgeIds: selectedEdgeIds,
         })
-        apply(next, { ...pruneUi(next), selectedNodeIds: [], selectedEdgeIds: [] })
+        apply(next, { ...pruneUi(next), ...withSelection([], []) })
       },
 
       updateDropTarget: (draggedIds) => {
@@ -463,7 +518,7 @@ export function createGraphStore(
             ? {
                 mode,
                 analysisPanelVisible: true,
-                connectMode: 'off',
+                tool: DEFAULT_TOOL,
                 connectSourceId: null,
                 dropTargetId: null,
               }
@@ -484,13 +539,8 @@ export function createGraphStore(
           edges: next.edges,
           projectName: next.projectName ?? DEFAULT_PROJECT_NAME,
           history: recordHistory(get().history, content()),
-          selectedNodeIds: [],
-          selectedEdgeIds: [],
-          sidebarId: null,
-          sidebarEdgeId: null,
-          sidebarDirty: false,
-          pendingSidebarChange: null,
-          connectMode: 'off',
+          ...withSelection([], []),
+          tool: DEFAULT_TOOL,
           connectSourceId: null,
           dropTargetId: null,
           contentRevision: get().contentRevision + 1,

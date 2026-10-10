@@ -10,7 +10,8 @@ function makeProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
     onRenameProject: vi.fn(),
     mode: 'build',
     onModeChange: vi.fn(),
-    connectMode: 'off',
+    tool: 'select',
+    onToolChange: vi.fn(),
     canGroup: true,
     canUngroup: true,
     canDelete: true,
@@ -25,8 +26,6 @@ function makeProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
     onTogglePanel: vi.fn(),
     onUndo: vi.fn(),
     onRedo: vi.fn(),
-    onAddNode: vi.fn(),
-    onToggleConnect: vi.fn(),
     onGroup: vi.fn(),
     onUngroup: vi.fn(),
     onDelete: vi.fn(),
@@ -45,6 +44,7 @@ describe('Toolbar', () => {
     for (const label of [
       'Aufbauen',
       'Analysieren',
+      'Auswählen',
       'Objekt anlegen',
       'Verbinden',
       'Gruppieren',
@@ -65,16 +65,12 @@ describe('Toolbar', () => {
     const props = makeProps()
     render(<Toolbar {...props} />)
 
-    await user.click(screen.getByRole('button', { name: 'Objekt anlegen' }))
-    await user.click(screen.getByRole('button', { name: 'Verbinden' }))
     await user.click(screen.getByRole('button', { name: 'Gruppieren' }))
     await user.click(screen.getByRole('button', { name: 'Gruppe auflösen' }))
     await user.click(screen.getByRole('button', { name: 'Löschen' }))
     await user.click(screen.getByRole('button', { name: 'Export' }))
     await user.click(screen.getByRole('button', { name: 'Import' }))
 
-    expect(props.onAddNode).toHaveBeenCalledTimes(1)
-    expect(props.onToggleConnect).toHaveBeenCalledTimes(1)
     expect(props.onGroup).toHaveBeenCalledTimes(1)
     expect(props.onUngroup).toHaveBeenCalledTimes(1)
     expect(props.onDelete).toHaveBeenCalledTimes(1)
@@ -105,25 +101,70 @@ describe('Toolbar', () => {
     expect(screen.getByRole('button', { name: 'Löschen' })).toBeEnabled()
   })
 
-  it('shows the connect toggle as not pressed and no hint when off', () => {
-    render(<Toolbar {...makeProps({ connectMode: 'off' })} />)
+  describe('tool switch', () => {
+    it('is a labelled group of three buttons with a pressed state, the select tool by default', () => {
+      render(<Toolbar {...makeProps()} />)
 
-    expect(screen.getByRole('button', { name: 'Verbinden' })).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
-  })
+      const group = screen.getByRole('group', { name: 'Werkzeug' })
+      expect(within(group).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
+        'Auswählen',
+        'Objekt anlegen',
+        'Verbinden',
+      ])
+      expect(screen.getByRole('button', { name: 'Auswählen' })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: 'Objekt anlegen' })).toHaveAttribute('aria-pressed', 'false')
+      expect(screen.getByRole('button', { name: 'Verbinden' })).toHaveAttribute('aria-pressed', 'false')
+    })
 
-  it('shows a source hint while picking the source', () => {
-    render(<Toolbar {...makeProps({ connectMode: 'pickSource' })} />)
+    it('shows icon and short text on every tool', () => {
+      render(<Toolbar {...makeProps()} />)
 
-    expect(screen.getByRole('button', { name: 'Verbinden' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('status')).toHaveTextContent('Quelle wählen …')
-  })
+      const group = screen.getByRole('group', { name: 'Werkzeug' })
+      expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual([
+        'Auswählen',
+        'Objekt',
+        'Verbinden',
+      ])
+      for (const button of within(group).getAllByRole('button')) {
+        expect(button.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
+      }
+    })
 
-  it('shows a target hint while picking the target', () => {
-    render(<Toolbar {...makeProps({ connectMode: 'pickTarget' })} />)
+    it('presses exactly the active tool', () => {
+      render(<Toolbar {...makeProps({ tool: 'create' })} />)
 
-    expect(screen.getByRole('button', { name: 'Verbinden' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('status')).toHaveTextContent('Ziel wählen …')
+      expect(screen.getByRole('button', { name: 'Auswählen' })).toHaveAttribute('aria-pressed', 'false')
+      expect(screen.getByRole('button', { name: 'Objekt anlegen' })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: 'Verbinden' })).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    it('reports the chosen tool', async () => {
+      const user = userEvent.setup()
+      const props = makeProps()
+      render(<Toolbar {...props} />)
+
+      await user.click(screen.getByRole('button', { name: 'Objekt anlegen' }))
+      expect(props.onToolChange).toHaveBeenLastCalledWith('create')
+      await user.click(screen.getByRole('button', { name: 'Verbinden' }))
+      expect(props.onToolChange).toHaveBeenLastCalledWith('connect')
+      await user.click(screen.getByRole('button', { name: 'Auswählen' }))
+      expect(props.onToolChange).toHaveBeenLastCalledWith('select')
+    })
+
+    it('names the shortcut in the tooltips', async () => {
+      render(<Toolbar {...makeProps()} />)
+
+      await userEvent.hover(screen.getByRole('button', { name: 'Objekt anlegen' }))
+      const tip = await screen.findByRole('tooltip')
+      expect(tip).toHaveTextContent('freie Stelle')
+      expect(tip).toHaveTextContent('N')
+    })
+
+    it('is not offered in the analysis mode', () => {
+      render(<Toolbar {...makeProps({ mode: 'analyze' })} />)
+
+      expect(screen.queryByRole('group', { name: 'Werkzeug' })).not.toBeInTheDocument()
+    })
   })
 
   describe('undo / redo', () => {
@@ -147,6 +188,14 @@ describe('Toolbar', () => {
   })
 
   describe('mode switch', () => {
+    it('shows a decorative icon in front of each mode', () => {
+      render(<Toolbar {...makeProps()} />)
+
+      for (const name of ['Aufbauen', 'Analysieren']) {
+        expect(screen.getByRole('button', { name }).querySelector('svg[aria-hidden="true"]')).not.toBeNull()
+      }
+    })
+
     it('is a labelled group of two pressed-state buttons', () => {
       render(<Toolbar {...makeProps({ mode: 'build' })} />)
 
@@ -184,7 +233,7 @@ describe('Toolbar', () => {
       render(<Toolbar {...makeProps()} />)
 
       const buttons = screen.getAllByRole('button').map((b) => b.textContent || b.getAttribute('aria-label'))
-      expect(buttons.slice(0, 4)).toEqual(['Release-Management', 'Aufbauen', 'Analysieren', 'Objekt anlegen'])
+      expect(buttons.slice(0, 4)).toEqual(['Release-Management', 'Aufbauen', 'Analysieren', 'Auswählen'])
     })
   })
 

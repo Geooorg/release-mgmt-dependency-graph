@@ -46,7 +46,7 @@ describe('connectPersistence', () => {
     const { store, save } = setup()
     store.getState().applyNodeSelection([{ id: 'a', selected: true }])
     store.getState().openSidebar('a')
-    store.getState().toggleConnectMode()
+    store.getState().setTool('connect')
     vi.advanceTimersByTime(1000)
     expect(save).not.toHaveBeenCalled()
   })

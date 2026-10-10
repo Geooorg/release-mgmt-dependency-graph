@@ -1,28 +1,73 @@
 import type { ReactNode } from 'react'
-import type { Highlight, WorkMode } from '../model/workMode'
-import { CycleIcon, GroupIcon, RedoIcon, TrashIcon, UndoIcon, UngroupIcon } from './icons'
+import type { Highlight, Tool, WorkMode } from '../model/workMode'
+import {
+  AddObjectIcon,
+  ConnectIcon,
+  CursorIcon,
+  CycleIcon,
+  GraphIcon,
+  GroupIcon,
+  RedoIcon,
+  TrashIcon,
+  UndoIcon,
+  UngroupIcon,
+  WandIcon,
+} from './icons'
 import { ProjectTitle } from './ProjectTitle'
 import type { ToolbarProps } from './props'
 import { Tooltip } from './Tooltip'
 import './components.css'
 
-const CONNECT_HINTS = {
-  off: null,
-  pickSource: 'Quelle wählen …',
-  pickTarget: 'Ziel wählen …',
-} as const
+const ICON_SIZE = 16
 
-const MODES: readonly { value: WorkMode; label: string; title: string }[] = [
+const MODES: readonly { value: WorkMode; label: string; icon: ReactNode; title: string }[] = [
   {
     value: 'build',
     label: 'Aufbauen',
+    icon: <GraphIcon size={ICON_SIZE} />,
     title: 'Den Graphen aufbauen: Objekte anlegen, verbinden, gruppieren und löschen. Ohne Analyse-Hervorhebung.',
   },
   {
     value: 'analyze',
     label: 'Analysieren',
+    icon: <WandIcon size={ICON_SIZE} />,
     title:
       'Das Release analysieren: kritischer Pfad, Abhängigkeiten und Release-Analyse. Die Struktur ist gesperrt (nichts anlegen, verbinden, löschen oder umgruppieren); Status und Metadaten bleiben bearbeitbar.',
+  },
+]
+
+/** The visible text is short; `name` is the full accessible name (and keeps the button named when the text is hidden on narrow windows). */
+const TOOLS: readonly {
+  value: Tool
+  label: string
+  name: string
+  icon: ReactNode
+  shortcut: string
+  title: string
+}[] = [
+  {
+    value: 'select',
+    label: 'Auswählen',
+    name: 'Auswählen',
+    icon: <CursorIcon size={ICON_SIZE} />,
+    shortcut: 'V',
+    title: 'Elemente anklicken, markieren und verschieben; die Sidebar zeigt die Auswahl. Konnektoren am Rand eines Objekts lassen sich auf ein anderes Element ziehen.',
+  },
+  {
+    value: 'create',
+    label: 'Objekt',
+    name: 'Objekt anlegen',
+    icon: <AddObjectIcon size={ICON_SIZE} />,
+    shortcut: 'N',
+    title: 'Auf eine freie Stelle der Fläche klicken, um dort ein Objekt anzulegen (in einer Gruppe: als Mitglied). Das Werkzeug bleibt aktiv; Esc beendet es.',
+  },
+  {
+    value: 'connect',
+    label: 'Verbinden',
+    name: 'Verbinden',
+    icon: <ConnectIcon size={ICON_SIZE} />,
+    shortcut: 'C',
+    title: 'Zwei Objekte nacheinander anklicken (erst Quelle, dann Ziel), um sie zu verbinden. Esc beendet das Werkzeug.',
   },
 ]
 
@@ -54,7 +99,8 @@ export function Toolbar({
   onRenameProject,
   mode,
   onModeChange,
-  connectMode,
+  tool,
+  onToolChange,
   canGroup,
   canUngroup,
   canDelete,
@@ -69,15 +115,12 @@ export function Toolbar({
   onTogglePanel,
   onUndo,
   onRedo,
-  onAddNode,
-  onToggleConnect,
   onGroup,
   onUngroup,
   onDelete,
   onExport,
   onImport,
 }: ToolbarProps) {
-  const hint = CONNECT_HINTS[connectMode]
   const dependencyHighlight = highlight === 'outgoing' || highlight === 'incoming' || highlight === 'both'
 
   return (
@@ -85,7 +128,7 @@ export function Toolbar({
       <ProjectTitle name={projectName} onRename={onRenameProject} />
 
       <div className="mode-switch" role="group" aria-label="Arbeitsmodus">
-        {MODES.map(({ value, label, title }) => (
+        {MODES.map(({ value, label, icon, title }) => (
           <Tooltip key={value} text={title}>
             <button
               type="button"
@@ -93,6 +136,7 @@ export function Toolbar({
               aria-pressed={mode === value}
               onClick={() => onModeChange(value)}
             >
+              {icon}
               {label}
             </button>
           </Tooltip>
@@ -104,29 +148,22 @@ export function Toolbar({
       {mode === 'build' ? (
         <>
           <Section label="Erstellen">
-            <Tooltip text="Neues Objekt in der Mitte des sichtbaren Bereichs anlegen">
-              <button type="button" className="ui-button" onClick={onAddNode}>
-                Objekt anlegen
-              </button>
-            </Tooltip>
-            <Tooltip
-              text="Zwei Objekte nacheinander anklicken (erst Quelle, dann Ziel), um sie zu verbinden. Alternativ einen Konnektor am Rand eines Objekts ziehen."
-              shortcut="Esc beendet"
-            >
-              <button
-                type="button"
-                className="ui-button"
-                aria-pressed={connectMode !== 'off'}
-                onClick={onToggleConnect}
-              >
-                Verbinden
-              </button>
-            </Tooltip>
-            {hint && (
-              <span className="toolbar__hint" role="status">
-                {hint}
-              </span>
-            )}
+            <div className="tool-switch" role="group" aria-label="Werkzeug">
+              {TOOLS.map(({ value, label, name, icon, shortcut, title }) => (
+                <Tooltip key={value} text={title} shortcut={shortcut}>
+                  <button
+                    type="button"
+                    className="ui-button"
+                    aria-label={name}
+                    aria-pressed={tool === value}
+                    onClick={() => onToolChange(value)}
+                  >
+                    {icon}
+                    <span className="tool-switch__label">{label}</span>
+                  </button>
+                </Tooltip>
+              ))}
+            </div>
           </Section>
 
           <Separator />
@@ -252,9 +289,15 @@ export function Toolbar({
           <Separator />
           <Section label="Zyklen">
             <Tooltip text="Zyklische Abhängigkeiten verhindern eine gültige Release-Reihenfolge. Klicken wählt den nächsten Zyklus aus.">
-              <button type="button" className="ui-button ui-button--cycle" onClick={onFocusCycle}>
+              <button
+                type="button"
+                className="ui-button ui-button--cycle"
+                aria-label={cycleCount === 1 ? '1 Zyklus' : `${cycleCount} Zyklen`}
+                onClick={onFocusCycle}
+              >
                 <CycleIcon />
-                {cycleCount === 1 ? '1 Zyklus' : `${cycleCount} Zyklen`}
+                <span>{cycleCount}</span>
+                <span className="cycle-button__word">{cycleCount === 1 ? ' Zyklus' : ' Zyklen'}</span>
               </button>
             </Tooltip>
           </Section>

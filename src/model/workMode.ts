@@ -6,6 +6,13 @@ export type WorkMode = 'build' | 'analyze'
 /** What the analysis mode draws in red: the critical path, a dependency direction of the selection, or nothing. */
 export type Highlight = 'critical' | DependencyDirection | 'off'
 
+/**
+ * The tool of the build mode (mutually exclusive): `select` clicks select, `create` clicks on free
+ * space add an object, `connect` clicks pick source and target of a connection.
+ */
+export type Tool = 'select' | 'create' | 'connect'
+
+export const DEFAULT_TOOL: Tool = 'select'
 export const DEFAULT_WORK_MODE: WorkMode = 'build'
 export const DEFAULT_HIGHLIGHT: Highlight = 'critical'
 

@@ -87,6 +87,60 @@ export function CycleIcon() {
   )
 }
 
+/** Mouse pointer arrow (select tool). */
+export function CursorIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M5 3l14 7.5-6.5 2-2 6.5z" />
+    </Icon>
+  )
+}
+
+/** Box with a plus (create-object tool). */
+export function AddObjectIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <rect x="3" y="3" width="18" height="18" rx="3" />
+      <path d="M12 8v8M8 12h8" />
+    </Icon>
+  )
+}
+
+/** Two connectors joined by a line (connect tool). */
+export function ConnectIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <circle cx="5" cy="12" r="2.5" />
+      <circle cx="19" cy="12" r="2.5" />
+      <path d="M7.5 12h9" />
+    </Icon>
+  )
+}
+
+/** Three small circles joined by lines (build mode). */
+export function GraphIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <circle cx="12" cy="5.5" r="2.5" />
+      <circle cx="5.5" cy="18" r="2.5" />
+      <circle cx="18.5" cy="18" r="2.5" />
+      <path d="M10.7 7.7 6.8 15.8M13.3 7.7l3.9 8.1M8 18h8" />
+    </Icon>
+  )
+}
+
+/** Magic wand with sparkles (analysis mode, "AI"). */
+export function WandIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="m4 20 10-10" />
+      <path d="M17 3l1.1 2.9L21 7l-2.9 1.1L17 11l-1.1-2.9L13 7l2.9-1.1z" />
+      <path d="M7 4v3M5.5 5.5h3" />
+      <path d="M19 15v3M17.5 16.5h3" />
+    </Icon>
+  )
+}
+
 /** Pennant on a pole (blocked). Colour comes from `currentColor`. */
 export function FlagIcon({ size }: { size?: number }) {
   return (

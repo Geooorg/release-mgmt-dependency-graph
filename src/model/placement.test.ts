@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { getSize } from './graph'
-import { findFreePosition } from './placement'
-import { box, group } from '../test/fixtures'
+import { addNodeAtPoint, findFreePosition, placeNewNode } from './placement'
+import { box, content, counterIds, group } from '../test/fixtures'
 import { NODE_SIZE } from './types'
 import type { ModelNode, Point, Size } from './types'
 
@@ -59,5 +59,102 @@ describe('findFreePosition', () => {
     const size = { width: 400, height: 300 }
     const spot = findFreePosition([box('a', 0, 0)], { x: 0, y: 0 }, size)
     expect(overlaps(spot, size, { x: 0, y: 0 }, NODE_SIZE)).toBe(false)
+  })
+})
+
+describe('findFreePosition with a scope', () => {
+  it('ignores the listed elements as obstacles', () => {
+    const nodes = [group('g', 0, 0, 600, 400)]
+    expect(findFreePosition(nodes, { x: 100, y: 100 }, NODE_SIZE, 24, { ignoreIds: new Set(['g']) })).toEqual({
+      x: 100,
+      y: 100,
+    })
+  })
+
+  it('stays inside the bounds', () => {
+    const bounds = { left: 0, top: 0, right: 400, bottom: 300 }
+    const nodes = [group('g', 0, 0, 400, 300), box('a', 100, 100, 'g')]
+    const spot = findFreePosition(nodes, { x: 110, y: 110 }, NODE_SIZE, 24, {
+      ignoreIds: new Set(['g']),
+      bounds,
+    })
+    expect(spot.x).toBeGreaterThanOrEqual(0)
+    expect(spot.y).toBeGreaterThanOrEqual(0)
+    expect(spot.x + NODE_SIZE.width).toBeLessThanOrEqual(400)
+    expect(spot.y + NODE_SIZE.height).toBeLessThanOrEqual(300)
+    expect(overlaps(spot, NODE_SIZE, { x: 100, y: 100 }, NODE_SIZE)).toBe(false)
+  })
+
+  it('clamps the preferred spot into the bounds when nothing is free', () => {
+    const bounds = { left: 0, top: 0, right: NODE_SIZE.width + 10, bottom: NODE_SIZE.height + 10 }
+    const spot = findFreePosition([box('a', 0, 0)], { x: 500, y: -50 }, NODE_SIZE, 24, { bounds })
+    expect(spot).toEqual({ x: 10, y: 0 })
+  })
+})
+
+describe('placeNewNode', () => {
+  it('centres the object on the point outside every group', () => {
+    const placed = placeNewNode([], { x: 500, y: 300 })
+    expect(placed.parentId).toBeUndefined()
+    expect(placed.position).toEqual({
+      x: 500 - NODE_SIZE.width / 2,
+      y: 300 - NODE_SIZE.height / 2,
+    })
+  })
+
+  it('moves next to an object that is in the way', () => {
+    const nodes = [box('a', 400, 250)]
+    const placed = placeNewNode(nodes, { x: 500, y: 300 })
+    expect(placed.parentId).toBeUndefined()
+    expect(overlaps(placed.position, NODE_SIZE, { x: 400, y: 250 }, NODE_SIZE)).toBe(false)
+  })
+
+  it('joins the deepest group at the point and stays inside it', () => {
+    const nodes = [group('outer', 0, 0, 1000, 800), group('inner', 100, 100, 400, 300, 'outer')]
+    const placed = placeNewNode(nodes, { x: 300, y: 250 })
+    expect(placed.parentId).toBe('inner')
+    // absolute spot, centred on the click while it is free
+    expect(placed.position).toEqual({ x: 300 - NODE_SIZE.width / 2, y: 250 - NODE_SIZE.height / 2 })
+  })
+
+  it('avoids the members of the group and keeps inside the group near its edge', () => {
+    const nodes = [group('g', 100, 100, 400, 300), box('m', 100, 100, 'g')]
+    const placed = placeNewNode(nodes, { x: 490, y: 390 })
+    expect(placed.parentId).toBe('g')
+    expect(placed.position.x).toBeGreaterThanOrEqual(100)
+    expect(placed.position.y).toBeGreaterThanOrEqual(100)
+    expect(placed.position.x + NODE_SIZE.width).toBeLessThanOrEqual(500)
+    expect(placed.position.y + NODE_SIZE.height).toBeLessThanOrEqual(400)
+  })
+})
+
+describe('addNodeAtPoint', () => {
+  it('adds a top-level object centred on the point', () => {
+    const result = addNodeAtPoint(content([]), { x: 500, y: 300 }, counterIds())
+    expect(result.nodeId).toBe('id-1')
+    expect(result.content.nodes).toHaveLength(1)
+    expect(result.content.nodes[0].parentId).toBeUndefined()
+    expect(result.content.nodes[0].position).toEqual({
+      x: 500 - NODE_SIZE.width / 2,
+      y: 300 - NODE_SIZE.height / 2,
+    })
+  })
+
+  it('makes the object a member of the group at the point, with a position relative to it', () => {
+    const result = addNodeAtPoint(content([group('g', 100, 200, 600, 400)]), { x: 400, y: 400 }, counterIds())
+    const added = result.content.nodes.find((n) => n.id === result.nodeId)
+    expect(added?.parentId).toBe('g')
+    expect(added?.position).toEqual({
+      x: 400 - NODE_SIZE.width / 2 - 100,
+      y: 400 - NODE_SIZE.height / 2 - 200,
+    })
+  })
+
+  it('keeps the edges and does not mutate the input', () => {
+    const input = content([box('a', 0, 0), box('b', 300, 0)], [{ id: 'e', source: 'a', target: 'b' }])
+    const frozen = JSON.stringify(input)
+    const result = addNodeAtPoint(input, { x: 1000, y: 1000 }, counterIds())
+    expect(result.content.edges).toBe(input.edges)
+    expect(JSON.stringify(input)).toBe(frozen)
   })
 })

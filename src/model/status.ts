@@ -1,3 +1,4 @@
+import { COLOR_KEY, NAME_KEY } from './types'
 import type { MetadataEntry } from './types'
 
 /** Optional metadata field holding the release status of an object. */
@@ -44,4 +45,17 @@ export function getStatusInfo(entries: readonly MetadataEntry[]): StatusInfo {
 /** The element's status; a missing or unknown value counts as `offen`. */
 export function getStatus(entries: readonly MetadataEntry[]): Status {
   return getStatusInfo(entries).status
+}
+
+/**
+ * The entries with the status set. The first status entry is replaced in place and its key written
+ * canonically (`status`); without one, the entry goes right after `name` and `color`. Not normalized.
+ */
+export function withStatusEntry(entries: readonly MetadataEntry[], status: Status): MetadataEntry[] {
+  const entry = { key: STATUS_KEY, value: status }
+  const index = entries.findIndex((e) => isStatusKey(e.key))
+  if (index >= 0) return entries.map((e, i) => (i === index ? entry : e))
+  let at = 0
+  while (at < entries.length && (entries[at].key === NAME_KEY || entries[at].key === COLOR_KEY)) at += 1
+  return [...entries.slice(0, at), entry, ...entries.slice(at)]
 }

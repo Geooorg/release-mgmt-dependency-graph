@@ -2,18 +2,27 @@
   display: grid;
   grid-template-rows: var(--toolbar-height) minmax(0, 1fr);
   height: 100%;
-  background: var(--gray-50);
+  background: var(--gray-100);
 }
 
+/* Grey work area: the canvas, the sidebar and the analysis panel are cards on it. */
 .workspace {
   display: flex;
+  gap: 12px;
   min-height: 0;
+  padding: 12px;
+  background: var(--gray-100);
 }
 
 .canvas {
   position: relative;
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--gray-300);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(17 24 39 / 0.08);
 }
 
 .banner-host {
@@ -23,4 +32,12 @@
   transform: translateX(-50%);
   z-index: 10;
   max-width: min(640px, calc(100% - 32px));
+}
+
+/* Narrow windows: sidebar and analysis panel float over the canvas (below the toolbar) instead of narrowing it. */
+@media (max-width: 719px) {
+  .workspace {
+    position: relative;
+    padding: 8px;
+  }
 }

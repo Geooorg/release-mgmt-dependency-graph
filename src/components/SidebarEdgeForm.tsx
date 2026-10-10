@@ -1,30 +1,57 @@
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { SidebarElement, SidebarProps } from './props'
-import { useReportDirty } from './useReportDirty'
+import { useEditGesture } from './useSidebarEffects'
 import './components.css'
 
 export const LABEL_KEY = 'label'
 
-type SidebarEdgeFormProps = Omit<SidebarProps, 'element'> & { element: SidebarElement }
+type SidebarEdgeFormProps = Omit<SidebarProps, 'element' | 'selectionCount'> & {
+  element: SidebarElement
+}
 
-/** Sidebar content for an edge: the read-only UUID and a single "Label" field. */
-export function SidebarEdgeForm({ element, onSave, onClose, onDirtyChange }: SidebarEdgeFormProps) {
+const labelOf = (element: SidebarElement) =>
+  element.metadata.find((entry) => entry.key === LABEL_KEY)?.value ?? ''
+
+/**
+ * Sidebar content for an edge: the read-only UUID and a single "Label" field. The label is applied
+ * (trimmed) with every keystroke; the draft keeps what was typed until the label changes from outside.
+ */
+export function SidebarEdgeForm({
+  element,
+  onChange,
+  onEditStart,
+  onEditEnd,
+  onClose,
+}: SidebarEdgeFormProps) {
   const formId = useId()
-  const initial = element.metadata.find((entry) => entry.key === LABEL_KEY)?.value ?? ''
-  const [baseline, setBaseline] = useState(initial)
-  const [label, setLabel] = useState(initial)
-  const [saved, setSaved] = useState(false)
-  const dirty = label !== baseline
-  useReportDirty(dirty, onDirtyChange)
+  const [received, setReceived] = useState(element.metadata)
+  const [applied, setApplied] = useState(() => labelOf(element).trim())
+  const [label, setLabel] = useState(() => labelOf(element))
+  const gesture = useEditGesture(onEditStart, onEditEnd)
 
+  if (received !== element.metadata) {
+    setReceived(element.metadata)
+    const incoming = labelOf(element).trim()
+    // Our own change coming back equals `applied`; anything else changed from outside.
+    if (incoming !== applied) {
+      setApplied(incoming)
+      setLabel(labelOf(element))
+    }
+  }
+
+  function edit(next: string) {
+    setLabel(next)
+    const trimmed = next.trim()
+    if (trimmed === applied) return
+    gesture.start()
+    setApplied(trimmed)
+    onChange([{ key: LABEL_KEY, value: trimmed }])
+  }
+
+  // A form with a single field would otherwise reload the page on Enter.
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const trimmed = label.trim()
-    onSave([{ key: LABEL_KEY, value: trimmed }])
-    setLabel(trimmed)
-    setBaseline(trimmed)
-    setSaved(true)
   }
 
   return (
@@ -63,24 +90,9 @@ export function SidebarEdgeForm({ element, onSave, onClose, onDirtyChange }: Sid
           id={`${formId}-label`}
           className="ui-input"
           value={label}
-          autoFocus
-          onChange={(event) => {
-            setLabel(event.target.value)
-            setSaved(false)
-          }}
+          onChange={(event) => edit(event.target.value)}
+          onBlur={gesture.end}
         />
-      </div>
-
-      <div className="sidebar__footer">
-        {dirty && <p className="sidebar__hint">Ungespeicherte Änderungen</p>}
-        {saved && (
-          <p className="sidebar__saved" role="status">
-            Gespeichert
-          </p>
-        )}
-        <button type="submit" className="ui-button">
-          Save
-        </button>
       </div>
     </form>
   )

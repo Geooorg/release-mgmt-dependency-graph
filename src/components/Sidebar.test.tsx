@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useEffect, useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import type { MetadataEntry } from '../model/types'
 import { Sidebar } from './Sidebar'
@@ -52,11 +53,44 @@ function makeElement(overrides: Partial<SidebarElement> = {}): SidebarElement {
 function makeProps(overrides: Partial<SidebarProps> = {}): SidebarProps {
   return {
     element: makeElement(),
-    onSave: vi.fn(),
+    selectionCount: 1,
+    onChange: vi.fn(),
+    onEditStart: vi.fn(),
+    onEditEnd: vi.fn(),
     onClose: vi.fn(),
-    onDirtyChange: vi.fn(),
+    onInvalidChange: vi.fn(),
     ...overrides,
   }
+}
+
+/** Plays the owner: keeps the metadata it was told about, like the store does, and lets a test change it from outside. */
+function renderControlled(
+  initial: MetadataEntry[],
+  overrides: Partial<SidebarProps> = {},
+  kind: SidebarElement['kind'] = 'node',
+) {
+  const controls: { setMetadata: (metadata: MetadataEntry[]) => void } = { setMetadata: () => {} }
+  const onChange = vi.fn()
+  function Owner() {
+    const [metadata, setMetadata] = useState(initial)
+    useEffect(() => {
+      controls.setMetadata = setMetadata
+    }, [])
+    return (
+      <Sidebar
+        {...makeProps({
+          ...overrides,
+          element: makeElement({ kind, metadata }),
+          onChange: (next) => {
+            onChange(next)
+            setMetadata(next)
+          },
+        })}
+      />
+    )
+  }
+  render(<Owner />)
+  return { onChange, setMetadata: (metadata: MetadataEntry[]) => act(() => controls.setMetadata(metadata)) }
 }
 
 function keyInputs(): HTMLInputElement[] {
@@ -68,10 +102,23 @@ function valueInputs(): HTMLInputElement[] {
 }
 
 describe('Sidebar', () => {
-  it('renders nothing when there is no element', () => {
-    const { container } = render(<Sidebar {...makeProps({ element: null })} />)
-
+  it('renders nothing when there is no element and fewer than two are selected', () => {
+    const { container, rerender } = render(<Sidebar {...makeProps({ element: null, selectionCount: 0 })} />)
     expect(container).toBeEmptyDOMElement()
+
+    rerender(<Sidebar {...makeProps({ element: null, selectionCount: 1 })} />)
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('shows a hint instead of a form when several elements are selected', async () => {
+    const props = makeProps({ element: null, selectionCount: 3 })
+    render(<Sidebar {...props} />)
+
+    expect(screen.getByText('3 Elemente markiert – zum Bearbeiten genau eines auswählen.')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('UUID')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Schließen' }))
+    expect(props.onClose).toHaveBeenCalledTimes(1)
   })
 
   it('shows a labelled aside with the heading for the element kind', () => {
@@ -81,6 +128,15 @@ describe('Sidebar', () => {
 
     rerender(<Sidebar {...makeProps({ element: makeElement({ kind: 'group' }) })} />)
     expect(screen.getByRole('heading', { name: 'Gruppe' })).toBeInTheDocument()
+  })
+
+  it('has no Save button and no unsaved/saved messages: everything is applied right away', async () => {
+    render(<Sidebar {...makeProps()} />)
+
+    await userEvent.type(screen.getByLabelText('Name'), '!')
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Ungespeicherte Änderungen')).not.toBeInTheDocument()
+    expect(screen.queryByText('Gespeichert')).not.toBeInTheDocument()
   })
 
   it('shows the UUID as a disabled, read-only field', () => {
@@ -109,7 +165,6 @@ describe('Sidebar', () => {
 
     expect(screen.getByLabelText('Name')).toHaveValue('')
     expect(keyInputs()).toHaveLength(0)
-    expect(screen.queryByText('Ungespeicherte Änderungen')).not.toBeInTheDocument()
   })
 
   it('calls onClose from the close button', async () => {
@@ -124,215 +179,364 @@ describe('Sidebar', () => {
     expect(props.onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('appends an empty row and focuses its key input', async () => {
-    const user = userEvent.setup()
+  it('does not take the focus when it opens', () => {
     render(<Sidebar {...makeProps()} />)
+    expect(document.body).toHaveFocus()
 
-    await user.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
-
-    expect(keyInputs()).toHaveLength(2)
-    expect(keyInputs()[1]).toHaveValue('')
-    expect(valueInputs()[1]).toHaveValue('')
-    expect(keyInputs()[1]).toHaveFocus()
+    render(<Sidebar {...makeProps({ element: { id: ID_B, kind: 'edge', metadata: [{ key: 'label', value: '' }] } })} />)
+    expect(screen.getByLabelText('Label')).not.toHaveFocus()
   })
 
-  it('removes a row', async () => {
-    const user = userEvent.setup()
-    render(<Sidebar {...makeProps()} />)
+  describe('live changes', () => {
+    it('applies every change right away, normalized', async () => {
+      const user = userEvent.setup()
+      const { onChange } = renderControlled([
+        { key: 'name', value: 'Projekt A' },
+        { key: 'owner', value: 'Team 1' },
+      ])
 
-    await user.click(screen.getByRole('button', { name: 'Feld entfernen' }))
+      await user.type(screen.getByLabelText('Name'), 'x')
+      expect(onChange).toHaveBeenLastCalledWith([
+        { key: 'name', value: 'Projekt Ax' },
+        { key: 'owner', value: 'Team 1' },
+      ])
 
-    expect(keyInputs()).toHaveLength(0)
-    expect(screen.getByText('Ungespeicherte Änderungen')).toBeInTheDocument()
+      await user.clear(valueInputs()[0])
+      await user.type(valueInputs()[0], '  Team 2 ')
+      expect(onChange).toHaveBeenLastCalledWith([
+        { key: 'name', value: 'Projekt Ax' },
+        { key: 'owner', value: 'Team 2' },
+      ])
+    })
+
+    it('keeps typed trailing and leading spaces in the field while the model holds the trimmed text', async () => {
+      const user = userEvent.setup()
+      const { onChange } = renderControlled([{ key: 'name', value: 'A' }])
+
+      await user.type(screen.getByLabelText('Name'), ' B ')
+      expect(screen.getByLabelText('Name')).toHaveValue('A B ')
+      expect(onChange).toHaveBeenLastCalledWith([{ key: 'name', value: 'A B' }])
+
+      await user.clear(screen.getByLabelText('Name'))
+      await user.type(screen.getByLabelText('Name'), '  x')
+      expect(screen.getByLabelText('Name')).toHaveValue('  x')
+      expect(onChange).toHaveBeenLastCalledWith([{ key: 'name', value: 'x' }])
+    })
+
+    it('keeps the cursor where it is when typing in the middle of the text', async () => {
+      const user = userEvent.setup()
+      renderControlled([{ key: 'name', value: 'AB' }])
+
+      const name = screen.getByLabelText<HTMLInputElement>('Name')
+      await user.click(name)
+      name.setSelectionRange(1, 1)
+      await user.keyboard('x ')
+
+      expect(name).toHaveValue('Ax B')
+    })
+
+    it('adds an empty row without touching the model, and the row stays while it is being filled in', async () => {
+      const user = userEvent.setup()
+      const { onChange } = renderControlled([{ key: 'name', value: 'A' }])
+
+      await user.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
+      expect(keyInputs()).toHaveLength(1)
+      expect(keyInputs()[0]).toHaveFocus()
+      expect(onChange).not.toHaveBeenCalled()
+
+      await user.type(valueInputs()[0], 'prod') // key still empty: nothing to store yet
+      expect(onChange).not.toHaveBeenCalled()
+      expect(keyInputs()).toHaveLength(1)
+
+      await user.type(keyInputs()[0], '  stage ')
+      expect(keyInputs()[0]).toHaveValue('  stage ')
+      expect(onChange).toHaveBeenLastCalledWith([
+        { key: 'name', value: 'A' },
+        { key: 'stage', value: 'prod' },
+      ])
+    })
+
+    it('keeps a row whose key was cleared in the form but leaves it out of the model', async () => {
+      const user = userEvent.setup()
+      const { onChange } = renderControlled([
+        { key: 'name', value: 'A' },
+        { key: 'owner', value: 'T' },
+      ])
+
+      await user.clear(keyInputs()[0])
+      expect(keyInputs()).toHaveLength(1)
+      expect(onChange).toHaveBeenLastCalledWith([{ key: 'name', value: 'A' }])
+    })
+
+    it('removes a row', async () => {
+      const user = userEvent.setup()
+      const { onChange } = renderControlled([
+        { key: 'name', value: 'A' },
+        { key: 'owner', value: 'T' },
+      ])
+
+      await user.click(screen.getByRole('button', { name: 'Feld entfernen' }))
+
+      expect(keyInputs()).toHaveLength(0)
+      expect(onChange).toHaveBeenCalledWith([{ key: 'name', value: 'A' }])
+    })
+
+    it('does not report a change when nothing differs from what the model holds', async () => {
+      const user = userEvent.setup()
+      const props = makeProps()
+      render(<Sidebar {...props} />)
+
+      await user.type(screen.getByLabelText('Name'), ' ') // only a trailing space
+      await user.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
+
+      expect(props.onChange).not.toHaveBeenCalled()
+      expect(props.onEditStart).not.toHaveBeenCalled()
+    })
+
+    it('resets the draft when a different element is opened', async () => {
+      const user = userEvent.setup()
+      const { rerender } = render(<Sidebar {...makeProps()} />)
+
+      await user.type(screen.getByLabelText('Name'), ' geändert')
+      rerender(
+        <Sidebar
+          {...makeProps({
+            element: makeElement({
+              id: ID_B,
+              kind: 'group',
+              metadata: [
+                { key: 'name', value: 'Gruppe B' },
+                { key: 'a', value: '1' },
+                { key: 'b', value: '2' },
+              ],
+            }),
+          })}
+        />,
+      )
+
+      expect(screen.getByLabelText('UUID')).toHaveValue(ID_B)
+      expect(screen.getByLabelText('Name')).toHaveValue('Gruppe B')
+      expect(keyInputs().map((input) => input.value)).toEqual(['a', 'b'])
+      expect(valueInputs().map((input) => input.value)).toEqual(['1', '2'])
+    })
+
+    it('keeps the draft when the owner delivers a new array with the metadata it already holds', async () => {
+      const user = userEvent.setup()
+      const { setMetadata } = renderControlled([{ key: 'name', value: 'A' }])
+
+      await user.type(screen.getByLabelText('Name'), 'B ')
+      setMetadata([{ key: 'name', value: 'AB' }])
+
+      expect(screen.getByLabelText('Name')).toHaveValue('AB ')
+    })
+
+    it('adopts metadata that changed from outside (undo, import) but not its own echo', async () => {
+      const user = userEvent.setup()
+      const { onChange, setMetadata } = renderControlled([{ key: 'name', value: 'A' }])
+
+      await user.type(screen.getByLabelText('Name'), 'B ')
+      expect(screen.getByLabelText('Name')).toHaveValue('AB ') // echo of "AB" did not touch the draft
+
+      // Undo from the toolbar: the model goes back, the form follows.
+      setMetadata([{ key: 'name', value: 'A' }])
+      expect(screen.getByLabelText('Name')).toHaveValue('A')
+
+      // Redo / import with more fields.
+      setMetadata([
+        { key: 'name', value: 'Neu' },
+        { key: 'owner', value: 'T' },
+      ])
+      expect(screen.getByLabelText('Name')).toHaveValue('Neu')
+      expect(keyInputs().map((input) => input.value)).toEqual(['owner'])
+
+      // After adopting, typing applies again.
+      await user.type(screen.getByLabelText('Name'), '!')
+      expect(onChange).toHaveBeenLastCalledWith([
+        { key: 'name', value: 'Neu!' },
+        { key: 'owner', value: 'T' },
+      ])
+    })
+
+    it('adopts an outside change that happens to equal an earlier state of the draft', async () => {
+      const user = userEvent.setup()
+      const { setMetadata } = renderControlled([{ key: 'name', value: 'A' }])
+
+      await user.type(screen.getByLabelText('Name'), 'B')
+      setMetadata([{ key: 'name', value: 'A' }])
+      expect(screen.getByLabelText('Name')).toHaveValue('A')
+    })
   })
 
-  it('saves normalized metadata and re-syncs the draft from it', async () => {
-    const user = userEvent.setup()
-    const onSave = vi.fn()
-    render(<Sidebar {...makeProps({ onSave })} />)
+  describe('invalid drafts', () => {
+    it('shows duplicate keys right away and does not apply them', async () => {
+      const user = userEvent.setup()
+      const props = makeProps()
+      render(<Sidebar {...props} />)
 
-    await user.clear(screen.getByLabelText('Name'))
-    await user.type(screen.getByLabelText('Name'), '  Neu  ')
-    await user.type(valueInputs()[0], '  ')
-    await user.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
-    await user.type(keyInputs()[1], '  stage ')
-    await user.type(valueInputs()[1], ' prod ')
-    await user.click(screen.getByRole('button', { name: 'Feld hinzufügen' })) // empty row, ignored on save
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+      await user.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
+      await user.type(keyInputs()[1], ' owne')
+      await user.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
+      await user.type(keyInputs()[2], 'nam')
+      vi.mocked(props.onChange).mockClear()
+      await user.type(keyInputs()[1], 'r')
+      await user.type(keyInputs()[2], 'e')
 
-    const expected: MetadataEntry[] = [
-      { key: 'name', value: 'Neu' },
-      { key: 'owner', value: 'Team 1' },
-      { key: 'stage', value: 'prod' },
-    ]
-    expect(onSave).toHaveBeenCalledTimes(1)
-    expect(onSave).toHaveBeenCalledWith(expected)
+      expect(screen.getByRole('alert')).toHaveTextContent('Doppelte Feldnamen: owner, name')
+      expect(props.onChange).not.toHaveBeenCalled()
+      expect(props.onInvalidChange).toHaveBeenLastCalledWith(true)
+    })
 
-    // Draft was re-synced: the empty row vanished and values show up trimmed.
-    expect(screen.getByLabelText('Name')).toHaveValue('Neu')
-    expect(keyInputs().map((input) => input.value)).toEqual(['owner', 'stage'])
-    expect(valueInputs().map((input) => input.value)).toEqual(['Team 1', 'prod'])
+    it('keeps the last valid state in the model, then applies again once the duplicate is fixed', async () => {
+      const user = userEvent.setup()
+      const { onChange } = renderControlled([
+        { key: 'name', value: 'A' },
+        { key: 'owner', value: 'T' },
+      ])
+
+      await user.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
+      await user.type(keyInputs()[1], 'owne')
+      expect(onChange).toHaveBeenLastCalledWith([
+        { key: 'name', value: 'A' },
+        { key: 'owner', value: 'T' },
+        { key: 'owne', value: '' },
+      ])
+      onChange.mockClear()
+
+      await user.type(keyInputs()[1], 'r')
+      expect(screen.getByRole('alert')).toHaveTextContent('Doppelte Feldnamen: owner')
+      expect(onChange).not.toHaveBeenCalled()
+
+      await user.type(keyInputs()[1], '2')
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(onChange).toHaveBeenLastCalledWith([
+        { key: 'name', value: 'A' },
+        { key: 'owner', value: 'T' },
+        { key: 'owner2', value: '' },
+      ])
+    })
+
+    it('reports invalid and valid again, and valid when the form goes away', async () => {
+      const user = userEvent.setup()
+      const onInvalidChange = vi.fn()
+      const { rerender } = render(<Sidebar {...makeProps({ onInvalidChange })} />)
+      expect(onInvalidChange).toHaveBeenLastCalledWith(false)
+
+      await user.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
+      await user.type(keyInputs()[1], 'owner')
+      expect(onInvalidChange).toHaveBeenLastCalledWith(true)
+      await user.type(keyInputs()[1], '2')
+      expect(onInvalidChange).toHaveBeenLastCalledWith(false)
+
+      await user.clear(keyInputs()[1])
+      await user.type(keyInputs()[1], 'owner')
+      expect(onInvalidChange).toHaveBeenLastCalledWith(true)
+      rerender(<Sidebar {...makeProps({ onInvalidChange, element: null, selectionCount: 0 })} />)
+      expect(onInvalidChange).toHaveBeenLastCalledWith(false)
+    })
+
+    it('reports valid when another element is opened', async () => {
+      const user = userEvent.setup()
+      const onInvalidChange = vi.fn()
+      const { rerender } = render(<Sidebar {...makeProps({ onInvalidChange })} />)
+      await user.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
+      await user.type(keyInputs()[1], 'owner')
+      expect(onInvalidChange).toHaveBeenLastCalledWith(true)
+
+      rerender(<Sidebar {...makeProps({ onInvalidChange, element: makeElement({ id: ID_B }) })} />)
+      expect(onInvalidChange).toHaveBeenLastCalledWith(false)
+    })
+
+    it('a free row called "color" next to a colour is a duplicate', async () => {
+      const onChange = vi.fn()
+      render(<Sidebar {...makeProps({ onChange })} />)
+
+      fireEvent.input(screen.getByLabelText(/Farbe/), { target: { value: '#dc2626' } })
+      expect(onChange).toHaveBeenCalledTimes(1)
+      await userEvent.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
+      await userEvent.type(keyInputs().at(-1)!, 'colo')
+      onChange.mockClear()
+      await userEvent.type(keyInputs().at(-1)!, 'r')
+
+      expect(onChange).not.toHaveBeenCalled()
+      expect(screen.getByRole('alert')).toHaveTextContent('Doppelte Feldnamen: color')
+    })
   })
 
-  it('submits with Enter from an input and keeps that input focused', async () => {
-    const user = userEvent.setup()
-    const onSave = vi.fn()
-    render(<Sidebar {...makeProps({ onSave })} />)
+  describe('one undo step per edit', () => {
+    it('starts an edit with the first change and ends it when the field is left', async () => {
+      const user = userEvent.setup()
+      const props = makeProps()
+      render(<Sidebar {...props} />)
 
-    await user.type(valueInputs()[0], ' 2')
-    await user.keyboard('{Enter}')
+      await user.click(screen.getByLabelText('Name'))
+      expect(props.onEditStart).not.toHaveBeenCalled() // focusing alone is no edit
+      await user.keyboard('abc')
+      expect(props.onChange).toHaveBeenCalledTimes(3)
+      expect(props.onEditStart).toHaveBeenCalled()
+      expect(props.onEditEnd).not.toHaveBeenCalled()
 
-    expect(onSave).toHaveBeenCalledWith([
-      { key: 'name', value: 'Projekt A' },
-      { key: 'owner', value: 'Team 1 2' },
-    ])
-    expect(valueInputs()[0]).toHaveFocus()
-  })
+      await user.tab()
+      expect(props.onEditEnd).toHaveBeenCalledTimes(1)
+    })
 
-  it('shows duplicate keys and does not save', async () => {
-    const user = userEvent.setup()
-    const onSave = vi.fn()
-    render(<Sidebar {...makeProps({ onSave })} />)
+    it('every field edit has its own start and end', async () => {
+      const user = userEvent.setup()
+      const props = makeProps()
+      render(<Sidebar {...props} />)
 
-    await user.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
-    await user.type(keyInputs()[1], ' owner')
-    await user.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
-    await user.type(keyInputs()[2], 'name')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+      await user.type(screen.getByLabelText('Name'), 'a')
+      await user.type(valueInputs()[0], 'b')
+      await user.tab()
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Doppelte Feldnamen: owner, name')
-    expect(onSave).not.toHaveBeenCalled()
-    expect(screen.queryByText('Gespeichert')).not.toBeInTheDocument()
-  })
+      expect(props.onEditEnd).toHaveBeenCalledTimes(2)
+    })
 
-  it('clears the duplicate alert once the duplicates are fixed and then saves', async () => {
-    const user = userEvent.setup()
-    const onSave = vi.fn()
-    render(<Sidebar {...makeProps({ onSave })} />)
+    it('ends the edit when the form goes away mid-edit (another element, closed sidebar)', async () => {
+      const user = userEvent.setup()
+      const props = makeProps()
+      const { rerender } = render(<Sidebar {...props} />)
 
-    await user.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
-    await user.type(keyInputs()[1], 'owner')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
-    expect(screen.getByRole('alert')).toHaveTextContent('Doppelte Feldnamen: owner')
+      await user.type(screen.getByLabelText('Name'), 'a')
+      expect(props.onEditEnd).not.toHaveBeenCalled()
+      rerender(<Sidebar {...props} element={makeElement({ id: ID_B })} />)
+      expect(props.onEditEnd).toHaveBeenCalledTimes(1)
 
-    await user.type(keyInputs()[1], '2')
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      await user.type(screen.getByLabelText('Name'), 'b')
+      rerender(<Sidebar {...props} element={null} selectionCount={0} />)
+      expect(props.onEditEnd).toHaveBeenCalledTimes(2)
+    })
 
-    await user.click(screen.getByRole('button', { name: 'Save' }))
-    expect(onSave).toHaveBeenCalledTimes(1)
-  })
+    it('does not end an edit it never started', () => {
+      const props = makeProps()
+      const { unmount } = render(<Sidebar {...props} />)
+      unmount()
+      expect(props.onEditEnd).not.toHaveBeenCalled()
+    })
 
-  it('reports unsaved changes until saved, then confirms until the next edit', async () => {
-    const user = userEvent.setup()
-    render(<Sidebar {...makeProps()} />)
+    it('a row removal is a step of its own: an open edit ends first', async () => {
+      const props = makeProps()
+      render(<Sidebar {...props} />)
 
-    expect(screen.queryByText('Ungespeicherte Änderungen')).not.toBeInTheDocument()
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+      fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'x' } }) // edit without a blur
+      expect(props.onEditEnd).not.toHaveBeenCalled()
+      fireEvent.click(screen.getByRole('button', { name: 'Feld entfernen' }))
 
-    await user.type(screen.getByLabelText('Name'), '!')
-    expect(screen.getByText('Ungespeicherte Änderungen')).toBeInTheDocument()
+      expect(props.onEditEnd).toHaveBeenCalledTimes(1)
+      expect(vi.mocked(props.onChange).mock.invocationCallOrder[1]).toBeGreaterThan(
+        vi.mocked(props.onEditEnd).mock.invocationCallOrder[0],
+      )
+    })
 
-    await user.click(screen.getByRole('button', { name: 'Save' }))
-    expect(screen.queryByText('Ungespeicherte Änderungen')).not.toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('Gespeichert')
+    it('starts a new edit on the next keystroke even if the owner ended the previous one meanwhile', async () => {
+      const user = userEvent.setup()
+      const props = makeProps()
+      render(<Sidebar {...props} />)
 
-    await user.type(screen.getByLabelText('Name'), '?')
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
-    expect(screen.getByText('Ungespeicherte Änderungen')).toBeInTheDocument()
-  })
-
-  it('no longer reports changes after the edit is reverted', async () => {
-    const user = userEvent.setup()
-    render(<Sidebar {...makeProps()} />)
-
-    await user.type(screen.getByLabelText('Name'), 'x')
-    await user.type(screen.getByLabelText('Name'), '{Backspace}')
-
-    expect(screen.queryByText('Ungespeicherte Änderungen')).not.toBeInTheDocument()
-  })
-
-  it('resets the draft when a different element is opened', async () => {
-    const user = userEvent.setup()
-    const { rerender } = render(<Sidebar {...makeProps()} />)
-
-    await user.type(screen.getByLabelText('Name'), ' geändert')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
-    expect(screen.getByRole('status')).toBeInTheDocument()
-    await user.type(valueInputs()[0], ' ungespeichert')
-
-    rerender(
-      <Sidebar
-        {...makeProps({
-          element: makeElement({
-            id: ID_B,
-            kind: 'group',
-            metadata: [
-              { key: 'name', value: 'Gruppe B' },
-              { key: 'a', value: '1' },
-              { key: 'b', value: '2' },
-            ],
-          }),
-        })}
-      />,
-    )
-
-    expect(screen.getByLabelText('UUID')).toHaveValue(ID_B)
-    expect(screen.getByLabelText('Name')).toHaveValue('Gruppe B')
-    expect(keyInputs().map((input) => input.value)).toEqual(['a', 'b'])
-    expect(valueInputs().map((input) => input.value)).toEqual(['1', '2'])
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
-    expect(screen.queryByText('Ungespeicherte Änderungen')).not.toBeInTheDocument()
-  })
-
-  it('keeps the draft when the same element is re-rendered with equal metadata', async () => {
-    const user = userEvent.setup()
-    const { rerender } = render(<Sidebar {...makeProps()} />)
-
-    await user.type(screen.getByLabelText('Name'), ' lokal')
-    rerender(<Sidebar {...makeProps({ element: makeElement() })} />)
-
-    expect(screen.getByLabelText('Name')).toHaveValue('Projekt A lokal')
-    expect(screen.getByText('Ungespeicherte Änderungen')).toBeInTheDocument()
-  })
-
-  it('stays clean when the parent echoes the saved metadata back', async () => {
-    const user = userEvent.setup()
-    const onSave = vi.fn()
-    const { rerender } = render(<Sidebar {...makeProps({ onSave })} />)
-
-    await user.type(screen.getByLabelText('Name'), ' neu')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
-    const saved = onSave.mock.calls[0][0] as MetadataEntry[]
-    rerender(<Sidebar {...makeProps({ onSave, element: makeElement({ metadata: saved }) })} />)
-
-    expect(screen.getByLabelText('Name')).toHaveValue('Projekt A neu')
-    expect(screen.queryByText('Ungespeicherte Änderungen')).not.toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('Gespeichert')
-  })
-
-  it('adopts metadata that changed elsewhere for the same element', async () => {
-    const user = userEvent.setup()
-    const { rerender } = render(<Sidebar {...makeProps()} />)
-
-    await user.type(screen.getByLabelText('Name'), ' lokal')
-    rerender(
-      <Sidebar
-        {...makeProps({
-          element: makeElement({ metadata: [{ key: 'name', value: 'Extern' }] }),
-        })}
-      />,
-    )
-
-    expect(screen.getByLabelText('Name')).toHaveValue('Extern')
-    expect(keyInputs()).toHaveLength(0)
-    expect(screen.queryByText('Ungespeicherte Änderungen')).not.toBeInTheDocument()
-  })
-
-  it('renders the form inside the aside', () => {
-    render(<Sidebar {...makeProps()} />)
-
-    const aside = screen.getByRole('complementary', { name: 'Metadaten' })
-    expect(within(aside).getByRole('button', { name: 'Save' })).toHaveAttribute('type', 'submit')
+      await user.type(screen.getByLabelText('Name'), 'a')
+      const starts = vi.mocked(props.onEditStart).mock.calls.length
+      await user.keyboard('b') // same focus, e.g. after an undo from the toolbar
+      expect(vi.mocked(props.onEditStart).mock.calls.length).toBe(starts + 1)
+    })
   })
 
   describe('read-only UUID', () => {
@@ -374,26 +578,29 @@ describe('Sidebar', () => {
       expect(keyInputs()).toHaveLength(0) // not duplicated as a free-form row
     })
 
-    it('saves a chosen colour right after the name', async () => {
-      const onSave = vi.fn()
-      render(<Sidebar {...makeProps({ onSave })} />)
+    it('applies a chosen colour right after the name, as one edit until the picker loses focus', () => {
+      const props = makeProps()
+      render(<Sidebar {...props} />)
 
       fireEvent.input(colorInput(), { target: { value: '#dc2626' } })
-      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-
-      expect(onSave).toHaveBeenCalledWith([
+      expect(props.onChange).toHaveBeenCalledWith([
         { key: 'name', value: 'Projekt A' },
         { key: 'color', value: '#dc2626' },
         { key: 'owner', value: 'Team 1' },
       ])
+      fireEvent.input(colorInput(), { target: { value: '#16a34a' } })
+      expect(props.onChange).toHaveBeenCalledTimes(2)
+      expect(props.onEditEnd).not.toHaveBeenCalled()
+      fireEvent.blur(colorInput())
+      expect(props.onEditEnd).toHaveBeenCalledTimes(1)
     })
 
     it('resets to the default by removing the field entirely', async () => {
-      const onSave = vi.fn()
+      const onChange = vi.fn()
       render(
         <Sidebar
           {...makeProps({
-            onSave,
+            onChange,
             element: makeElement({
               metadata: [
                 { key: 'name', value: 'A' },
@@ -405,17 +612,17 @@ describe('Sidebar', () => {
       )
 
       await userEvent.click(screen.getByRole('button', { name: 'Zurücksetzen' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-      expect(onSave).toHaveBeenCalledWith([{ key: 'name', value: 'A' }])
+      expect(onChange).toHaveBeenCalledWith([{ key: 'name', value: 'A' }])
+      expect(screen.getByText('Standard')).toBeInTheDocument()
     })
 
-    it('treats an unusable stored colour as not set', async () => {
-      const onSave = vi.fn()
+    it('treats an unusable stored colour as not set and drops it with the next edit', async () => {
+      const onChange = vi.fn()
       render(
         <Sidebar
           {...makeProps({
-            onSave,
+            onChange,
             element: makeElement({
               metadata: [
                 { key: 'name', value: 'A' },
@@ -427,21 +634,9 @@ describe('Sidebar', () => {
       )
 
       expect(screen.getByText('Standard')).toBeInTheDocument()
-      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-      expect(onSave).toHaveBeenCalledWith([{ key: 'name', value: 'A' }])
-    })
-
-    it('rejects a free-form row that is also called "color"', async () => {
-      const onSave = vi.fn()
-      render(<Sidebar {...makeProps({ onSave })} />)
-
-      fireEvent.input(colorInput(), { target: { value: '#dc2626' } })
-      await userEvent.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
-      await userEvent.type(keyInputs().at(-1)!, 'color')
-      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-
-      expect(onSave).not.toHaveBeenCalled()
-      expect(screen.getByRole('alert')).toHaveTextContent('Doppelte Feldnamen: color')
+      expect(onChange).not.toHaveBeenCalled()
+      await userEvent.type(screen.getByLabelText('Name'), 'x')
+      expect(onChange).toHaveBeenLastCalledWith([{ key: 'name', value: 'Ax' }])
     })
   })
 
@@ -464,11 +659,11 @@ describe('Sidebar', () => {
     })
 
     it('does not write a status entry as long as it is untouched', async () => {
-      const onSave = vi.fn()
-      render(<Sidebar {...makeProps({ onSave })} />)
+      const onChange = vi.fn()
+      render(<Sidebar {...makeProps({ onChange })} />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-      expect(onSave.mock.calls[0][0]).not.toContainEqual(expect.objectContaining({ key: 'status' }))
+      await userEvent.type(screen.getByLabelText('Name'), 'x')
+      expect(onChange.mock.calls[0][0]).not.toContainEqual(expect.objectContaining({ key: 'status' }))
     })
 
     it('shows the stored status, not as a free-form row', () => {
@@ -478,25 +673,26 @@ describe('Sidebar', () => {
       expect(keyInputs()).toHaveLength(0)
     })
 
-    it('saves the chosen status after name and colour', async () => {
-      const onSave = vi.fn()
-      render(<Sidebar {...makeProps({ onSave })} />)
+    it('applies the chosen status at once, after name and colour, as a step of its own', async () => {
+      const props = makeProps()
+      render(<Sidebar {...props} />)
 
       fireEvent.input(screen.getByLabelText(/Farbe/), { target: { value: '#dc2626' } })
       await userEvent.selectOptions(statusSelect(), 'in Arbeit')
-      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-      expect(onSave).toHaveBeenCalledWith([
+      expect(props.onChange).toHaveBeenLastCalledWith([
         { key: 'name', value: 'Projekt A' },
         { key: 'color', value: '#dc2626' },
         { key: 'status', value: 'in Arbeit' },
         { key: 'owner', value: 'Team 1' },
       ])
+      // The colour edit was still open: the status choice ended it first.
+      expect(props.onEditEnd).toHaveBeenCalledTimes(1)
     })
 
     it('keeps an unknown imported value as an extra option and does not change it', async () => {
-      const onSave = vi.fn()
-      render(<Sidebar {...makeProps({ onSave, element: withStatus('bald') })} />)
+      const onChange = vi.fn()
+      render(<Sidebar {...makeProps({ onChange, element: withStatus('bald') })} />)
 
       expect(statusSelect().value).toBe('bald')
       expect([...statusSelect().options].map((o) => o.textContent)).toEqual([
@@ -505,15 +701,15 @@ describe('Sidebar', () => {
         'fertig',
         'bald (unbekannt)',
       ])
-      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-      expect(onSave).toHaveBeenCalledWith([
-        { key: 'name', value: 'A' },
+      await userEvent.type(screen.getByLabelText('Name'), 'x')
+      expect(onChange).toHaveBeenCalledWith([
+        { key: 'name', value: 'Ax' },
         { key: 'status', value: 'bald' },
       ])
     })
 
-    it('recognises the key in any case and writes it back as "status" on save', async () => {
-      const onSave = vi.fn()
+    it('recognises the key in any case and writes it back as "status" with the next edit', async () => {
+      const onChange = vi.fn()
       const element = makeElement({
         metadata: [
           { key: 'name', value: 'A' },
@@ -521,57 +717,34 @@ describe('Sidebar', () => {
           { key: ' STATUS ', value: 'fertig' },
         ],
       })
-      render(<Sidebar {...makeProps({ onSave, element })} />)
+      render(<Sidebar {...makeProps({ onChange, element })} />)
 
       expect(statusSelect().value).toBe('fertig')
       expect(keyInputs().map((input) => input.value)).toEqual(['owner'])
-      expect(screen.queryByText('Ungespeicherte Änderungen')).not.toBeInTheDocument()
+      expect(onChange).not.toHaveBeenCalled()
 
       await userEvent.selectOptions(statusSelect(), 'in Arbeit')
-      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-      expect(onSave).toHaveBeenCalledWith([
+      expect(onChange).toHaveBeenCalledWith([
         { key: 'name', value: 'A' },
         { key: 'status', value: 'in Arbeit' },
         { key: 'owner', value: 'Team 1' },
       ])
     })
 
-    it('canonicalizes the key even if the status itself is left untouched', async () => {
-      const onSave = vi.fn()
-      const element = makeElement({
-        metadata: [
-          { key: 'name', value: 'A' },
-          { key: 'Status', value: 'erledigt' },
-        ],
-      })
-      render(<Sidebar {...makeProps({ onSave, element })} />)
-
-      expect(statusSelect().value).toBe('erledigt')
-      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-      expect(onSave).toHaveBeenCalledWith([
-        { key: 'name', value: 'A' },
-        { key: 'status', value: 'erledigt' },
-      ])
-    })
-
-    it('treats a typed free-form row "Status" as the status field on save and stays clean afterwards', async () => {
-      const onSave = vi.fn()
-      const onDirtyChange = vi.fn()
-      render(<Sidebar {...makeProps({ onSave, onDirtyChange, element: makeElement({ metadata: [{ key: 'name', value: 'A' }] }) })} />)
+    it('treats a typed free-form row "Status" as the status field, which then shows its value', async () => {
+      const { onChange } = renderControlled([{ key: 'name', value: 'A' }])
 
       await userEvent.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
       await userEvent.type(keyInputs()[0], 'Status')
       await userEvent.type(valueInputs()[0], 'fertig')
-      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-      expect(onSave).toHaveBeenCalledWith([
+      expect(onChange).toHaveBeenLastCalledWith([
         { key: 'name', value: 'A' },
         { key: 'status', value: 'fertig' },
       ])
       expect(statusSelect().value).toBe('fertig')
-      expect(keyInputs()).toHaveLength(0)
-      expect(screen.queryByText('Ungespeicherte Änderungen')).not.toBeInTheDocument()
-      expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+      // The row stays while it is being typed; no reload under the cursor.
+      expect(keyInputs()[0]).toHaveValue('Status')
     })
 
     it('keeps "Status" as an ordinary row on groups', () => {
@@ -609,54 +782,6 @@ describe('Sidebar', () => {
     })
   })
 
-  describe('reporting unsaved changes', () => {
-    it('reports false at first, true on an edit, false again after reverting or saving', async () => {
-      const onDirtyChange = vi.fn()
-      render(<Sidebar {...makeProps({ onDirtyChange })} />)
-      expect(onDirtyChange).toHaveBeenLastCalledWith(false)
-
-      await userEvent.type(screen.getByLabelText('Name'), 'X')
-      expect(onDirtyChange).toHaveBeenLastCalledWith(true)
-
-      await userEvent.type(screen.getByLabelText('Name'), '{Backspace}')
-      expect(onDirtyChange).toHaveBeenLastCalledWith(false)
-
-      await userEvent.type(screen.getByLabelText('Name'), 'Y')
-      expect(onDirtyChange).toHaveBeenLastCalledWith(true)
-      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-      expect(onDirtyChange).toHaveBeenLastCalledWith(false)
-    })
-
-    it('reports false when the sidebar closes or another element is opened', async () => {
-      const onDirtyChange = vi.fn()
-      const { rerender } = render(<Sidebar {...makeProps({ onDirtyChange })} />)
-      await userEvent.type(screen.getByLabelText('Name'), 'X')
-      expect(onDirtyChange).toHaveBeenLastCalledWith(true)
-
-      rerender(<Sidebar {...makeProps({ onDirtyChange, element: makeElement({ id: ID_B }) })} />)
-      expect(onDirtyChange).toHaveBeenLastCalledWith(false)
-
-      await userEvent.type(screen.getByLabelText('Name'), 'Z')
-      expect(onDirtyChange).toHaveBeenLastCalledWith(true)
-      rerender(<Sidebar {...makeProps({ onDirtyChange, element: null })} />)
-      expect(onDirtyChange).toHaveBeenLastCalledWith(false)
-    })
-
-    it('reports the edge label draft as well', async () => {
-      const onDirtyChange = vi.fn()
-      render(
-        <Sidebar
-          {...makeProps({ onDirtyChange, element: { id: ID_B, kind: 'edge', metadata: [{ key: 'label', value: '' }] } })}
-        />,
-      )
-      expect(onDirtyChange).toHaveBeenLastCalledWith(false)
-      await userEvent.type(screen.getByLabelText('Label'), 'x')
-      expect(onDirtyChange).toHaveBeenLastCalledWith(true)
-      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-      expect(onDirtyChange).toHaveBeenLastCalledWith(false)
-    })
-  })
-
   describe('edge variant', () => {
     const edgeElement = (label = ''): SidebarElement => ({
       id: ID_B,
@@ -674,6 +799,7 @@ describe('Sidebar', () => {
       expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
       expect(screen.queryByLabelText(/Farbe/)).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Feld hinzufügen' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
     })
 
     it('shows an existing label', () => {
@@ -682,45 +808,79 @@ describe('Sidebar', () => {
       expect(screen.getByLabelText('Label')).toHaveValue('braucht')
     })
 
-    it('saves the trimmed label as the only metadata entry', async () => {
-      const onSave = vi.fn()
-      render(<Sidebar {...makeProps({ element: edgeElement(), onSave })} />)
+    it('applies the trimmed label with every keystroke, the field keeps what was typed', async () => {
+      const onChange = vi.fn()
+      render(<Sidebar {...makeProps({ element: edgeElement(), onChange })} />)
 
-      expect(screen.queryByText('Ungespeicherte Änderungen')).not.toBeInTheDocument()
-      await userEvent.type(screen.getByLabelText('Label'), '  hängt ab von  ')
-      expect(screen.getByText('Ungespeicherte Änderungen')).toBeInTheDocument()
-      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      await userEvent.type(screen.getByLabelText('Label'), '  hängt ab ')
 
-      expect(onSave).toHaveBeenCalledWith([{ key: 'label', value: 'hängt ab von' }])
-      expect(screen.getByLabelText('Label')).toHaveValue('hängt ab von')
-      expect(screen.getByRole('status')).toHaveTextContent('Gespeichert')
-      expect(screen.queryByText('Ungespeicherte Änderungen')).not.toBeInTheDocument()
+      expect(onChange).toHaveBeenLastCalledWith([{ key: 'label', value: 'hängt ab' }])
+      expect(screen.getByLabelText('Label')).toHaveValue('  hängt ab ')
     })
 
-    it('saves an empty label to clear it', async () => {
-      const onSave = vi.fn()
-      render(<Sidebar {...makeProps({ element: edgeElement('alt'), onSave })} />)
+    it('keeps trailing spaces when the owner echoes the label back', async () => {
+      const user = userEvent.setup()
+      const props = makeProps({ element: edgeElement('a') })
+      function Owner() {
+        const [label, setLabel] = useState('a')
+        return (
+          <Sidebar
+            {...props}
+            element={edgeElement(label)}
+            onChange={(entries) => setLabel(entries[0].value)}
+          />
+        )
+      }
+      render(<Owner />)
+
+      await user.type(screen.getByLabelText('Label'), ' b ')
+      expect(screen.getByLabelText('Label')).toHaveValue('a b ')
+    })
+
+    it('clears the label by emptying the field', async () => {
+      const onChange = vi.fn()
+      render(<Sidebar {...makeProps({ element: edgeElement('alt'), onChange })} />)
 
       await userEvent.clear(screen.getByLabelText('Label'))
-      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-      expect(onSave).toHaveBeenCalledWith([{ key: 'label', value: '' }])
+      expect(onChange).toHaveBeenLastCalledWith([{ key: 'label', value: '' }])
     })
 
-    it('saves on Enter and calls onClose from the close button', async () => {
-      const onSave = vi.fn()
+    it('adopts a label that changed from outside', () => {
+      const { rerender } = render(<Sidebar {...makeProps({ element: edgeElement('alt') })} />)
+
+      rerender(<Sidebar {...makeProps({ element: edgeElement('neu') })} />)
+
+      expect(screen.getByLabelText('Label')).toHaveValue('neu')
+    })
+
+    it('Enter does not submit anything; the close button calls onClose', async () => {
       const onClose = vi.fn()
-      render(<Sidebar {...makeProps({ element: edgeElement(), onSave, onClose })} />)
+      const props = makeProps({ element: edgeElement(), onClose })
+      render(<Sidebar {...props} />)
 
       await userEvent.type(screen.getByLabelText('Label'), 'x{Enter}')
-      expect(onSave).toHaveBeenCalledWith([{ key: 'label', value: 'x' }])
+      expect(props.onChange).toHaveBeenCalledTimes(1)
       await userEvent.click(screen.getByRole('button', { name: 'Schließen' }))
       expect(onClose).toHaveBeenCalledTimes(1)
     })
 
+    it('ends the edit when leaving the field or when the form goes away', async () => {
+      const props = makeProps({ element: edgeElement() })
+      const { rerender } = render(<Sidebar {...props} />)
+
+      await userEvent.type(screen.getByLabelText('Label'), 'x')
+      await userEvent.tab()
+      expect(props.onEditEnd).toHaveBeenCalledTimes(1)
+
+      await userEvent.type(screen.getByLabelText('Label'), 'y')
+      rerender(<Sidebar {...props} element={null} selectionCount={0} />)
+      expect(props.onEditEnd).toHaveBeenCalledTimes(2)
+    })
+
     it('starts a fresh draft when another element is opened', async () => {
       const { rerender } = render(<Sidebar {...makeProps({ element: edgeElement() })} />)
-      await userEvent.type(screen.getByLabelText('Label'), 'ungespeichert')
+      await userEvent.type(screen.getByLabelText('Label'), 'entwurf')
 
       rerender(<Sidebar {...makeProps({ element: { ...edgeElement('zweite'), id: ID_A } })} />)
 

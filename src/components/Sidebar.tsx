@@ -6,7 +6,7 @@ import { COLOR_KEY, DEFAULT_COLOR, NAME_KEY } from '../model/types'
 import type { MetadataEntry } from '../model/types'
 import type { SidebarElement, SidebarProps } from './props'
 import { SidebarEdgeForm } from './SidebarEdgeForm'
-import { useReportDirty } from './useReportDirty'
+import { useEditGesture, useReportInvalid } from './useSidebarEffects'
 import './components.css'
 
 /** One editable field row; `rid` is a stable local id used as React key. */
@@ -35,20 +35,11 @@ function newRowId(): string {
   return `row-${rowCounter}`
 }
 
-/** Rebuilds rows from entries; rows of `previous` donate their ids (by position) to keep input focus. */
-function toRows(entries: readonly MetadataEntry[], previous: readonly Row[] = []): Row[] {
-  return entries.map((entry, index) => ({
-    rid: previous[index]?.rid ?? newRowId(),
-    key: entry.key,
-    value: entry.value,
-  }))
+function toRows(entries: readonly MetadataEntry[]): Row[] {
+  return entries.map((entry) => ({ rid: newRowId(), key: entry.key, value: entry.value }))
 }
 
-function toDraft(
-  entries: readonly MetadataEntry[],
-  withStatus: boolean,
-  previousRows: readonly Row[] = [],
-): Draft {
+function toDraft(entries: readonly MetadataEntry[], withStatus: boolean): Draft {
   const nameIndex = entries.findIndex((entry) => entry.key === NAME_KEY)
   const colorIndex = entries.findIndex((entry) => entry.key === COLOR_KEY)
   // The status key is matched trimmed and case-insensitively; it is written back as `status`.
@@ -56,13 +47,12 @@ function toDraft(
   const color = colorIndex >= 0 ? entries[colorIndex].value.trim().toLowerCase() : ''
   return {
     name: nameIndex >= 0 ? entries[nameIndex].value : '',
-    // An unusable colour value counts as "not set" and is dropped on the next save.
+    // An unusable colour value counts as "not set" and is dropped on the next edit.
     color: isValidColor(color) ? color : '',
     // An unknown value is kept as it is (and offered as an extra option), never silently replaced.
     status: statusIndex >= 0 ? entries[statusIndex].value.trim() : '',
     rows: toRows(
       entries.filter((_, index) => index !== nameIndex && index !== colorIndex && index !== statusIndex),
-      previousRows,
     ),
   }
 }
@@ -80,47 +70,63 @@ function sameEntries(a: readonly MetadataEntry[], b: readonly MetadataEntry[]): 
   return a.length === b.length && a.every((entry, i) => entry.key === b[i].key && entry.value === b[i].value)
 }
 
-/** Entries in the shape the draft edits them (`name` first), so comparisons ignore ordering quirks. */
-function canonical(entries: readonly MetadataEntry[], withStatus: boolean): MetadataEntry[] {
-  return toEntries(toDraft(entries, withStatus))
+/**
+ * What the draft stands for in the model. A free row typed as "Status" takes the place of the
+ * status field, so the stored entry is canonical; empty keys are dropped, values trimmed.
+ */
+function entriesOf(draft: Draft, withStatus: boolean): MetadataEntry[] {
+  return normalizeMetadata(toEntries(toDraft(toEntries(draft), withStatus)))
 }
 
-type SidebarFormProps = Omit<SidebarProps, 'element'> & {
+type SidebarFormProps = Omit<SidebarProps, 'element' | 'selectionCount' | 'hidden'> & {
   element: SidebarElement & { kind: 'node' | 'group' }
 }
 
-function SidebarForm({ element, onSave, onClose, onDirtyChange }: SidebarFormProps) {
+/**
+ * Every valid change goes to the model right away (`onChange`). The draft stays in charge while
+ * typing (trailing spaces, rows with an empty key survive); it is only reloaded when the metadata
+ * changed from outside (undo/redo, import), recognised by not being what this form applied last.
+ */
+function SidebarForm({
+  element,
+  onChange,
+  onEditStart,
+  onEditEnd,
+  onClose,
+  onInvalidChange,
+}: SidebarFormProps) {
   const formId = useId()
   const withStatus = element.kind === 'node'
   const [received, setReceived] = useState(element.metadata)
-  const [baseline, setBaseline] = useState(() => canonical(element.metadata, withStatus))
+  const [applied, setApplied] = useState(() => entriesOf(toDraft(element.metadata, withStatus), withStatus))
   const [draft, setDraft] = useState(() => toDraft(element.metadata, withStatus))
-  const [saved, setSaved] = useState(false)
-  const [attempted, setAttempted] = useState(false)
+  const gesture = useEditGesture(onEditStart, onEditEnd)
 
-  // The parent delivered different metadata for this very element (e.g. changed elsewhere):
-  // adopt it. Our own save echoes back as equal to `baseline` and is skipped.
   if (received !== element.metadata) {
     setReceived(element.metadata)
-    if (
-      !sameEntries(received, element.metadata) &&
-      !sameEntries(baseline, canonical(element.metadata, withStatus))
-    ) {
-      setBaseline(canonical(element.metadata, withStatus))
+    const incoming = entriesOf(toDraft(element.metadata, withStatus), withStatus)
+    // Our own change coming back is equal to `applied`; anything else is news from outside.
+    if (!sameEntries(incoming, applied)) {
+      setApplied(incoming)
       setDraft(toDraft(element.metadata, withStatus))
-      setSaved(false)
-      setAttempted(false)
     }
   }
 
-  const dirty = !sameEntries(baseline, toEntries(draft))
-  useReportDirty(dirty, onDirtyChange)
-  // After the first failed save the duplicate check stays live, so the alert vanishes once fixed.
-  const duplicates = attempted ? findDuplicateKeys(normalizeMetadata(toEntries(draft))) : []
+  const duplicates = findDuplicateKeys(entriesOf(draft, withStatus))
+  useReportInvalid(duplicates.length > 0, onInvalidChange)
+  // The fixed fields show what the model will hold, e.g. also for a free row typed as "Status".
+  const shown = toDraft(toEntries(draft), withStatus)
 
-  function edit(next: Draft) {
+  /** `discrete`: a click or choice that is one undo step of its own; otherwise typing, bundled until the field is left. */
+  function edit(next: Draft, discrete = false) {
     setDraft(next)
-    setSaved(false)
+    const entries = entriesOf(next, withStatus)
+    // Invalid or nothing new (e.g. a freshly added row without a key): the model keeps its state.
+    if (findDuplicateKeys(entries).length > 0 || sameEntries(entries, applied)) return
+    if (discrete) gesture.end()
+    else gesture.start()
+    setApplied(entries)
+    onChange(entries)
   }
 
   function updateRow(rid: string, patch: Partial<Pick<Row, 'key' | 'value'>>) {
@@ -128,29 +134,17 @@ function SidebarForm({ element, onSave, onClose, onDirtyChange }: SidebarFormPro
   }
 
   function removeRow(rid: string) {
-    edit({ ...draft, rows: draft.rows.filter((row) => row.rid !== rid) })
+    edit({ ...draft, rows: draft.rows.filter((row) => row.rid !== rid) }, true)
   }
 
   function addRow() {
-    edit({ ...draft, rows: [...draft.rows, { rid: newRowId(), key: '', value: '', autoFocus: true }] })
+    gesture.end()
+    edit({ ...draft, rows: [...draft.rows, { rid: newRowId(), key: '', value: '', autoFocus: true }] }, true)
   }
 
+  // A form with a single field would otherwise reload the page on Enter.
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    // A free row typed as "Status" takes the place of the status field, so the saved entry is canonical.
-    const normalized = normalizeMetadata(toEntries(toDraft(toEntries(draft), withStatus)))
-    if (findDuplicateKeys(normalized).length > 0) {
-      setAttempted(true)
-      return
-    }
-    onSave(normalized)
-    // Re-sync from what was saved (empty-key rows vanish, values appear trimmed). Surviving rows keep
-    // their ids so a focused input stays focused after Enter.
-    const survivors = draft.rows.filter((row) => row.key.trim() !== '')
-    setDraft(toDraft(normalized, withStatus, survivors))
-    setBaseline(normalized)
-    setSaved(true)
-    setAttempted(false)
   }
 
   const title = element.kind === 'group' ? 'Gruppe' : 'Objekt'
@@ -192,6 +186,7 @@ function SidebarForm({ element, onSave, onClose, onDirtyChange }: SidebarFormPro
           className="ui-input"
           value={draft.name}
           onChange={(event) => edit({ ...draft, name: event.target.value })}
+          onBlur={gesture.end}
         />
       </div>
 
@@ -204,15 +199,16 @@ function SidebarForm({ element, onSave, onClose, onDirtyChange }: SidebarFormPro
             id={`${formId}-color`}
             type="color"
             className="sidebar__color-input"
-            value={draft.color || DEFAULT_COLOR}
+            value={shown.color || DEFAULT_COLOR}
             onChange={(event) => edit({ ...draft, color: event.target.value.toLowerCase() })}
+            onBlur={gesture.end}
           />
-          <span className="sidebar__color-value">{draft.color || 'Standard'}</span>
+          <span className="sidebar__color-value">{shown.color || 'Standard'}</span>
           <button
             type="button"
             className="ui-button ui-button--secondary"
-            disabled={draft.color === ''}
-            onClick={() => edit({ ...draft, color: '' })}
+            disabled={shown.color === ''}
+            onClick={() => edit({ ...draft, color: '' }, true)}
           >
             Zurücksetzen
           </button>
@@ -227,16 +223,16 @@ function SidebarForm({ element, onSave, onClose, onDirtyChange }: SidebarFormPro
           <select
             id={`${formId}-status`}
             className="ui-input"
-            value={parseStatus(draft.status) ?? (draft.status || DEFAULT_STATUS)}
-            onChange={(event) => edit({ ...draft, status: event.target.value })}
+            value={parseStatus(shown.status) ?? (shown.status || DEFAULT_STATUS)}
+            onChange={(event) => edit({ ...draft, status: event.target.value }, true)}
           >
             {STATUS_VALUES.map((status) => (
               <option key={status} value={status}>
                 {status}
               </option>
             ))}
-            {draft.status !== '' && parseStatus(draft.status) === undefined && (
-              <option value={draft.status}>{draft.status} (unbekannt)</option>
+            {shown.status !== '' && parseStatus(shown.status) === undefined && (
+              <option value={shown.status}>{shown.status} (unbekannt)</option>
             )}
           </select>
         </div>
@@ -261,6 +257,7 @@ function SidebarForm({ element, onSave, onClose, onDirtyChange }: SidebarFormPro
                 value={row.key}
                 autoFocus={row.autoFocus}
                 onChange={(event) => updateRow(row.rid, { key: event.target.value })}
+                onBlur={gesture.end}
               />
               <input
                 className="ui-input"
@@ -268,6 +265,7 @@ function SidebarForm({ element, onSave, onClose, onDirtyChange }: SidebarFormPro
                 aria-label="Wert"
                 value={row.value}
                 onChange={(event) => updateRow(row.rid, { value: event.target.value })}
+                onBlur={gesture.end}
               />
               <button
                 type="button"
@@ -286,48 +284,50 @@ function SidebarForm({ element, onSave, onClose, onDirtyChange }: SidebarFormPro
         Feld hinzufügen
       </button>
 
-      <div className="sidebar__footer">
-        {duplicates.length > 0 && (
+      {duplicates.length > 0 && (
+        <div className="sidebar__footer">
           <p className="sidebar__error" role="alert">
             Doppelte Feldnamen: {duplicates.join(', ')}
           </p>
-        )}
-        {dirty && <p className="sidebar__hint">Ungespeicherte Änderungen</p>}
-        {saved && (
-          <p className="sidebar__saved" role="status">
-            Gespeichert
-          </p>
-        )}
-        <button type="submit" className="ui-button">
-          Save
-        </button>
-      </div>
+          <p className="sidebar__hint">Wird erst übernommen, wenn jeder Feldname nur einmal vorkommt.</p>
+        </div>
+      )}
     </form>
   )
 }
 
-export function Sidebar({ element, onSave, onClose, onDirtyChange }: SidebarProps) {
-  if (element === null) return null
+export function Sidebar({ element, selectionCount, hidden, ...handlers }: SidebarProps) {
+  if (element === null) {
+    if (selectionCount < 2) return null
+    return (
+      <aside className="sidebar" aria-label="Metadaten" hidden={hidden}>
+        <div className="sidebar__form">
+          <div className="sidebar__header">
+            <h2 className="sidebar__title">Auswahl</h2>
+            <button
+              type="button"
+              className="ui-button ui-button--icon"
+              aria-label="Schließen"
+              onClick={handlers.onClose}
+            >
+              ×
+            </button>
+          </div>
+          <p className="sidebar__info" role="status">
+            {selectionCount} Elemente markiert – zum Bearbeiten genau eines auswählen.
+          </p>
+        </div>
+      </aside>
+    )
+  }
 
   return (
-    <aside className="sidebar" aria-label="Metadaten">
+    <aside className="sidebar" aria-label="Metadaten" hidden={hidden}>
       {/* Keyed by id: opening a different element starts with a fresh draft. */}
       {element.kind === 'edge' ? (
-        <SidebarEdgeForm
-          key={element.id}
-          element={element}
-          onSave={onSave}
-          onClose={onClose}
-          onDirtyChange={onDirtyChange}
-        />
+        <SidebarEdgeForm key={element.id} element={element} {...handlers} />
       ) : (
-        <SidebarForm
-          key={element.id}
-          element={{ ...element, kind: element.kind }}
-          onSave={onSave}
-          onClose={onClose}
-          onDirtyChange={onDirtyChange}
-        />
+        <SidebarForm key={element.id} element={{ ...element, kind: element.kind }} {...handlers} />
       )}
     </aside>
   )

@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { AnalysisPanel } from './AnalysisPanel'
-import type { AnalysisEntry, AnalysisPanelProps } from './props'
+import type { AnalysisEntry, AnalysisPanelProps, AnalysisSelected } from './props'
 
 const entry = (id: string, overrides: Partial<AnalysisEntry> = {}): AnalysisEntry => ({
   id,
@@ -15,6 +15,8 @@ const entry = (id: string, overrides: Partial<AnalysisEntry> = {}): AnalysisEntr
 
 function makeProps(overrides: Partial<AnalysisPanelProps> = {}): AnalysisPanelProps {
   return {
+    selected: null,
+    onStatusChange: vi.fn(),
     scope: 'selection',
     selectionNames: ['Dienst A'],
     counts: { done: 1, inProgress: 2, open: 3, blocked: 4, ready: 5 },
@@ -204,5 +206,65 @@ describe('AnalysisPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Analyse schließen' }))
     expect(props.onCopy).toHaveBeenCalledTimes(1)
     expect(props.onClose).toHaveBeenCalledTimes(1)
+  })
+
+  describe('selection status', () => {
+    const selectedNode = (status: string): AnalysisSelected => ({
+      id: 'a',
+      name: 'Dienst A',
+      kind: 'node',
+      status,
+    })
+
+    it('shows no block without a single selected element', () => {
+      render(<AnalysisPanel {...makeProps({ selected: null })} />)
+      expect(screen.queryByRole('region', { name: 'Auswahl' })).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Status')).not.toBeInTheDocument()
+    })
+
+    it('names the selected object and offers the three statuses', () => {
+      render(<AnalysisPanel {...makeProps({ selected: selectedNode('in Arbeit') })} />)
+
+      const block = screen.getByRole('region', { name: 'Auswahl' })
+      expect(block).toHaveTextContent('Auswahl: Dienst A')
+      const select = within(block).getByLabelText('Status')
+      expect(select).toHaveValue('in Arbeit')
+      expect([...(select as HTMLSelectElement).options].map((o) => o.value)).toEqual([
+        'offen',
+        'in Arbeit',
+        'fertig',
+      ])
+    })
+
+    it('shows "offen" when no status is set', () => {
+      render(<AnalysisPanel {...makeProps({ selected: selectedNode('') })} />)
+      expect(screen.getByLabelText('Status')).toHaveValue('offen')
+    })
+
+    it('reports a chosen status', async () => {
+      const props = makeProps({ selected: selectedNode('offen') })
+      render(<AnalysisPanel {...props} />)
+
+      await userEvent.selectOptions(screen.getByLabelText('Status'), 'fertig')
+      expect(props.onStatusChange).toHaveBeenCalledWith('fertig')
+    })
+
+    it('offers an unknown value as an extra option and keeps it selected', () => {
+      render(<AnalysisPanel {...makeProps({ selected: selectedNode('erledigt') })} />)
+
+      const select = screen.getByLabelText('Status') as HTMLSelectElement
+      expect(select).toHaveValue('erledigt')
+      expect([...select.options].map((o) => o.textContent)).toContain('erledigt (unbekannt)')
+    })
+
+    it('shows the progress of a group read-only', () => {
+      const group: AnalysisSelected = { id: 'g', name: 'Plattform', kind: 'group', status: '', progress: { done: 2, total: 5 } }
+      render(<AnalysisPanel {...makeProps({ selected: group })} />)
+
+      const block = screen.getByRole('region', { name: 'Auswahl' })
+      expect(block).toHaveTextContent('Auswahl: Plattform')
+      expect(block).toHaveTextContent('Status aus Mitgliedern: 2 von 5 fertig')
+      expect(within(block).queryByLabelText('Status')).not.toBeInTheDocument()
+    })
   })
 })

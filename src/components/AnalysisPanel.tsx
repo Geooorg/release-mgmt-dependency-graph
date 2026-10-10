@@ -1,6 +1,8 @@
+import { useId } from 'react'
 import type { ReactNode } from 'react'
+import { DEFAULT_STATUS, parseStatus, STATUS_VALUES, type Status } from '../model/status'
 import { BlockedFlag, InconsistentMark } from './StatusMarks'
-import type { AnalysisEntry, AnalysisPanelProps } from './props'
+import type { AnalysisEntry, AnalysisPanelProps, AnalysisSelected } from './props'
 import './components.css'
 
 const MAX_TITLE_NAMES = 3
@@ -80,7 +82,59 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
+/** "Auswahl": the status of the selected object (or the read-only progress of a group). */
+function SelectedStatus({
+  selected,
+  onStatusChange,
+}: {
+  selected: AnalysisSelected
+  onStatusChange: (status: Status) => void
+}) {
+  const selectId = useId()
+  const known = parseStatus(selected.status)
+  const { progress } = selected
+  return (
+    <section className="analysis-selected" aria-label="Auswahl">
+      <p className="analysis-selected__name" title={selected.name}>
+        Auswahl: <strong>{selected.name}</strong>
+      </p>
+      {selected.kind === 'node' ? (
+        <div className="analysis-selected__field">
+          <label className="analysis-selected__label" htmlFor={selectId}>
+            Status
+          </label>
+          <select
+            id={selectId}
+            className="ui-input"
+            value={known ?? (selected.status || DEFAULT_STATUS)}
+            onChange={(event) => onStatusChange(event.target.value as Status)}
+          >
+            {STATUS_VALUES.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+            {selected.status !== '' && known === undefined && (
+              <option value={selected.status}>{selected.status} (unbekannt)</option>
+            )}
+          </select>
+        </div>
+      ) : (
+        progress && (
+          <p className="analysis-selected__progress">
+            {progress.total === 0
+              ? 'Status aus Mitgliedern: keine Mitglieder'
+              : `Status aus Mitgliedern: ${progress.done} von ${progress.total} fertig`}
+          </p>
+        )
+      )}
+    </section>
+  )
+}
+
 export function AnalysisPanel({
+  selected,
+  onStatusChange,
   scope,
   selectionNames,
   counts,
@@ -110,6 +164,8 @@ export function AnalysisPanel({
       </div>
 
       <div className="analysis-panel__body">
+        {selected && <SelectedStatus selected={selected} onStatusChange={onStatusChange} />}
+
         <ul className="analysis-counts" aria-label="Projektstand">
           <li>
             <strong>{counts.done}</strong> fertig

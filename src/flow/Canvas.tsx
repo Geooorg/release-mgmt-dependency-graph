@@ -2,16 +2,18 @@ import {
   Background,
   ConnectionMode,
   Controls,
+  getViewportForBounds,
   MiniMap,
   ReactFlow,
   useReactFlow,
+  useStore,
   useStoreApi,
   type Connection,
   type Edge,
   type EdgeChange,
   type NodeChange,
 } from '@xyflow/react'
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, type MouseEvent as ReactMouseEvent } from 'react'
 import { nodeTypes } from '../components/nodeTypes'
 import type { CycleResult } from '../model/cycles'
 import { findDependencies } from '../model/dependency'
@@ -20,7 +22,7 @@ import type { ProjectAnalysis } from '../model/releaseAnalysis'
 import { HANDLE_SIDES, type HandleSide } from '../model/types'
 import { graphStore, useGraph } from '../store/appStore'
 import { toFlowEdges, toFlowNodes } from './mapping'
-import { coveredLeftWidth, viewportForFocus } from './viewport'
+import { viewportToReveal } from './reveal'
 import type { AppFlowNode } from './types'
 
 type EdgeLike = Edge | Connection
@@ -54,12 +56,16 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
   const connectSourceId = useGraph((s) => s.connectSourceId)
   const dropTargetId = useGraph((s) => s.dropTargetId)
   const analyzing = useGraph((s) => s.mode === 'analyze')
+  const tool = useGraph((s) => s.tool)
   const highlightChoice = useGraph((s) => s.highlight)
   const contentRevision = useGraph((s) => s.contentRevision)
   const focusRequest = useGraph((s) => s.focusRequest)
   const revealedId = useGraph((s) => s.revealedId)
-  const { fitView, getNodesBounds, setViewport } = useReactFlow()
+  const { fitView, getInternalNode, getNodesBounds, getViewport, screenToFlowPosition, setViewport } = useReactFlow()
   const flowStore = useStoreApi()
+  const paneWidth = useStore((s) => s.width)
+  const paneHeight = useStore((s) => s.height)
+  const singleSelectedId = selectedNodeIds.length === 1 ? selectedNodeIds[0] : null
 
   // A dependency highlight follows the selection; it only exists in the analysis mode.
   const dependencies = useMemo(
@@ -99,16 +105,33 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
     return () => cancelAnimationFrame(frame)
   }, [contentRevision, fitView])
 
-  // Focus requests (cycle button, analysis panel): bring the requested elements into view, beside
-  // the analysis panel that overlays the pane. Not via fitView: with controlled nodes it stays
-  // queued until the next node change, so the view would lag one click behind.
+  // Selecting opens the sidebar (or the analysis panel narrows the pane) and may push the selected
+  // element out of view, e.g. one just created near the right edge. Pan just enough to keep it
+  // visible. Declared before the focus effect so an explicit focus request wins.
+  useEffect(() => {
+    if (singleSelectedId === null || paneWidth === 0 || getInternalNode(singleSelectedId)?.dragging) return
+    const viewport = viewportToReveal(getNodesBounds([singleSelectedId]), getViewport(), {
+      width: paneWidth,
+      height: paneHeight,
+    })
+    if (viewport) void setViewport(viewport, { duration: 200 })
+  }, [singleSelectedId, paneWidth, paneHeight, getInternalNode, getNodesBounds, getViewport, setViewport])
+
+  // Focus requests (cycle button, analysis panel): bring the requested elements into view. Not via
+  // fitView: with controlled nodes it stays queued until the next node change, so the view would
+  // lag one click behind.
   useEffect(() => {
     if (!focusRequest || focusRequest.nodeIds.length === 0) return
-    const { width, height, minZoom, domNode } = flowStore.getState()
-    const panel = domNode?.parentElement?.querySelector('.analysis-panel')?.getBoundingClientRect()
-    const covered = domNode ? coveredLeftWidth(domNode.getBoundingClientRect(), panel) : 0
+    const { width: storedWidth, height: storedHeight, minZoom, domNode } = flowStore.getState()
+    const pane = domNode?.getBoundingClientRect()
+    // The sidebar follows the selection, so it may have just opened and narrowed the pane; the stored
+    // size only catches up after the next resize notification. The live size is what counts.
+    const size =
+      pane && pane.width > 0
+        ? { width: pane.width, height: pane.height }
+        : { width: storedWidth, height: storedHeight }
     const bounds = getNodesBounds(focusRequest.nodeIds)
-    const viewport = viewportForFocus(bounds, { width, height }, covered, { min: minZoom, max: 1.2 }, 0.4)
+    const viewport = getViewportForBounds(bounds, size.width, size.height, minZoom, 1.2, 0.4)
     void setViewport(viewport, { duration: 300 })
   }, [focusRequest, flowStore, getNodesBounds, setViewport])
 
@@ -150,6 +173,37 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
     return checkConnection({ nodes: current, edges: currentEdges }, connection.source, connection.target).ok
   }, [])
 
+  // The create tool adds an object where the click landed, centred on it.
+  const createAt = useCallback(
+    (event: { clientX: number; clientY: number }) =>
+      graphStore.getState().addNodeAt(screenToFlowPosition({ x: event.clientX, y: event.clientY })),
+    [screenToFlowPosition],
+  )
+
+  const onPaneClick = useCallback(
+    (event: ReactMouseEvent) => {
+      const state = graphStore.getState()
+      if (state.tool === 'create') createAt(event)
+      else state.clearConnectSource()
+    },
+    [createAt],
+  )
+
+  // With the create tool, the body of a group is free space inside it (a click on the title still
+  // selects the group); any other element is only selected. The connect tool picks source and target.
+  const onNodeClick = useCallback(
+    (event: ReactMouseEvent, node: AppFlowNode) => {
+      const state = graphStore.getState()
+      if (state.tool === 'create') {
+        const onTitle = event.target instanceof Element && event.target.closest('.group-node__header') !== null
+        if (node.type === 'group' && !onTitle) createAt(event)
+      } else {
+        state.pickForConnect(node.id)
+      }
+    },
+    [createAt],
+  )
+
   return (
     <ReactFlow
       nodes={flowNodes}
@@ -164,8 +218,8 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
           .connect(c.source, c.target, asSide(c.sourceHandle), asSide(c.targetHandle))
       }
       isValidConnection={isValidConnection}
-      onNodeClick={(_, node) => graphStore.getState().pickForConnect(node.id)}
-      onPaneClick={() => graphStore.getState().clearConnectSource()}
+      onNodeClick={onNodeClick}
+      onPaneClick={onPaneClick}
       onNodeDoubleClick={(_, node) => graphStore.getState().openSidebar(node.id)}
       onEdgeDoubleClick={(_, edge) => graphStore.getState().openEdgeSidebar(edge.id)}
       onNodeDragStart={() => graphStore.getState().beginGesture()}
@@ -178,7 +232,7 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
       deleteKeyCode={null}
       // The structure is locked while analysing: no connecting (connectors are hidden too).
       nodesConnectable={!analyzing}
-      className={analyzing ? 'flow--locked' : undefined}
+      className={[analyzing && 'flow--locked', tool === 'create' && 'flow--create'].filter(Boolean).join(' ') || undefined}
       zoomOnDoubleClick={false}
       fitView
       fitViewOptions={{ padding: 0.3 }}

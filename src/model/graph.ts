@@ -1,4 +1,5 @@
 import { normalizeMetadata } from './metadata'
+import { STATUS_KEY, findStatusEntry, withStatusEntry, type Status } from './status'
 import {
   GROUP_DEFAULT_SIZE,
   GROUP_HEADER_HEIGHT,
@@ -297,37 +298,48 @@ export function wouldBreakHierarchy(
 }
 
 /**
- * Deepest group (never `id` itself, never a descendant of `id`) whose rectangle contains the
- * centre of element `id` (canvas coordinates). undefined if there is none.
+ * Deepest group whose rectangle contains `point` (canvas coordinates). With `excludedId`, that
+ * element and its descendants are never returned (a dragged group must not be dropped into itself).
+ * undefined if there is none.
  */
-export function findDropTargetGroup(nodes: readonly ModelNode[], id: string): string | undefined {
+export function findGroupAtPoint(
+  nodes: readonly ModelNode[],
+  point: Point,
+  excludedId?: string,
+): string | undefined {
   const byId = indexById(nodes)
-  const dragged = byId.get(id)
-  if (dragged === undefined) return undefined
-
-  const origin = absolutePositionIn(byId, id)
-  const size = getSize(dragged)
-  const centre = { x: origin.x + size.width / 2, y: origin.y + size.height / 2 }
-
   let best: { id: string; depth: number } | undefined
   for (const candidate of nodes) {
-    if (candidate.kind !== 'group' || candidate.id === id) continue
+    if (candidate.kind !== 'group' || candidate.id === excludedId) continue
     const ancestors = ancestorIdsIn(byId, candidate.id)
-    if (ancestors.includes(id)) continue
+    if (excludedId !== undefined && ancestors.includes(excludedId)) continue
 
     const topLeft = absolutePositionIn(byId, candidate.id)
     const { width, height } = getSize(candidate)
     const contains =
-      centre.x >= topLeft.x &&
-      centre.x <= topLeft.x + width &&
-      centre.y >= topLeft.y &&
-      centre.y <= topLeft.y + height
+      point.x >= topLeft.x &&
+      point.x <= topLeft.x + width &&
+      point.y >= topLeft.y &&
+      point.y <= topLeft.y + height
     // `>=`: among equally deep (overlapping) groups the later one wins, it is rendered on top.
     if (contains && (best === undefined || ancestors.length >= best.depth)) {
       best = { id: candidate.id, depth: ancestors.length }
     }
   }
   return best?.id
+}
+
+/**
+ * Deepest group (never `id` itself, never a descendant of `id`) whose rectangle contains the
+ * centre of element `id` (canvas coordinates). undefined if there is none.
+ */
+export function findDropTargetGroup(nodes: readonly ModelNode[], id: string): string | undefined {
+  const dragged = nodes.find((n) => n.id === id)
+  if (dragged === undefined) return undefined
+
+  const origin = getAbsolutePosition(nodes, id)
+  const size = getSize(dragged)
+  return findGroupAtPoint(nodes, { x: origin.x + size.width / 2, y: origin.y + size.height / 2 }, id)
 }
 
 /**
@@ -438,6 +450,18 @@ export function updateMetadata(
   entries: readonly MetadataEntry[],
 ): GraphContent {
   return updateNode(content, id, (node) => ({ ...node, metadata: normalizeMetadata(entries) }))
+}
+
+/**
+ * Sets the status of an object (not of a group, which has none) the way the sidebar does: the
+ * entry is written as `status` and the metadata normalized. Already set / unknown id / group -> unchanged.
+ */
+export function setStatus(content: GraphContent, id: string, status: Status): GraphContent {
+  const target = content.nodes.find((n) => n.id === id)
+  if (target === undefined || target.kind !== 'node') return content
+  const current = findStatusEntry(target.metadata)
+  if (current !== undefined && current.key === STATUS_KEY && current.value === status) return content
+  return updateMetadata(content, id, withStatusEntry(target.metadata, status))
 }
 
 /** Sets the (relative) position of one element. Unknown id -> unchanged. */

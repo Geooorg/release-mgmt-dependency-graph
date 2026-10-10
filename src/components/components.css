@@ -113,32 +113,45 @@
   min-width: 0;
 }
 
-/* Segmented switch between the work modes. */
-.mode-switch {
+/* Segmented switches: the work modes and the build tools (icon + short text). */
+.mode-switch,
+.tool-switch {
   display: flex;
   border: 1px solid var(--blue-600);
   border-radius: 8px;
   overflow: hidden;
 }
 
-.mode-switch .ui-button {
+.mode-switch .ui-button,
+.tool-switch .ui-button {
+  gap: 6px;
+  padding: 0 10px;
   border-radius: 0;
   background: #fff;
   color: var(--blue-700);
 }
 
-.mode-switch .ui-button:hover:not(:disabled) {
+.mode-switch .ui-button .icon,
+.tool-switch .ui-button .icon {
+  flex: none;
+}
+
+.mode-switch .ui-button:hover:not(:disabled),
+.tool-switch .ui-button:hover:not(:disabled) {
   background: var(--blue-50);
 }
 
 .mode-switch .ui-button[aria-pressed='true'],
-.mode-switch .ui-button[aria-pressed='true']:hover:not(:disabled) {
+.mode-switch .ui-button[aria-pressed='true']:hover:not(:disabled),
+.tool-switch .ui-button[aria-pressed='true'],
+.tool-switch .ui-button[aria-pressed='true']:hover:not(:disabled) {
   background: var(--blue-600);
   color: #fff;
 }
 
 /* The group clips its children, so the focus ring has to sit inside. */
-.toolbar .mode-switch button:focus-visible {
+.toolbar .mode-switch button:focus-visible,
+.toolbar .tool-switch button:focus-visible {
   outline-offset: -3px;
 }
 
@@ -205,13 +218,20 @@
 
 /* ---------- Sidebar ---------- */
 
+/* A card in the work area, like the analysis panel; it scrolls inside. */
 .sidebar {
   width: var(--sidebar-width);
   flex: none;
-  height: 100%;
+  min-height: 0;
   overflow-y: auto;
+  border: 1px solid var(--gray-300);
+  border-radius: 10px;
   background: #fff;
-  border-left: 1px solid var(--gray-200);
+  box-shadow: 0 1px 3px rgb(17 24 39 / 0.08);
+}
+
+.sidebar[hidden] {
+  display: none;
 }
 
 .sidebar__form {
@@ -327,10 +347,6 @@
   border-top: 1px solid var(--gray-200);
 }
 
-.sidebar__footer .ui-button[type='submit'] {
-  align-self: flex-start;
-}
-
 .sidebar__footer p {
   margin: 0;
   font-size: 12px;
@@ -338,10 +354,6 @@
 
 .sidebar__hint {
   color: var(--gray-600);
-}
-
-.sidebar__saved {
-  color: #15803d;
 }
 
 .sidebar__error {
@@ -859,20 +871,17 @@
 
 /* ---------- Release analysis panel ---------- */
 
+/* A card in the work area on the right, in the place of the sidebar (which is hidden while analysing). */
 .analysis-panel {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 5;
   display: flex;
   flex-direction: column;
-  width: min(320px, calc(100% - 24px));
-  /* Leaves room for the zoom controls at the bottom left on small screens. */
-  max-height: calc(100% - 132px);
-  border: 1px solid var(--gray-200);
+  width: var(--sidebar-width);
+  flex: none;
+  min-height: 0;
+  border: 1px solid var(--gray-300);
   border-radius: 10px;
   background: #fff;
-  box-shadow: 0 8px 24px rgb(17 24 39 / 0.2);
+  box-shadow: 0 1px 3px rgb(17 24 39 / 0.08);
 }
 
 .analysis-panel__header {
@@ -1079,13 +1088,108 @@ ol.analysis-list > li::before {
   color: #fff;
 }
 
-/* Keep the zoom controls clear of the panel where there is room beside it. */
-@media (min-width: 720px) {
-  .canvas--analysis .react-flow__panel.bottom.left {
-    margin-left: 344px;
+/* The selected object's status at the top of the panel. */
+.analysis-selected {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--blue-200);
+  border-radius: 8px;
+  background: var(--blue-50);
+}
+
+.analysis-selected__name,
+.analysis-selected__progress {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analysis-selected__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.analysis-selected__label {
+  color: var(--gray-600);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* What the active tool expects next, floating at the top of the canvas card. */
+.tool-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 6;
+  max-width: calc(100% - 24px);
+  margin: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--blue-900);
+  color: #fff;
+  font-size: 13px;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+/*
+ * Narrow toolbars: the tool switch keeps only its icons (the buttons keep their accessible names and
+ * tooltips) so that both modes fit into 1024 px without scrolling sideways.
+ */
+@media (max-width: 1339px) {
+  .tool-switch__label {
+    display: none;
   }
 
+  .tool-switch .ui-button {
+    min-width: 36px;
+    padding: 0;
+  }
+}
+
+/* Tighter still: shorter cycle button, capped project name, smaller margins. */
+@media (max-width: 1099px) {
+  .toolbar {
+    padding-inline: 12px;
+  }
+
+  .toolbar__file {
+    margin-right: -12px;
+    padding-right: 12px;
+  }
+
+  .cycle-button__word {
+    display: none;
+  }
+
+  .toolbar .project-title {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Create tool: the free space (and a group's body) takes a click to add an object. */
+.flow--create .react-flow__pane,
+.flow--create .react-flow__node-group {
+  cursor: crosshair;
+}
+
+/* Narrow windows: the cards float over the canvas, below the toolbar. */
+@media (max-width: 719px) {
+  .sidebar,
   .analysis-panel {
-    max-height: calc(100% - 24px);
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    z-index: 6;
+    width: min(var(--sidebar-width), calc(100% - 16px));
+    box-shadow: 0 8px 24px rgb(17 24 39 / 0.2);
   }
 }
