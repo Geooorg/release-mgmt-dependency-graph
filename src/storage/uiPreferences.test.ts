@@ -3,8 +3,10 @@ import { memoryStorage } from '../test/fixtures'
 import {
   EXPORT_FINGERPRINT_KEY,
   loadExportFingerprint,
+  loadLocale,
   loadWorkMode,
   saveExportFingerprint,
+  saveLocale,
   saveWorkMode,
   UI_KEY,
 } from './uiPreferences'
@@ -69,5 +71,31 @@ describe('export fingerprint', () => {
   it('reports failure to save without throwing', () => {
     expect(saveExportFingerprint('x', null)).toBe(false)
     expect(saveExportFingerprint('x', throwing)).toBe(false)
+  })
+})
+
+describe('locale preference', () => {
+  it('defaults to German when nothing, garbage or an unknown value is stored', () => {
+    expect(loadLocale(memoryStorage())).toBe('de')
+    expect(loadLocale(null)).toBe('de')
+    expect(loadLocale(throwing)).toBe('de')
+    const storage = memoryStorage()
+    storage.setItem(UI_KEY, JSON.stringify({ locale: 'es' }))
+    expect(loadLocale(storage)).toBe('de')
+  })
+
+  it('round-trips and keeps the work mode in the same entry', () => {
+    const storage = memoryStorage()
+    expect(saveWorkMode('analyze', storage)).toBe(true)
+    expect(saveLocale('fr', storage)).toBe(true)
+    expect(loadLocale(storage)).toBe('fr')
+    expect(loadWorkMode(storage)).toBe('analyze')
+    expect(saveWorkMode('build', storage)).toBe(true)
+    expect(loadLocale(storage)).toBe('fr')
+  })
+
+  it('reports a failed write', () => {
+    expect(saveLocale('en', null)).toBe(false)
+    expect(saveLocale('en', throwing)).toBe(false)
   })
 })

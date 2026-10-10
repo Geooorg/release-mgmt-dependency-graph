@@ -1,6 +1,7 @@
 import { act, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Root } from './Root'
+import { setTestLocale } from './test/locale'
 
 vi.mock('./App', () => ({ default: () => <div>Die Anwendung</div> }))
 
@@ -34,5 +35,14 @@ describe('Root', () => {
     })
 
     expect(screen.getByRole('heading', { level: 1, name: /Agent-Hilfe/ })).toBeInTheDocument()
+  })
+
+  it('sets the document language and follows a change', () => {
+    setTestLocale('en')
+    render(<Root />)
+    expect(document.documentElement.lang).toBe('en')
+
+    act(() => setTestLocale('fr'))
+    expect(document.documentElement.lang).toBe('fr')
   })
 })

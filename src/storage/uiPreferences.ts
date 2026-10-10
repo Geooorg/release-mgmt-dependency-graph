@@ -1,3 +1,4 @@
+import { DEFAULT_LOCALE, parseLocale, type Locale } from '../i18n/locale'
 import { parseWorkMode, type WorkMode } from '../model/workMode'
 import { getStorage } from './localStorage'
 
@@ -28,6 +29,22 @@ export function saveWorkMode(mode: WorkMode, storage: Storage | null = getStorag
   if (!storage) return false
   try {
     storage.setItem(UI_KEY, JSON.stringify({ ...readPreferences(storage), mode }))
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** The interface language chosen last in this browser; German if none, unreadable or invalid. */
+export function loadLocale(storage: Storage | null = getStorage()): Locale {
+  return parseLocale(readPreferences(storage).locale ?? DEFAULT_LOCALE)
+}
+
+/** Returns false if the locale could not be written (storage missing or blocked). */
+export function saveLocale(locale: Locale, storage: Storage | null = getStorage()): boolean {
+  if (!storage) return false
+  try {
+    storage.setItem(UI_KEY, JSON.stringify({ ...readPreferences(storage), locale }))
     return true
   } catch {
     return false
