@@ -373,13 +373,13 @@ describe('App: invalid sidebar draft', () => {
 })
 
 describe('App: work modes', () => {
-  const switchTo = (name: 'Aufbauen' | 'Analysieren') =>
+  const switchTo = (name: 'Editieren' | 'Analysieren') =>
     userEvent.click(screen.getByRole('button', { name }))
 
   it('starts in build mode: structure tools, no analysis panel', () => {
     render(<App />)
 
-    expect(screen.getByRole('button', { name: 'Aufbauen' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Editieren' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: 'Objekt anlegen' })).toBeInTheDocument()
     expect(screen.queryByRole('complementary', { name: /Release-Analyse/ })).toBeNull()
     expect(screen.queryByRole('combobox', { name: 'Hervorhebung' })).toBeNull()
@@ -396,7 +396,7 @@ describe('App: work modes', () => {
     expect(document.querySelector('.analysis-panel')).not.toBeNull()
     expect(JSON.parse(localStorage.getItem(UI_KEY)!)).toEqual({ mode: 'analyze' })
 
-    await switchTo('Aufbauen')
+    await switchTo('Editieren')
     expect(document.querySelector('.analysis-panel')).toBeNull()
     expect(JSON.parse(localStorage.getItem(UI_KEY)!)).toEqual({ mode: 'build' })
   })
@@ -595,13 +595,13 @@ describe('App: build tools', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Analysieren' }))
     expect(tool()).toBe('select')
-    await userEvent.click(screen.getByRole('button', { name: 'Aufbauen' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Editieren' }))
     expect(pressed('Auswählen')).toBe(true)
   })
 })
 
 describe('App: analysis mode layout', () => {
-  const switchTo = (name: 'Aufbauen' | 'Analysieren') =>
+  const switchTo = (name: 'Editieren' | 'Analysieren') =>
     userEvent.click(screen.getByRole('button', { name }))
   const panel = () => screen.queryByRole('complementary', { name: 'Release-Analyse' })
 
@@ -616,7 +616,7 @@ describe('App: analysis mode layout', () => {
     expect(panel()).not.toBeNull()
     expect(graphStore.getState().selectedNodeIds).toEqual([first.id])
 
-    await switchTo('Aufbauen')
+    await switchTo('Editieren')
     expect(panel()).toBeNull()
     expect(screen.getByLabelText('Name')).toHaveValue('Projekt A')
   })
@@ -663,7 +663,7 @@ describe('App: analysis mode layout', () => {
     await switchTo('Analysieren')
     await userEvent.selectOptions(within(panel()!).getByLabelText('Status'), 'fertig')
 
-    await switchTo('Aufbauen')
+    await switchTo('Editieren')
     expect(screen.getByLabelText('Status')).toHaveValue('fertig')
   })
 

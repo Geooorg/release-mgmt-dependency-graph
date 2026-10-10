@@ -23,7 +23,7 @@ const ICON_SIZE = 16
 const MODES: readonly { value: WorkMode; label: string; icon: ReactNode; title: string }[] = [
   {
     value: 'build',
-    label: 'Aufbauen',
+    label: 'Editieren',
     icon: <GraphIcon size={ICON_SIZE} />,
     title: 'Den Graphen aufbauen: Objekte anlegen, verbinden, gruppieren und löschen. Ohne Analyse-Hervorhebung.',
   },
@@ -249,40 +249,44 @@ export function Toolbar({
         </Section>
       )}
 
-      <Separator />
+      {mode === 'build' && (
+        <>
+        <Separator />
 
-      <Section label="Verlauf">
-        <Tooltip
-          text="Letzte Änderung rückgängig machen"
-          shortcut="Strg/Cmd + Z"
-          hint={canUndo ? undefined : 'Es gibt nichts rückgängig zu machen.'}
-        >
-          <button
-            type="button"
-            className="ui-button ui-button--tool"
-            aria-label="Rückgängig"
-            disabled={!canUndo}
-            onClick={onUndo}
+        <Section label="Verlauf">
+          <Tooltip
+            text="Letzte Änderung rückgängig machen"
+            shortcut="Strg/Cmd + Z"
+            hint={canUndo ? undefined : 'Es gibt nichts rückgängig zu machen.'}
           >
-            <UndoIcon />
-          </button>
-        </Tooltip>
-        <Tooltip
-          text="Rückgängig gemachte Änderung wiederherstellen"
-          shortcut="Strg/Cmd + Umschalt + Z"
-          hint={canRedo ? undefined : 'Es gibt nichts zu wiederholen.'}
-        >
-          <button
-            type="button"
-            className="ui-button ui-button--tool"
-            aria-label="Wiederholen"
-            disabled={!canRedo}
-            onClick={onRedo}
+            <button
+              type="button"
+              className="ui-button ui-button--tool"
+              aria-label="Rückgängig"
+              disabled={!canUndo}
+              onClick={onUndo}
+            >
+              <UndoIcon />
+            </button>
+          </Tooltip>
+          <Tooltip
+            text="Rückgängig gemachte Änderung wiederherstellen"
+            shortcut="Strg/Cmd + Umschalt + Z"
+            hint={canRedo ? undefined : 'Es gibt nichts zu wiederholen.'}
           >
-            <RedoIcon />
-          </button>
-        </Tooltip>
-      </Section>
+            <button
+              type="button"
+              className="ui-button ui-button--tool"
+              aria-label="Wiederholen"
+              disabled={!canRedo}
+              onClick={onRedo}
+            >
+              <RedoIcon />
+            </button>
+          </Tooltip>
+        </Section>
+        </>
+      )}
 
       {cycleCount > 0 && (
         <>

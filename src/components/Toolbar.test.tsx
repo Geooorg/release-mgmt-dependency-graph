@@ -42,7 +42,7 @@ describe('Toolbar', () => {
     expect(screen.getByRole('toolbar', { name: 'Werkzeuge' })).toBeInTheDocument()
     expect(screen.getByText('Release-Management')).toBeInTheDocument()
     for (const label of [
-      'Aufbauen',
+      'Editieren',
       'Analysieren',
       'Auswählen',
       'Objekt anlegen',
@@ -185,13 +185,21 @@ describe('Toolbar', () => {
       expect(props.onUndo).toHaveBeenCalledTimes(1)
       expect(props.onRedo).toHaveBeenCalledTimes(1)
     })
+
+    it('are not offered in the analysis mode', () => {
+      render(<Toolbar {...makeProps({ mode: 'analyze' })} />)
+
+      expect(screen.queryByRole('button', { name: 'Rückgängig' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Wiederholen' })).not.toBeInTheDocument()
+      expect(screen.queryByText('Verlauf')).not.toBeInTheDocument()
+    })
   })
 
   describe('mode switch', () => {
     it('shows a decorative icon in front of each mode', () => {
       render(<Toolbar {...makeProps()} />)
 
-      for (const name of ['Aufbauen', 'Analysieren']) {
+      for (const name of ['Editieren', 'Analysieren']) {
         expect(screen.getByRole('button', { name }).querySelector('svg[aria-hidden="true"]')).not.toBeNull()
       }
     })
@@ -200,15 +208,15 @@ describe('Toolbar', () => {
       render(<Toolbar {...makeProps({ mode: 'build' })} />)
 
       const group = screen.getByRole('group', { name: 'Arbeitsmodus' })
-      expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['Aufbauen', 'Analysieren'])
-      expect(screen.getByRole('button', { name: 'Aufbauen' })).toHaveAttribute('aria-pressed', 'true')
+      expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['Editieren', 'Analysieren'])
+      expect(screen.getByRole('button', { name: 'Editieren' })).toHaveAttribute('aria-pressed', 'true')
       expect(screen.getByRole('button', { name: 'Analysieren' })).toHaveAttribute('aria-pressed', 'false')
     })
 
     it('reflects the analysis mode', () => {
       render(<Toolbar {...makeProps({ mode: 'analyze' })} />)
 
-      expect(screen.getByRole('button', { name: 'Aufbauen' })).toHaveAttribute('aria-pressed', 'false')
+      expect(screen.getByRole('button', { name: 'Editieren' })).toHaveAttribute('aria-pressed', 'false')
       expect(screen.getByRole('button', { name: 'Analysieren' })).toHaveAttribute('aria-pressed', 'true')
     })
 
@@ -218,7 +226,7 @@ describe('Toolbar', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Analysieren' }))
       expect(props.onModeChange).toHaveBeenLastCalledWith('analyze')
-      await userEvent.click(screen.getByRole('button', { name: 'Aufbauen' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Editieren' }))
       expect(props.onModeChange).toHaveBeenLastCalledWith('build')
     })
 
@@ -233,7 +241,7 @@ describe('Toolbar', () => {
       render(<Toolbar {...makeProps()} />)
 
       const buttons = screen.getAllByRole('button').map((b) => b.textContent || b.getAttribute('aria-label'))
-      expect(buttons.slice(0, 4)).toEqual(['Release-Management', 'Aufbauen', 'Analysieren', 'Auswählen'])
+      expect(buttons.slice(0, 4)).toEqual(['Release-Management', 'Editieren', 'Analysieren', 'Auswählen'])
     })
   })
 
@@ -264,13 +272,12 @@ describe('Toolbar', () => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })
 
-    it('keeps history and file sections', () => {
+    it('keeps the file section but hides the history', () => {
       render(<Toolbar {...analyze()} />)
 
-      for (const name of ['Verlauf', 'Datei']) {
-        expect(screen.getByRole('group', { name })).toBeInTheDocument()
-      }
-      for (const name of ['Rückgängig', 'Wiederholen', 'Export', 'Import']) {
+      expect(screen.getByRole('group', { name: 'Datei' })).toBeInTheDocument()
+      expect(screen.queryByRole('group', { name: 'Verlauf' })).not.toBeInTheDocument()
+      for (const name of ['Export', 'Import']) {
         expect(screen.getByRole('button', { name })).toBeEnabled()
       }
     })
