@@ -1,30 +1,34 @@
 import type { ConnectMode } from '../flow/types'
-import type { DependencyDirection, DependencyMode } from '../model/dependency'
 import type { Status } from '../model/status'
 import type { ElementKind, MetadataEntry } from '../model/types'
+import type { Highlight, WorkMode } from '../model/workMode'
 
 export interface ToolbarProps {
   projectName: string
   onRenameProject: (name: string) => void
+  /** `build` shows the structure tools, `analyze` the analysis tools (and locks the structure). */
+  mode: WorkMode
+  onModeChange: (mode: WorkMode) => void
   connectMode: ConnectMode
   canGroup: boolean
   canUngroup: boolean
   canDelete: boolean
   canUndo: boolean
   canRedo: boolean
-  dependencyMode: DependencyMode
-  /** Nothing selected: the highlight has nothing to start from. */
+  /** Analysis mode: what is drawn in red. */
+  highlight: Highlight
+  onHighlightChange: (highlight: Highlight) => void
+  /** Nothing selected: a dependency highlight has nothing to start from. */
   selectionEmpty: boolean
   /** Number of dependency cycles; the warning button is only shown when above 0. */
   cycleCount: number
   /** Select the objects of the next cycle and show them. */
   onFocusCycle: () => void
-  /** The release analysis panel is open. */
-  analysisOpen: boolean
-  onToggleAnalysis: () => void
+  /** Analysis mode: the release analysis panel is shown. */
+  panelVisible: boolean
+  onTogglePanel: () => void
   onUndo: () => void
   onRedo: () => void
-  onDependencyModeChange: (mode: DependencyMode) => void
   onAddNode: () => void
   onToggleConnect: () => void
   onGroup: () => void
@@ -33,8 +37,6 @@ export interface ToolbarProps {
   onExport: () => void
   onImport: () => void
 }
-
-export type { DependencyDirection }
 
 export interface SidebarElement {
   id: string
@@ -62,6 +64,21 @@ export interface ConfirmDialogProps {
   confirmLabel: string
   cancelLabel?: string
   onConfirm: () => void
+  onCancel: () => void
+}
+
+export interface ImportDialogProps {
+  open: boolean
+  /** Name of the project that would be replaced. */
+  projectName: string
+  /** Size of the project that would be replaced. */
+  counts: { objects: number; groups: number; connections: number }
+  /** The current project differs from the last export or import. */
+  unsaved: boolean
+  /** Export the current project, then choose the file to import. */
+  onExportAndImport: () => void
+  /** Choose the file to import without exporting first. */
+  onImportWithoutExport: () => void
   onCancel: () => void
 }
 

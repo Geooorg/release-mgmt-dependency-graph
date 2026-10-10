@@ -42,7 +42,7 @@ interface CanvasProps {
   cycles: CycleResult
   /** Status and blockers of the project (status marks, red flags). */
   analysis: ProjectAnalysis
-  /** Critical path drawn in red while the analysis panel is open; null = none. */
+  /** Critical path drawn in red while it is the chosen highlight of the analysis mode; null = none. */
   critical: { nodeIds: ReadonlySet<string>; edgeIds: ReadonlySet<string> } | null
 }
 
@@ -53,24 +53,25 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
   const selectedEdgeIds = useGraph((s) => s.selectedEdgeIds)
   const connectSourceId = useGraph((s) => s.connectSourceId)
   const dropTargetId = useGraph((s) => s.dropTargetId)
-  const dependencyMode = useGraph((s) => s.dependencyMode)
+  const analyzing = useGraph((s) => s.mode === 'analyze')
+  const highlightChoice = useGraph((s) => s.highlight)
   const contentRevision = useGraph((s) => s.contentRevision)
   const focusRequest = useGraph((s) => s.focusRequest)
   const revealedId = useGraph((s) => s.revealedId)
   const { fitView, getNodesBounds, setViewport } = useReactFlow()
   const flowStore = useStoreApi()
 
-  // The dependency graph follows the selection while the mode is on.
+  // A dependency highlight follows the selection; it only exists in the analysis mode.
   const dependencies = useMemo(
     () =>
-      dependencyMode === 'off' || selectedNodeIds.length === 0
+      !analyzing || highlightChoice === 'off' || highlightChoice === 'critical' || selectedNodeIds.length === 0
         ? { nodeIds: NO_IDS, edgeIds: NO_IDS }
-        : findDependencies({ nodes, edges }, selectedNodeIds, dependencyMode),
-    [nodes, edges, selectedNodeIds, dependencyMode],
+        : findDependencies({ nodes, edges }, selectedNodeIds, highlightChoice),
+    [nodes, edges, selectedNodeIds, analyzing, highlightChoice],
   )
 
-  // Panel and dependency mode exclude each other, so at most one of them draws the red highlight.
-  const highlight = critical ?? dependencies
+  // One highlight at a time: the critical path, a dependency direction, or none (also in build mode).
+  const highlight = analyzing && highlightChoice === 'critical' && critical ? critical : dependencies
 
   const flowNodes = useMemo(
     () =>
@@ -175,6 +176,9 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
       onNodeDragStop={(_, __, dragged) => endDragGesture(dragged.map((n) => n.id))}
       onSelectionDragStop={(_, dragged) => endDragGesture(dragged.map((n) => n.id))}
       deleteKeyCode={null}
+      // The structure is locked while analysing: no connecting (connectors are hidden too).
+      nodesConnectable={!analyzing}
+      className={analyzing ? 'flow--locked' : undefined}
       zoomOnDoubleClick={false}
       fitView
       fitViewOptions={{ padding: 0.3 }}

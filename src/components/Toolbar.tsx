@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
-import { CycleIcon, GroupIcon, RedoIcon, UndoIcon, UngroupIcon } from './icons'
+import type { Highlight, WorkMode } from '../model/workMode'
+import { CycleIcon, GroupIcon, RedoIcon, TrashIcon, UndoIcon, UngroupIcon } from './icons'
 import { ProjectTitle } from './ProjectTitle'
-import type { DependencyDirection, ToolbarProps } from './props'
+import type { ToolbarProps } from './props'
 import { Tooltip } from './Tooltip'
 import './components.css'
 
@@ -11,19 +12,30 @@ const CONNECT_HINTS = {
   pickTarget: 'Ziel wählen …',
 } as const
 
-const DEPENDENCY_DIRECTIONS = [
+const MODES: readonly { value: WorkMode; label: string; title: string }[] = [
   {
-    value: 'outgoing',
-    label: '→ Voraussetzungen',
-    title: 'Alles, wovon die Auswahl (direkt oder indirekt) abhängt – in Pfeilrichtung',
+    value: 'build',
+    label: 'Aufbauen',
+    title: 'Den Graphen aufbauen: Objekte anlegen, verbinden, gruppieren und löschen. Ohne Analyse-Hervorhebung.',
   },
   {
-    value: 'incoming',
-    label: '← Betroffene',
-    title: 'Alles, was (direkt oder indirekt) von der Auswahl abhängt – gegen die Pfeilrichtung',
+    value: 'analyze',
+    label: 'Analysieren',
+    title:
+      'Das Release analysieren: kritischer Pfad, Abhängigkeiten und Release-Analyse. Die Struktur ist gesperrt (nichts anlegen, verbinden, löschen oder umgruppieren); Status und Metadaten bleiben bearbeitbar.',
   },
-  { value: 'both', label: '↔ Beide', title: 'Der gesamte verbundene Teilgraph' },
-] as const
+]
+
+const HIGHLIGHTS: readonly { value: Highlight; label: string }[] = [
+  { value: 'critical', label: 'Kritischer Pfad' },
+  { value: 'outgoing', label: '→ Voraussetzungen' },
+  { value: 'incoming', label: '← Betroffene' },
+  { value: 'both', label: '↔ Beide' },
+  { value: 'off', label: 'Keine' },
+]
+
+const HIGHLIGHT_HELP =
+  'Was im Graph dick rot gezeichnet wird. Kritischer Pfad: die längste Kette offener Voraussetzungen der Auswahl bzw. des Projekts. → Voraussetzungen: wovon die markierte Auswahl (direkt oder indirekt) abhängt. ← Betroffene: was von ihr abhängt. ↔ Beide: der gesamte verbundene Teilgraph.'
 
 function Separator() {
   return <span className="toolbar__separator" role="separator" aria-orientation="vertical" />
@@ -40,21 +52,23 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
 export function Toolbar({
   projectName,
   onRenameProject,
+  mode,
+  onModeChange,
   connectMode,
   canGroup,
   canUngroup,
   canDelete,
   canUndo,
   canRedo,
-  dependencyMode,
+  highlight,
+  onHighlightChange,
   selectionEmpty,
   cycleCount,
   onFocusCycle,
-  analysisOpen,
-  onToggleAnalysis,
+  panelVisible,
+  onTogglePanel,
   onUndo,
   onRedo,
-  onDependencyModeChange,
   onAddNode,
   onToggleConnect,
   onGroup,
@@ -64,36 +78,139 @@ export function Toolbar({
   onImport,
 }: ToolbarProps) {
   const hint = CONNECT_HINTS[connectMode]
+  const dependencyHighlight = highlight === 'outgoing' || highlight === 'incoming' || highlight === 'both'
 
   return (
     <header className="toolbar" role="toolbar" aria-label="Werkzeuge">
       <ProjectTitle name={projectName} onRename={onRenameProject} />
 
-      <Section label="Erstellen">
-        <Tooltip text="Neues Objekt in der Mitte des sichtbaren Bereichs anlegen">
-          <button type="button" className="ui-button" onClick={onAddNode}>
-            Objekt anlegen
-          </button>
-        </Tooltip>
-        <Tooltip
-          text="Zwei Objekte nacheinander anklicken (erst Quelle, dann Ziel), um sie zu verbinden. Alternativ einen Konnektor am Rand eines Objekts ziehen."
-          shortcut="Esc beendet"
-        >
-          <button
-            type="button"
-            className="ui-button"
-            aria-pressed={connectMode !== 'off'}
-            onClick={onToggleConnect}
-          >
-            Verbinden
-          </button>
-        </Tooltip>
-        {hint && (
-          <span className="toolbar__hint" role="status">
-            {hint}
-          </span>
-        )}
-      </Section>
+      <div className="mode-switch" role="group" aria-label="Arbeitsmodus">
+        {MODES.map(({ value, label, title }) => (
+          <Tooltip key={value} text={title}>
+            <button
+              type="button"
+              className="ui-button"
+              aria-pressed={mode === value}
+              onClick={() => onModeChange(value)}
+            >
+              {label}
+            </button>
+          </Tooltip>
+        ))}
+      </div>
+
+      <Separator />
+
+      {mode === 'build' ? (
+        <>
+          <Section label="Erstellen">
+            <Tooltip text="Neues Objekt in der Mitte des sichtbaren Bereichs anlegen">
+              <button type="button" className="ui-button" onClick={onAddNode}>
+                Objekt anlegen
+              </button>
+            </Tooltip>
+            <Tooltip
+              text="Zwei Objekte nacheinander anklicken (erst Quelle, dann Ziel), um sie zu verbinden. Alternativ einen Konnektor am Rand eines Objekts ziehen."
+              shortcut="Esc beendet"
+            >
+              <button
+                type="button"
+                className="ui-button"
+                aria-pressed={connectMode !== 'off'}
+                onClick={onToggleConnect}
+              >
+                Verbinden
+              </button>
+            </Tooltip>
+            {hint && (
+              <span className="toolbar__hint" role="status">
+                {hint}
+              </span>
+            )}
+          </Section>
+
+          <Separator />
+
+          <Section label="Gruppen">
+            <Tooltip
+              text="Markierte Objekte zu einer Gruppe (Sub-Graph) zusammenfassen"
+              hint={
+                canGroup
+                  ? undefined
+                  : 'Zuerst ein oder mehrere Objekte markieren, die auf derselben Ebene liegen.'
+              }
+            >
+              <button
+                type="button"
+                className="ui-button ui-button--tool"
+                aria-label="Gruppieren"
+                disabled={!canGroup}
+                onClick={onGroup}
+              >
+                <GroupIcon />
+              </button>
+            </Tooltip>
+            <Tooltip
+              text="Markierte Gruppe auflösen – ihr Inhalt bleibt erhalten und rückt eine Ebene nach oben"
+              hint={canUngroup ? undefined : 'Zuerst eine Gruppe markieren.'}
+            >
+              <button
+                type="button"
+                className="ui-button ui-button--tool"
+                aria-label="Gruppe auflösen"
+                disabled={!canUngroup}
+                onClick={onUngroup}
+              >
+                <UngroupIcon />
+              </button>
+            </Tooltip>
+            <Tooltip
+              text="Markierte Objekte und Verbindungen löschen. Gruppen werden nur aufgelöst, ihr Inhalt bleibt."
+              shortcut="Entf"
+              hint={canDelete ? undefined : 'Zuerst etwas markieren.'}
+            >
+              <button
+                type="button"
+                className="ui-button ui-button--tool"
+                aria-label="Löschen"
+                disabled={!canDelete}
+                onClick={onDelete}
+              >
+                <TrashIcon />
+              </button>
+            </Tooltip>
+          </Section>
+        </>
+      ) : (
+        <Section label="Analyse">
+          <Tooltip text={HIGHLIGHT_HELP}>
+            <label className="toolbar__field">
+              <span>Hervorhebung</span>
+              <select
+                className="ui-input toolbar__select"
+                value={highlight}
+                onChange={(event) => onHighlightChange(event.target.value as Highlight)}
+              >
+                {HIGHLIGHTS.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </Tooltip>
+          {dependencyHighlight && selectionEmpty && (
+            <span className="toolbar__hint" role="status">
+              Objekt markieren …
+            </span>
+          )}
+          <Tooltip text="Das Release-Analyse-Panel ein- oder ausblenden: Status-Zähler, Zu klären, kritischer Pfad und Blocker der Auswahl bzw. des Projekts.">
+            <button type="button" className="ui-button" aria-pressed={panelVisible} onClick={onTogglePanel}>
+              Panel
+            </button>
+          </Tooltip>
+        </Section>
+      )}
 
       <Separator />
 
@@ -130,123 +247,38 @@ export function Toolbar({
         </Tooltip>
       </Section>
 
-      <Separator />
-
-      <Section label="Gruppen">
-        <Tooltip
-          text="Markierte Objekte zu einer Gruppe (Sub-Graph) zusammenfassen"
-          hint={
-            canGroup
-              ? undefined
-              : 'Zuerst ein oder mehrere Objekte markieren, die auf derselben Ebene liegen.'
-          }
-        >
-          <button
-            type="button"
-            className="ui-button ui-button--tool"
-            aria-label="Gruppieren"
-            disabled={!canGroup}
-            onClick={onGroup}
-          >
-            <GroupIcon />
-          </button>
-        </Tooltip>
-        <Tooltip
-          text="Markierte Gruppe auflösen – ihr Inhalt bleibt erhalten und rückt eine Ebene nach oben"
-          hint={canUngroup ? undefined : 'Zuerst eine Gruppe markieren.'}
-        >
-          <button
-            type="button"
-            className="ui-button ui-button--tool"
-            aria-label="Gruppe auflösen"
-            disabled={!canUngroup}
-            onClick={onUngroup}
-          >
-            <UngroupIcon />
-          </button>
-        </Tooltip>
-        <Tooltip
-          text="Markierte Objekte und Verbindungen löschen. Gruppen werden nur aufgelöst, ihr Inhalt bleibt."
-          shortcut="Entf"
-          hint={canDelete ? undefined : 'Zuerst etwas markieren.'}
-        >
-          <button type="button" className="ui-button" disabled={!canDelete} onClick={onDelete}>
-            Löschen
-          </button>
-        </Tooltip>
-      </Section>
-
-      <Separator />
-
-      <Section label="Analyse">
-        <Tooltip text="Abhängigkeitsgraph der Auswahl ermitteln: alle erreichbaren Verbindungen werden dick und rot hervorgehoben. Richtung: Voraussetzungen (wovon die Auswahl abhängt) oder Betroffene (was von ihr abhängt). Schließt die Release-Analyse.">
-          <button
-            type="button"
-            className="ui-button"
-            aria-pressed={dependencyMode !== 'off'}
-            onClick={() => onDependencyModeChange(dependencyMode === 'off' ? 'outgoing' : 'off')}
-          >
-            Abhängigkeiten
-          </button>
-        </Tooltip>
-        {dependencyMode !== 'off' && (
-          <>
-            <select
-              className="ui-input toolbar__select"
-              aria-label="Richtung der Abhängigkeiten"
-              value={dependencyMode}
-              onChange={(event) =>
-                onDependencyModeChange(event.target.value as DependencyDirection)
-              }
-            >
-              {DEPENDENCY_DIRECTIONS.map(({ value, label, title }) => (
-                <option key={value} value={value} title={title}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            {selectionEmpty && (
-              <span className="toolbar__hint" role="status">
-                Objekt markieren …
-              </span>
-            )}
-          </>
-        )}
-        <Tooltip text="Release-Analyse öffnen: Status-Zähler, Blocker und kritischer Pfad (längste Kette offener Voraussetzungen, rot im Graph) für die Auswahl bzw. das ganze Projekt. Schließt die Abhängigkeits-Hervorhebung.">
-          <button
-            type="button"
-            className="ui-button"
-            aria-pressed={analysisOpen}
-            onClick={onToggleAnalysis}
-          >
-            Release-Analyse
-          </button>
-        </Tooltip>
-        {cycleCount > 0 && (
-          <Tooltip text="Zyklische Abhängigkeiten verhindern eine gültige Release-Reihenfolge. Klicken wählt den nächsten Zyklus aus.">
-            <button type="button" className="ui-button ui-button--cycle" onClick={onFocusCycle}>
-              <CycleIcon />
-              {cycleCount === 1 ? '1 Zyklus' : `${cycleCount} Zyklen`}
-            </button>
-          </Tooltip>
-        )}
-      </Section>
+      {cycleCount > 0 && (
+        <>
+          <Separator />
+          <Section label="Zyklen">
+            <Tooltip text="Zyklische Abhängigkeiten verhindern eine gültige Release-Reihenfolge. Klicken wählt den nächsten Zyklus aus.">
+              <button type="button" className="ui-button ui-button--cycle" onClick={onFocusCycle}>
+                <CycleIcon />
+                {cycleCount === 1 ? '1 Zyklus' : `${cycleCount} Zyklen`}
+              </button>
+            </Tooltip>
+          </Section>
+        </>
+      )}
 
       <span className="toolbar__spacer" />
-      <Separator />
 
-      <Section label="Datei">
-        <Tooltip text="Das Modell als JSON-Datei herunterladen">
-          <button type="button" className="ui-button" onClick={onExport}>
-            Export
-          </button>
-        </Tooltip>
-        <Tooltip text="Ein Modell aus einer JSON-Datei laden. Das aktuelle Modell wird ersetzt (vorher wird gefragt).">
-          <button type="button" className="ui-button" onClick={onImport}>
-            Import
-          </button>
-        </Tooltip>
-      </Section>
+      {/* Sticky: stays reachable when a narrow window scrolls the toolbar sideways. */}
+      <div className="toolbar__file">
+        <Separator />
+        <Section label="Datei">
+          <Tooltip text="Das Projekt als JSON-Datei herunterladen">
+            <button type="button" className="ui-button" onClick={onExport}>
+              Export
+            </button>
+          </Tooltip>
+          <Tooltip text="Ein Projekt aus einer JSON-Datei laden. Es ersetzt das aktuelle Projekt; vorher wird gefragt und bei nicht exportierten Änderungen gewarnt.">
+            <button type="button" className="ui-button" onClick={onImport}>
+              Import
+            </button>
+          </Tooltip>
+        </Section>
+      </div>
     </header>
   )
 }

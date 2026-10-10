@@ -301,6 +301,12 @@ describe('analyzeSelection', () => {
     expect(analyzeSelection(model, ['a']).criticalPath).toEqual({ nodeIds: [], edgeIds: [], length: 0 })
   })
 
+  it('has an empty critical path for an empty project (no phantom step)', () => {
+    const result = analyzeSelection(content([]), [])
+    expect(result.criticalPath).toEqual({ nodeIds: [], edgeIds: [], length: 0 })
+    expect(result.blockers).toEqual([])
+  })
+
   it('includes a finished selected object that waits for an open prerequisite', () => {
     const model = content([done('a'), open('b', 1)], [edge('ab', 'a', 'b')])
     expect(analyzeSelection(model, ['a']).criticalPath).toEqual({ nodeIds: ['b', 'a'], edgeIds: ['ab'], length: 1 })

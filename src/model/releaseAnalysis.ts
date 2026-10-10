@@ -282,6 +282,7 @@ function chainDepths(p: Prepared): number[] {
 /** Longest chain of unfinished work reachable from the candidates (acyclic scope only). */
 function longestChain(p: Prepared, depth: readonly number[], candidates: readonly number[]): CriticalPath {
   const weight = (i: number) => (p.open[i] ? 1 : 0)
+  if (candidates.length === 0) return { nodeIds: [], edgeIds: [], length: 0 }
   let start = candidates[0]
   for (const c of candidates) {
     if (depth[c] + weight(c) > depth[start] + weight(start)) start = c

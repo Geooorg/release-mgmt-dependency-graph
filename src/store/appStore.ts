@@ -2,6 +2,12 @@ import { useStore } from 'zustand'
 import { createDefaultContent } from '../model/defaultModel'
 import type { GraphContent } from '../model/types'
 import { loadStoredContent, saveContent } from '../storage/localStorage'
+import {
+  loadExportFingerprint,
+  loadWorkMode,
+  saveExportFingerprint,
+  saveWorkMode,
+} from '../storage/uiPreferences'
 import { createGraphStore, type GraphState, type Notice } from './graphStore'
 import { connectPersistence } from './persistence'
 
@@ -37,7 +43,10 @@ function bootstrap(): { content: GraphContent; notice: Notice | null; persistNow
 
 const { content, notice, persistNow } = bootstrap()
 
-export const graphStore = createGraphStore(content, undefined, notice)
+export const graphStore = createGraphStore(content, undefined, notice, {
+  mode: loadWorkMode(),
+  exportedFingerprint: loadExportFingerprint(),
+})
 
 if (persistNow) saveContent(content)
 
@@ -48,6 +57,14 @@ connectPersistence(graphStore, {
       kind: 'error',
       message: 'Speichern im Browser-Speicher fehlgeschlagen (voll oder blockiert). Bitte Export nutzen.',
     }),
+})
+
+// Per-browser conveniences: the last mode and the state at the last export/import. Failures are harmless.
+graphStore.subscribe((state, previous) => {
+  if (state.mode !== previous.mode) saveWorkMode(state.mode)
+  if (state.exportedFingerprint !== previous.exportedFingerprint && state.exportedFingerprint !== null) {
+    saveExportFingerprint(state.exportedFingerprint)
+  }
 })
 
 export function useGraph<T>(selector: (state: GraphState) => T): T {

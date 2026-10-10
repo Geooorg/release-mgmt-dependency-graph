@@ -1,6 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { ConnectMode } from '../flow/types'
-import type { DependencyMode } from '../model/dependency'
+import { contentFingerprint } from '../model/fingerprint'
 import * as graph from '../model/graph'
 import {
   discardLastRecord,
@@ -13,6 +13,7 @@ import {
 import * as placement from '../model/placement'
 import { DEFAULT_PROJECT_NAME, isValidProjectName } from '../model/projectName'
 import { parseModelJson } from '../model/serialize'
+import { DEFAULT_HIGHLIGHT, DEFAULT_WORK_MODE, type Highlight, type WorkMode } from '../model/workMode'
 import type { ConnectionCheck } from '../model/graph'
 import type {
   GraphContent,
@@ -60,8 +61,14 @@ export interface GraphState {
   connectSourceId: string | null
   dropTargetId: string | null
   notice: Notice | null
-  /** Highlight the dependency graph of the selection (direction) or `off`. */
-  dependencyMode: DependencyMode
+  /** `build`: edit the structure; `analyze`: release analysis, structural actions are locked. */
+  mode: WorkMode
+  /** What the analysis mode draws in red (critical path, dependencies of the selection, nothing). */
+  highlight: Highlight
+  /** The release analysis panel is shown (analysis mode only; shown again on every switch to it). */
+  analysisPanelVisible: boolean
+  /** Fingerprint of the content at the last export or import; null = never exported. */
+  exportedFingerprint: string | null
   /** Undo/redo stacks. */
   history: History
   /** A multi-event gesture (drag, resize) is running; its changes form one undo step. */
@@ -70,8 +77,6 @@ export interface GraphState {
   contentRevision: number
   /** Ask the canvas to select and bring elements into view; `id` makes repeated requests distinct. */
   focusRequest: { id: number; nodeIds: string[] } | null
-  /** The release analysis panel is open (mutually exclusive with the dependency highlight). */
-  analysisOpen: boolean
   /** Element briefly highlighted after `revealNode`; cleared by the canvas. */
   revealedId: string | null
 
@@ -122,10 +127,12 @@ export interface GraphState {
   /** Start/end a drag or resize: everything in between becomes one undo step. */
   beginGesture: () => void
   endGesture: () => void
-  /** Switching the highlight on closes the analysis panel. */
-  setDependencyMode: (mode: DependencyMode) => void
-  /** Opening the panel switches the dependency highlight off. */
-  setAnalysisOpen: (open: boolean) => void
+  /** Switching to analysis ends the connect mode and shows the panel; no undo step. */
+  setMode: (mode: WorkMode) => void
+  setHighlight: (highlight: Highlight) => void
+  setAnalysisPanelVisible: (visible: boolean) => void
+  /** Remembers the current content as exported (called after an export). */
+  markExported: () => void
 
   replaceContent: (content: GraphContent) => void
   /** Parses an exported JSON document; replaces the model on success, otherwise keeps it and reports why. */
@@ -143,10 +150,17 @@ const CONNECTION_MESSAGES: Record<Exclude<ConnectionCheck, { ok: true }>['reason
 
 export type GraphStore = StoreApi<GraphState>
 
+/** UI state restored from the previous session. */
+export interface InitialUi {
+  mode?: WorkMode
+  exportedFingerprint?: string | null
+}
+
 export function createGraphStore(
   initial: GraphContent,
   newId: IdGenerator = graph.defaultIdGenerator,
   initialNotice: Notice | null = null,
+  initialUi: InitialUi = {},
 ): GraphStore {
   return createStore<GraphState>()((set, get) => {
     const content = (): GraphContent => ({
@@ -204,6 +218,9 @@ export function createGraphStore(
       })
     }
 
+    /** Analysis mode protects the structure: add, connect, delete, (un)group and re-parent do nothing. */
+    const structureLocked = () => get().mode === 'analyze'
+
     const tryConnect = (
       source: string,
       target: string,
@@ -257,15 +274,18 @@ export function createGraphStore(
       connectSourceId: null,
       dropTargetId: null,
       notice: initialNotice,
-      dependencyMode: 'off',
+      mode: initialUi.mode ?? DEFAULT_WORK_MODE,
+      highlight: DEFAULT_HIGHLIGHT,
+      analysisPanelVisible: true,
+      exportedFingerprint: initialUi.exportedFingerprint ?? null,
       history: emptyHistory,
       gesture: false,
       contentRevision: 0,
       focusRequest: null,
-      analysisOpen: false,
       revealedId: null,
 
       addNodeAt: (position) => {
+        if (structureLocked()) return
         const node = graph.createNode(placement.findFreePosition(get().nodes, position), newId)
         apply(
           { nodes: [...get().nodes, node], edges: get().edges },
@@ -327,21 +347,24 @@ export function createGraphStore(
       cancelSidebarChange: () => set({ pendingSidebarChange: null }),
 
       connect: (source, target, sourceHandle, targetHandle) => {
+        if (structureLocked()) return
         tryConnect(source, target, { sourceHandle, targetHandle })
       },
-      toggleConnectMode: () =>
+      toggleConnectMode: () => {
+        if (structureLocked()) return
         set(
           get().connectMode === 'off'
             ? { connectMode: 'pickSource', connectSourceId: null }
             : { connectMode: 'off', connectSourceId: null },
-        ),
+        )
+      },
       exitConnectMode: () => set({ connectMode: 'off', connectSourceId: null }),
       clearConnectSource: () => {
         if (get().connectMode === 'pickTarget') set({ connectMode: 'pickSource', connectSourceId: null })
       },
       pickForConnect: (id) => {
         const { connectMode, connectSourceId } = get()
-        if (connectMode === 'off') return
+        if (connectMode === 'off' || structureLocked()) return
         if (connectSourceId === null) {
           set({ connectMode: 'pickTarget', connectSourceId: id })
         } else if (connectSourceId === id) {
@@ -353,12 +376,14 @@ export function createGraphStore(
       },
 
       groupSelection: () => {
+        if (structureLocked()) return
         const { selectedNodeIds, nodes } = get()
         if (!graph.canGroup(nodes, selectedNodeIds)) return
         const result = graph.groupElements(content(), selectedNodeIds, newId)
         apply(result.content, { selectedNodeIds: [result.groupId], selectedEdgeIds: [] })
       },
       ungroupSelection: () => {
+        if (structureLocked()) return
         const { selectedNodeIds, nodes } = get()
         const groupIds = new Set(
           nodes.filter((n) => n.kind === 'group' && selectedNodeIds.includes(n.id)).map((n) => n.id),
@@ -374,6 +399,7 @@ export function createGraphStore(
         })
       },
       deleteSelection: () => {
+        if (structureLocked()) return
         const { selectedNodeIds, selectedEdgeIds } = get()
         if (selectedNodeIds.length === 0 && selectedEdgeIds.length === 0) return
         const next = graph.deleteElements(content(), {
@@ -384,6 +410,7 @@ export function createGraphStore(
       },
 
       updateDropTarget: (draggedIds) => {
+        if (structureLocked()) return
         const { nodes } = get()
         const anchor = topLevelDragged(nodes, draggedIds)[0]
         const target = anchor ? graph.findDropTargetGroup(nodes, anchor.id) : undefined
@@ -392,6 +419,11 @@ export function createGraphStore(
         if (next !== get().dropTargetId) set({ dropTargetId: next })
       },
       finishDrag: (draggedIds) => {
+        if (structureLocked()) {
+          // Moving is fine, but membership stays as it is.
+          if (get().dropTargetId !== null) set({ dropTargetId: null })
+          return
+        }
         let next = content()
         let refused = false
         for (const node of topLevelDragged(next.nodes, draggedIds)) {
@@ -424,10 +456,27 @@ export function createGraphStore(
         const unchanged = start !== undefined && sameContent(start, content())
         set({ gesture: false, history: unchanged ? discardLastRecord(history) : history })
       },
-      setDependencyMode: (mode) =>
-        set(mode === 'off' ? { dependencyMode: mode } : { dependencyMode: mode, analysisOpen: false }),
-      setAnalysisOpen: (open) =>
-        set(open ? { analysisOpen: true, dependencyMode: 'off' } : { analysisOpen: false }),
+      setMode: (mode) => {
+        if (get().mode === mode) return
+        set(
+          mode === 'analyze'
+            ? {
+                mode,
+                analysisPanelVisible: true,
+                connectMode: 'off',
+                connectSourceId: null,
+                dropTargetId: null,
+              }
+            : { mode },
+        )
+      },
+      setHighlight: (highlight) => {
+        if (get().highlight !== highlight) set({ highlight })
+      },
+      setAnalysisPanelVisible: (visible) => {
+        if (get().analysisPanelVisible !== visible) set({ analysisPanelVisible: visible })
+      },
+      markExported: () => set({ exportedFingerprint: contentFingerprint(content()) }),
 
       replaceContent: (next) =>
         set({
@@ -464,6 +513,8 @@ export function createGraphStore(
           edges: result.model.edges,
           projectName: result.model.projectName,
         })
+        // The project now equals the file: nothing is lost by replacing it again.
+        get().markExported()
         set({ notice: { kind: 'success', message: 'Modell importiert.' } })
         return true
       },

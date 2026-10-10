@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { Toolbar } from './Toolbar'
@@ -8,21 +8,23 @@ function makeProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
   return {
     projectName: 'Release-Management',
     onRenameProject: vi.fn(),
+    mode: 'build',
+    onModeChange: vi.fn(),
     connectMode: 'off',
     canGroup: true,
     canUngroup: true,
     canDelete: true,
     canUndo: true,
     canRedo: true,
-    dependencyMode: 'off',
+    highlight: 'critical',
+    onHighlightChange: vi.fn(),
     selectionEmpty: false,
     cycleCount: 0,
     onFocusCycle: vi.fn(),
-    analysisOpen: false,
-    onToggleAnalysis: vi.fn(),
+    panelVisible: true,
+    onTogglePanel: vi.fn(),
     onUndo: vi.fn(),
     onRedo: vi.fn(),
-    onDependencyModeChange: vi.fn(),
     onAddNode: vi.fn(),
     onToggleConnect: vi.fn(),
     onGroup: vi.fn(),
@@ -35,12 +37,14 @@ function makeProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
 }
 
 describe('Toolbar', () => {
-  it('renders a labelled toolbar with the app title and all buttons', () => {
+  it('renders a labelled toolbar with the title and the build mode buttons', () => {
     render(<Toolbar {...makeProps()} />)
 
     expect(screen.getByRole('toolbar', { name: 'Werkzeuge' })).toBeInTheDocument()
     expect(screen.getByText('Release-Management')).toBeInTheDocument()
     for (const label of [
+      'Aufbauen',
+      'Analysieren',
       'Objekt anlegen',
       'Verbinden',
       'Gruppieren',
@@ -48,8 +52,6 @@ describe('Toolbar', () => {
       'Löschen',
       'Rückgängig',
       'Wiederholen',
-      'Abhängigkeiten',
-      'Release-Analyse',
       'Export',
       'Import',
     ]) {
@@ -144,76 +146,168 @@ describe('Toolbar', () => {
     })
   })
 
-  describe('dependency highlight', () => {
-    it('is a toggle that starts "outgoing" and switches off again', async () => {
-      const onDependencyModeChange = vi.fn()
-      const { rerender } = render(<Toolbar {...makeProps({ onDependencyModeChange })} />)
-      const button = screen.getByRole('button', { name: 'Abhängigkeiten' })
-      expect(button).toHaveAttribute('aria-pressed', 'false')
-      expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+  describe('mode switch', () => {
+    it('is a labelled group of two pressed-state buttons', () => {
+      render(<Toolbar {...makeProps({ mode: 'build' })} />)
 
-      await userEvent.click(button)
-      expect(onDependencyModeChange).toHaveBeenLastCalledWith('outgoing')
-
-      rerender(<Toolbar {...makeProps({ onDependencyModeChange, dependencyMode: 'outgoing' })} />)
-      expect(screen.getByRole('button', { name: 'Abhängigkeiten' })).toHaveAttribute('aria-pressed', 'true')
-      await userEvent.click(screen.getByRole('button', { name: 'Abhängigkeiten' }))
-      expect(onDependencyModeChange).toHaveBeenLastCalledWith('off')
+      const group = screen.getByRole('group', { name: 'Arbeitsmodus' })
+      expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['Aufbauen', 'Analysieren'])
+      expect(screen.getByRole('button', { name: 'Aufbauen' })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: 'Analysieren' })).toHaveAttribute('aria-pressed', 'false')
     })
 
-    it('offers the three directions while active', async () => {
-      const onDependencyModeChange = vi.fn()
-      render(<Toolbar {...makeProps({ onDependencyModeChange, dependencyMode: 'outgoing' })} />)
+    it('reflects the analysis mode', () => {
+      render(<Toolbar {...makeProps({ mode: 'analyze' })} />)
 
-      const select = screen.getByRole('combobox', { name: 'Richtung der Abhängigkeiten' })
-      expect(screen.getAllByRole('option').map((o) => (o as HTMLOptionElement).value)).toEqual([
-        'outgoing',
-        'incoming',
-        'both',
-      ])
-      await userEvent.selectOptions(select, 'both')
-      expect(onDependencyModeChange).toHaveBeenLastCalledWith('both')
+      expect(screen.getByRole('button', { name: 'Aufbauen' })).toHaveAttribute('aria-pressed', 'false')
+      expect(screen.getByRole('button', { name: 'Analysieren' })).toHaveAttribute('aria-pressed', 'true')
     })
 
-    it('names the directions by what they show', () => {
-      render(<Toolbar {...makeProps({ dependencyMode: 'outgoing' })} />)
-      expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
-        '→ Voraussetzungen',
-        '← Betroffene',
-        '↔ Beide',
-      ])
+    it('reports the chosen mode', async () => {
+      const props = makeProps()
+      render(<Toolbar {...props} />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Analysieren' }))
+      expect(props.onModeChange).toHaveBeenLastCalledWith('analyze')
+      await userEvent.click(screen.getByRole('button', { name: 'Aufbauen' }))
+      expect(props.onModeChange).toHaveBeenLastCalledWith('build')
     })
 
-    it('tells the user to select something when nothing is selected', () => {
-      const { rerender } = render(
-        <Toolbar {...makeProps({ dependencyMode: 'outgoing', selectionEmpty: true })} />,
-      )
-      expect(screen.getByRole('status')).toHaveTextContent('Objekt markieren')
+    it('explains both modes in tooltips', async () => {
+      render(<Toolbar {...makeProps()} />)
 
-      rerender(<Toolbar {...makeProps({ dependencyMode: 'outgoing', selectionEmpty: false })} />)
-      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+      await userEvent.hover(screen.getByRole('button', { name: 'Analysieren' }))
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('Die Struktur ist gesperrt')
+    })
+
+    it('comes right after the project name, before every other section', () => {
+      render(<Toolbar {...makeProps()} />)
+
+      const buttons = screen.getAllByRole('button').map((b) => b.textContent || b.getAttribute('aria-label'))
+      expect(buttons.slice(0, 4)).toEqual(['Release-Management', 'Aufbauen', 'Analysieren', 'Objekt anlegen'])
     })
   })
 
-  describe('release analysis', () => {
-    it('is a toggle button in the analysis section', async () => {
-      const props = makeProps()
+  describe('build mode', () => {
+    it('shows the structure sections and no analysis controls', () => {
+      render(<Toolbar {...makeProps({ mode: 'build' })} />)
+
+      for (const name of ['Erstellen', 'Gruppen', 'Verlauf', 'Datei']) {
+        expect(screen.getByRole('group', { name })).toBeInTheDocument()
+      }
+      expect(screen.queryByRole('group', { name: 'Analyse' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Panel' })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('analysis mode', () => {
+    const analyze = (overrides: Partial<ToolbarProps> = {}) => makeProps({ mode: 'analyze', ...overrides })
+
+    it('hides every structure tool', () => {
+      render(<Toolbar {...analyze()} />)
+
+      for (const name of ['Objekt anlegen', 'Verbinden', 'Gruppieren', 'Gruppe auflösen', 'Löschen']) {
+        expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
+      }
+      expect(screen.queryByRole('group', { name: 'Erstellen' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('group', { name: 'Gruppen' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+
+    it('keeps history and file sections', () => {
+      render(<Toolbar {...analyze()} />)
+
+      for (const name of ['Verlauf', 'Datei']) {
+        expect(screen.getByRole('group', { name })).toBeInTheDocument()
+      }
+      for (const name of ['Rückgängig', 'Wiederholen', 'Export', 'Import']) {
+        expect(screen.getByRole('button', { name })).toBeEnabled()
+      }
+    })
+
+    it('offers the five highlights, critical path first', () => {
+      render(<Toolbar {...analyze()} />)
+
+      const select = screen.getByRole('combobox', { name: 'Hervorhebung' })
+      expect(within(select).getAllByRole('option').map((o) => [(o as HTMLOptionElement).value, o.textContent])).toEqual([
+        ['critical', 'Kritischer Pfad'],
+        ['outgoing', '→ Voraussetzungen'],
+        ['incoming', '← Betroffene'],
+        ['both', '↔ Beide'],
+        ['off', 'Keine'],
+      ])
+      expect(select).toHaveValue('critical')
+    })
+
+    it('reports a changed highlight and shows the current one', async () => {
+      const props = analyze()
       const { rerender } = render(<Toolbar {...props} />)
-      const button = screen.getByRole('button', { name: 'Release-Analyse' })
+
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Hervorhebung' }), 'both')
+      expect(props.onHighlightChange).toHaveBeenLastCalledWith('both')
+
+      rerender(<Toolbar {...props} highlight="off" />)
+      expect(screen.getByRole('combobox', { name: 'Hervorhebung' })).toHaveValue('off')
+    })
+
+    it('has a panel toggle with pressed state', async () => {
+      const props = analyze({ panelVisible: false })
+      const { rerender } = render(<Toolbar {...props} />)
+      const button = screen.getByRole('button', { name: 'Panel' })
       expect(button).toHaveAttribute('aria-pressed', 'false')
       expect(screen.getByRole('group', { name: 'Analyse' })).toContainElement(button)
 
       await userEvent.click(button)
-      expect(props.onToggleAnalysis).toHaveBeenCalledTimes(1)
+      expect(props.onTogglePanel).toHaveBeenCalledTimes(1)
 
-      rerender(<Toolbar {...props} analysisOpen />)
-      expect(screen.getByRole('button', { name: 'Release-Analyse' })).toHaveAttribute('aria-pressed', 'true')
+      rerender(<Toolbar {...props} panelVisible />)
+      expect(screen.getByRole('button', { name: 'Panel' })).toHaveAttribute('aria-pressed', 'true')
     })
 
-    it('explains itself in a tooltip', async () => {
+    it('explains the highlight and the panel in tooltips', async () => {
+      render(<Toolbar {...analyze()} />)
+
+      await userEvent.hover(screen.getByRole('combobox', { name: 'Hervorhebung' }))
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('längste Kette')
+      await userEvent.unhover(screen.getByRole('combobox', { name: 'Hervorhebung' }))
+      await userEvent.hover(screen.getByRole('button', { name: 'Panel' }))
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('Release-Analyse-Panel')
+    })
+
+    it('tells the user to select something for a dependency highlight without selection', () => {
+      const { rerender } = render(<Toolbar {...analyze({ highlight: 'outgoing', selectionEmpty: true })} />)
+      expect(screen.getByRole('status')).toHaveTextContent('Objekt markieren')
+
+      rerender(<Toolbar {...analyze({ highlight: 'outgoing', selectionEmpty: false })} />)
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+
+    it('needs no selection for the critical path or without highlight', () => {
+      const { rerender } = render(<Toolbar {...analyze({ highlight: 'critical', selectionEmpty: true })} />)
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+
+      rerender(<Toolbar {...analyze({ highlight: 'off', selectionEmpty: true })} />)
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('file section', () => {
+    it('is the last group in both modes', () => {
+      for (const mode of ['build', 'analyze'] as const) {
+        const { unmount } = render(<Toolbar {...makeProps({ mode })} />)
+        const groups = screen.getAllByRole('group')
+        expect(groups.at(-1)).toHaveAccessibleName('Datei')
+        expect(within(groups.at(-1)!).getAllByRole('button').map((b) => b.textContent)).toEqual(['Export', 'Import'])
+        unmount()
+      }
+    })
+
+    it('says that importing asks first and warns about unexported changes', async () => {
       render(<Toolbar {...makeProps()} />)
-      await userEvent.hover(screen.getByRole('button', { name: 'Release-Analyse' }))
-      expect(await screen.findByRole('tooltip')).toHaveTextContent('kritischer Pfad')
+
+      await userEvent.hover(screen.getByRole('button', { name: 'Import' }))
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('nicht exportierten Änderungen')
     })
   })
 
@@ -221,6 +315,14 @@ describe('Toolbar', () => {
     it('is absent without cycles', () => {
       render(<Toolbar {...makeProps({ cycleCount: 0 })} />)
       expect(screen.queryByRole('button', { name: /Zyklus|Zyklen/ })).not.toBeInTheDocument()
+    })
+
+    it('is shown in both modes', () => {
+      for (const mode of ['build', 'analyze'] as const) {
+        const { unmount } = render(<Toolbar {...makeProps({ mode, cycleCount: 3 })} />)
+        expect(screen.getByRole('button', { name: /3 Zyklen/ })).toBeInTheDocument()
+        unmount()
+      }
     })
 
     it('shows the number of cycles and jumps to the next one on click', async () => {
@@ -308,7 +410,7 @@ describe('Toolbar', () => {
     it('groups the buttons into labelled sections', () => {
       render(<Toolbar {...makeProps()} />)
 
-      for (const name of ['Erstellen', 'Verlauf', 'Gruppen', 'Analyse', 'Datei']) {
+      for (const name of ['Erstellen', 'Verlauf', 'Gruppen', 'Datei']) {
         expect(screen.getByRole('group', { name })).toBeInTheDocument()
       }
       const history = screen.getByRole('group', { name: 'Verlauf' })

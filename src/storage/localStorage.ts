@@ -11,7 +11,7 @@ export type LoadResult =
   | { status: 'unavailable' }
 
 /** `window.localStorage` can throw (blocked cookies, private mode) or be missing. */
-function getStorage(): Storage | null {
+export function getStorage(): Storage | null {
   try {
     return typeof window === 'undefined' ? null : window.localStorage
   } catch {

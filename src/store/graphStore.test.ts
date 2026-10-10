@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { contentFingerprint } from '../model/fingerprint'
 import { getAbsolutePosition } from '../model/graph'
+import { serializeModel, toModel } from '../model/serialize'
 import { box, content, counterIds, edge, group } from '../test/fixtures'
 import { createGraphStore, type GraphStore } from './graphStore'
 
@@ -585,7 +587,10 @@ describe('graphStore', () => {
       s(store).applyNodeSelection([{ id: 'a', selected: true }])
       s(store).openSidebar('a')
       s(store).toggleConnectMode()
-      s(store).setDependencyMode('both')
+      s(store).setMode('analyze')
+      s(store).setHighlight('both')
+      s(store).setAnalysisPanelVisible(false)
+      s(store).setMode('build')
       expect(s(store).history.past).toHaveLength(0)
     })
 
@@ -685,43 +690,204 @@ describe('graphStore', () => {
     })
   })
 
-  describe('dependency mode', () => {
-    it('is off by default and can be switched', () => {
+  describe('work mode', () => {
+    const analyzing = (initial = content([box('a', 0, 0), box('b', 300, 0)], [edge('e', 'a', 'b')])) => {
+      const store = createGraphStore(initial, counterIds(), null, { mode: 'analyze' })
+      return { store, s: () => store.getState() }
+    }
+
+    it('starts in build mode with the critical path highlight and a visible panel', () => {
+      const state = createGraphStore(twoNodes()).getState()
+      expect(state.mode).toBe('build')
+      expect(state.highlight).toBe('critical')
+      expect(state.analysisPanelVisible).toBe(true)
+    })
+
+    it('can start in the remembered mode', () => {
+      expect(createGraphStore(twoNodes(), undefined, null, { mode: 'analyze' }).getState().mode).toBe('analyze')
+    })
+
+    it('switches without touching model, history or selection', () => {
       const store = createGraphStore(twoNodes())
-      expect(store.getState().dependencyMode).toBe('off')
-      store.getState().setDependencyMode('outgoing')
-      expect(store.getState().dependencyMode).toBe('outgoing')
-      store.getState().setDependencyMode('off')
-      expect(store.getState().dependencyMode).toBe('off')
+      const s = () => store.getState()
+      s().applyNodeSelection([{ id: 'a', selected: true }])
+      const { nodes, edges, history } = s()
+      s().setMode('analyze')
+      expect(s().mode).toBe('analyze')
+      s().setMode('build')
+      expect(s().mode).toBe('build')
+      expect(s().nodes).toBe(nodes)
+      expect(s().edges).toBe(edges)
+      expect(s().history).toBe(history)
+      expect(s().selectedNodeIds).toEqual(['a'])
+    })
+
+    it('ends the connect mode when switching to analysis', () => {
+      const store = createGraphStore(twoNodes())
+      const s = () => store.getState()
+      s().toggleConnectMode()
+      s().pickForConnect('a')
+      expect(s().connectMode).toBe('pickTarget')
+      s().setMode('analyze')
+      expect(s().connectMode).toBe('off')
+      expect(s().connectSourceId).toBeNull()
+    })
+
+    it('shows the panel again on every switch to analysis', () => {
+      const store = createGraphStore(twoNodes())
+      const s = () => store.getState()
+      s().setMode('analyze')
+      s().setAnalysisPanelVisible(false)
+      expect(s().analysisPanelVisible).toBe(false)
+      s().setMode('build')
+      s().setMode('analyze')
+      expect(s().analysisPanelVisible).toBe(true)
+    })
+
+    it('keeps the highlight choice across mode switches', () => {
+      const store = createGraphStore(twoNodes())
+      store.getState().setHighlight('incoming')
+      store.getState().setMode('analyze')
+      store.getState().setMode('build')
+      expect(store.getState().highlight).toBe('incoming')
+    })
+
+    describe('in analysis mode the structure is protected', () => {
+      it('does not add objects', () => {
+        const { store, s } = analyzing()
+        s().addNodeAt({ x: 0, y: 400 })
+        expect(s().nodes).toHaveLength(2)
+        expect(store.getState().history.past).toHaveLength(0)
+      })
+
+      it('does not connect, neither directly nor in connect mode', () => {
+        const { s } = analyzing(content([box('a', 0, 0), box('b', 300, 0), box('c', 600, 0)], []))
+        s().connect('a', 'b')
+        s().toggleConnectMode()
+        expect(s().connectMode).toBe('off')
+        s().pickForConnect('a')
+        s().pickForConnect('b')
+        expect(s().edges).toEqual([])
+        expect(s().connectMode).toBe('off')
+      })
+
+      it('does not delete, group or ungroup', () => {
+        const { s } = analyzing(
+          content([box('a', 0, 0), box('b', 300, 0), group('g', 0, 200, 300, 200)], [edge('e', 'a', 'b')]),
+        )
+        s().applyNodeSelection([
+          { id: 'a', selected: true },
+          { id: 'b', selected: true },
+          { id: 'g', selected: true },
+        ])
+        s().applyEdgeSelection([{ id: 'e', selected: true }])
+        const { nodes, edges, history } = s()
+        s().deleteSelection()
+        s().groupSelection()
+        s().ungroupSelection()
+        expect(s().nodes).toBe(nodes)
+        expect(s().edges).toBe(edges)
+        expect(s().history).toBe(history)
+        expect(s().selectedNodeIds).toEqual(['a', 'b', 'g'])
+      })
+
+      it('moves elements but never re-parents them and shows no drop target', () => {
+        const { s } = analyzing(content([group('g', 0, 0, 400, 300), box('a', 500, 50), box('c', 20, 40, 'g')]))
+        s().beginGesture()
+        s().moveNode('a', { x: 100, y: 100 }) // dropped inside g
+        s().moveNode('c', { x: 900, y: 900 }) // dragged out of g
+        s().updateDropTarget(['a'])
+        expect(s().dropTargetId).toBeNull()
+        s().finishDrag(['a', 'c'])
+        s().endGesture()
+        const byId = (id: string) => s().nodes.find((n) => n.id === id)!
+        expect(byId('a').parentId).toBeUndefined()
+        expect(byId('a').position).toEqual({ x: 100, y: 100 })
+        expect(byId('c').parentId).toBe('g')
+        expect(s().history.past).toHaveLength(1)
+      })
+
+      it('still allows editing metadata, edge labels, the project name, status and undo', () => {
+        const { s } = analyzing()
+        s().saveMetadata('a', [
+          { key: 'name', value: 'A' },
+          { key: 'status', value: 'fertig' },
+        ])
+        s().saveEdgeLabel('e', 'braucht')
+        expect(s().renameProject('Neu')).toBe(true)
+        expect(s().nodes[0].metadata[1]).toEqual({ key: 'status', value: 'fertig' })
+        expect(s().edges[0].label).toBe('braucht')
+        s().undo()
+        expect(s().projectName).toBe('Release-Management')
+      })
+
+      it('still allows replacing the content by an import', () => {
+        const { s } = analyzing()
+        s().replaceContent(content([box('x', 0, 0)]))
+        expect(s().nodes.map((n) => n.id)).toEqual(['x'])
+      })
+
+      it('works as before after switching back to build', () => {
+        const { s } = analyzing()
+        s().setMode('build')
+        s().addNodeAt({ x: 0, y: 400 })
+        expect(s().nodes).toHaveLength(3)
+      })
     })
   })
 
-  describe('analysis panel', () => {
-    it('is closed by default and excludes the dependency highlight', () => {
-      const store = createGraphStore(twoNodes())
-      const s = () => store.getState()
-      expect(s().analysisOpen).toBe(false)
-
-      s().setDependencyMode('both')
-      s().setAnalysisOpen(true)
-      expect(s().analysisOpen).toBe(true)
-      expect(s().dependencyMode).toBe('off')
-
-      s().setDependencyMode('incoming')
-      expect(s().analysisOpen).toBe(false)
-      expect(s().dependencyMode).toBe('incoming')
-
-      s().setAnalysisOpen(false)
-      expect(s().dependencyMode).toBe('incoming')
-    })
-
-    it('does not touch model or history', () => {
+  describe('analysis highlight and panel', () => {
+    it('are plain UI state and do not touch model or history', () => {
       const store = createGraphStore(twoNodes())
       const { nodes, edges, history } = store.getState()
-      store.getState().setAnalysisOpen(true)
+      store.getState().setMode('analyze')
+      store.getState().setHighlight('off')
+      store.getState().setAnalysisPanelVisible(false)
+      expect(store.getState().highlight).toBe('off')
+      expect(store.getState().analysisPanelVisible).toBe(false)
       expect(store.getState().nodes).toBe(nodes)
       expect(store.getState().edges).toBe(edges)
       expect(store.getState().history).toBe(history)
+    })
+  })
+
+  describe('export fingerprint', () => {
+    it('is unknown at first and can be restored from the previous session', () => {
+      expect(createGraphStore(twoNodes()).getState().exportedFingerprint).toBeNull()
+      expect(
+        createGraphStore(twoNodes(), undefined, null, { exportedFingerprint: 'abc' }).getState()
+          .exportedFingerprint,
+      ).toBe('abc')
+    })
+
+    it('markExported remembers the current content; editing and undoing change the comparison', () => {
+      const store = createGraphStore(twoNodes(), counterIds())
+      const s = () => store.getState()
+      s().markExported()
+      expect(s().exportedFingerprint).toBe(
+        contentFingerprint({ nodes: s().nodes, edges: s().edges, projectName: s().projectName }),
+      )
+      s().moveNode('a', { x: 5, y: 5 })
+      expect(contentFingerprint({ nodes: s().nodes, edges: s().edges, projectName: s().projectName })).not.toBe(
+        s().exportedFingerprint,
+      )
+      s().undo()
+      expect(contentFingerprint({ nodes: s().nodes, edges: s().edges, projectName: s().projectName })).toBe(
+        s().exportedFingerprint,
+      )
+    })
+
+    it('is set after a successful import, not after a failed one', () => {
+      const store = createGraphStore(twoNodes())
+      const s = () => store.getState()
+      expect(s().importText('not json')).toBe(false)
+      expect(s().exportedFingerprint).toBeNull()
+
+      const exported = serializeModel(toModel(content([box('x', 0, 0)], [])))
+      expect(s().importText(exported)).toBe(true)
+      expect(s().exportedFingerprint).toBe(
+        contentFingerprint({ nodes: s().nodes, edges: s().edges, projectName: s().projectName }),
+      )
     })
   })
 

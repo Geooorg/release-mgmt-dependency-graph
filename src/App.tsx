@@ -3,12 +3,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnalysisPanel } from './components/AnalysisPanel'
 import { Banner } from './components/Banner'
 import { ConfirmDialog } from './components/ConfirmDialog'
+import { ImportDialog } from './components/ImportDialog'
 import { Sidebar } from './components/Sidebar'
 import { Toolbar } from './components/Toolbar'
 import type { AnalysisEntry, AnalysisPanelProps } from './components/props'
 import { Canvas } from './flow/Canvas'
 import { findCycles } from './model/cycles'
 import { canGroup } from './model/graph'
+import { contentFingerprint } from './model/fingerprint'
 import { displayName } from './model/metadata'
 import {
   analyzeProject,
@@ -82,7 +84,8 @@ function toPanelProps(
 
 function AppShell() {
   const { screenToFlowPosition } = useReactFlow()
-  const [confirmImportOpen, setConfirmImportOpen] = useState(false)
+  // Set while the import dialog is open; `unsaved` is decided when it opens.
+  const [importDialog, setImportDialog] = useState<{ unsaved: boolean } | null>(null)
 
   const projectName = useGraph((s) => s.projectName)
   const connectMode = useGraph((s) => s.connectMode)
@@ -92,7 +95,9 @@ function AppShell() {
   )
   const canUndo = useGraph((s) => s.history.past.length > 0)
   const canRedo = useGraph((s) => s.history.future.length > 0)
-  const dependencyMode = useGraph((s) => s.dependencyMode)
+  const mode = useGraph((s) => s.mode)
+  const highlight = useGraph((s) => s.highlight)
+  const panelShown = useGraph((s) => s.analysisPanelVisible)
   const selectionEmpty = useGraph((s) => s.selectedNodeIds.length === 0)
   const deletable = useGraph((s) => s.selectedNodeIds.length + s.selectedEdgeIds.length > 0)
   const notice = useGraph((s) => s.notice)
@@ -101,24 +106,28 @@ function AppShell() {
   // Derived on demand, never stored in the model.
   const cycles = useMemo(() => findCycles({ nodes, edges }), [nodes, edges])
   const analysis = useMemo(() => analyzeProject({ nodes, edges }), [nodes, edges])
-  const analysisOpen = useGraph((s) => s.analysisOpen)
+  const analyzing = mode === 'analyze'
+  const panelVisible = analyzing && panelShown
+  const drawCritical = analyzing && highlight === 'critical'
   const selectedNodeIds = useGraph((s) => s.selectedNodeIds)
+  // The selection analysis feeds the panel and the critical path highlight; skip it when neither is shown.
   const selection = useMemo(
-    () => (analysisOpen ? analyzeSelection({ nodes, edges }, selectedNodeIds) : null),
-    [analysisOpen, nodes, edges, selectedNodeIds],
+    () => (panelVisible || drawCritical ? analyzeSelection({ nodes, edges }, selectedNodeIds) : null),
+    [panelVisible, drawCritical, nodes, edges, selectedNodeIds],
   )
   const critical = useMemo(
     () =>
-      selection?.criticalPath
-        ? { nodeIds: new Set(selection.criticalPath.nodeIds), edgeIds: new Set(selection.criticalPath.edgeIds) }
-        : selection
-          ? { nodeIds: new Set<string>(), edgeIds: new Set<string>() }
-          : null,
-    [selection],
+      drawCritical && selection
+        ? {
+            nodeIds: new Set(selection.criticalPath?.nodeIds),
+            edgeIds: new Set(selection.criticalPath?.edgeIds),
+          }
+        : null,
+    [drawCritical, selection],
   )
   const panelProps = useMemo(
-    () => (selection ? toPanelProps({ nodes, edges }, analysis, selection) : null),
-    [selection, nodes, edges, analysis],
+    () => (panelVisible && selection ? toPanelProps({ nodes, edges }, analysis, selection) : null),
+    [panelVisible, selection, nodes, edges, analysis],
   )
   const nextCycle = useRef(0)
   const sidebarNode = useGraph((s) =>
@@ -166,7 +175,7 @@ function AppShell() {
       } else if (event.key === 'Escape') {
         // One level at a time: first the connect mode, then the analysis panel (the sidebar stays).
         if (state.connectMode !== 'off') state.exitConnectMode()
-        else state.setAnalysisOpen(false)
+        else if (state.mode === 'analyze') state.setAnalysisPanelVisible(false)
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -217,58 +226,82 @@ function AppShell() {
   }
 
   const exportModel = () => {
-    const { nodes, edges, projectName: name } = graphStore.getState()
+    const state = graphStore.getState()
+    const { nodes, edges, projectName: name } = state
     downloadTextFile(
       exportFileName(new Date(), name),
       serializeModel(toModel({ nodes, edges, projectName: name })),
     )
+    state.markExported()
   }
 
-  // Runs inside the click handler of the confirm button, so the file picker still counts as user-initiated.
-  const importModel = async () => {
-    setConfirmImportOpen(false)
+  const requestImport = () => {
+    const { nodes, edges, projectName: name, exportedFingerprint } = graphStore.getState()
+    setImportDialog({ unsaved: contentFingerprint({ nodes, edges, projectName: name }) !== exportedFingerprint })
+  }
+
+  // Both import paths call this synchronously from the click handler (no `await` before the picker),
+  // so the file picker still counts as user-initiated.
+  const pickAndImport = async () => {
+    setImportDialog(null)
     const text = await pickTextFile()
     if (text === null) return
     graphStore.getState().importText(text)
   }
+
+  const exportAndImport = () => {
+    exportModel()
+    void pickAndImport()
+  }
+
+  const importCounts = useMemo(
+    () => ({
+      objects: nodes.filter((n) => n.kind === 'node').length,
+      groups: nodes.filter((n) => n.kind === 'group').length,
+      connections: edges.length,
+    }),
+    [nodes, edges],
+  )
 
   return (
     <div className="app">
       <Toolbar
         projectName={projectName}
         onRenameProject={(name) => graphStore.getState().renameProject(name)}
+        mode={mode}
+        onModeChange={(next) => graphStore.getState().setMode(next)}
         connectMode={connectMode}
         canGroup={groupable}
         canUngroup={ungroupable}
         canDelete={deletable}
         canUndo={canUndo}
         canRedo={canRedo}
-        dependencyMode={dependencyMode}
+        highlight={highlight}
+        onHighlightChange={(next) => graphStore.getState().setHighlight(next)}
         selectionEmpty={selectionEmpty}
         cycleCount={cycles.cycles.length}
         onFocusCycle={focusNextCycle}
-        analysisOpen={analysisOpen}
-        onToggleAnalysis={() => graphStore.getState().setAnalysisOpen(!analysisOpen)}
+        panelVisible={panelShown}
+        onTogglePanel={() => graphStore.getState().setAnalysisPanelVisible(!panelShown)}
         onUndo={() => graphStore.getState().undo()}
         onRedo={() => graphStore.getState().redo()}
-        onDependencyModeChange={(mode) => graphStore.getState().setDependencyMode(mode)}
         onAddNode={addNode}
         onToggleConnect={() => graphStore.getState().toggleConnectMode()}
         onGroup={() => graphStore.getState().groupSelection()}
         onUngroup={() => graphStore.getState().ungroupSelection()}
         onDelete={() => graphStore.getState().deleteSelection()}
         onExport={exportModel}
-        onImport={() => setConfirmImportOpen(true)}
+        onImport={requestImport}
       />
       <div className="workspace">
-        <main className={analysisOpen ? 'canvas canvas--analysis' : 'canvas'}>
+        <main className={panelVisible ? 'canvas canvas--analysis' : 'canvas'}>
           <Canvas cycles={cycles} analysis={analysis} critical={critical} />
           {panelProps && (
             <AnalysisPanel
               {...panelProps}
               onReveal={(id) => graphStore.getState().revealNode(id)}
               onCopy={() => void copyAnalysis()}
-              onClose={() => graphStore.getState().setAnalysisOpen(false)}
+              onClose={() => graphStore.getState().setAnalysisPanelVisible(false)}
             />
           )}
           <div className="banner-host">
@@ -303,13 +336,14 @@ function AppShell() {
         onConfirm={() => graphStore.getState().confirmSidebarChange()}
         onCancel={() => graphStore.getState().cancelSidebarChange()}
       />
-      <ConfirmDialog
-        open={confirmImportOpen}
-        title="Modell importieren"
-        message="Beim Import wird das aktuelle Modell ersetzt. Aktuelle Änderungen verwerfen?"
-        confirmLabel="Verwerfen und importieren"
-        onConfirm={() => void importModel()}
-        onCancel={() => setConfirmImportOpen(false)}
+      <ImportDialog
+        open={importDialog !== null}
+        projectName={projectName}
+        counts={importCounts}
+        unsaved={importDialog?.unsaved ?? false}
+        onExportAndImport={exportAndImport}
+        onImportWithoutExport={() => void pickAndImport()}
+        onCancel={() => setImportDialog(null)}
       />
     </div>
   )

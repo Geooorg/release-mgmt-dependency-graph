@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef } from 'react'
+import { useId } from 'react'
 import type { SyntheticEvent } from 'react'
 import type { ConfirmDialogProps } from './props'
+import { useNativeDialog } from './useNativeDialog'
 import './components.css'
 
 export function ConfirmDialog({
@@ -12,23 +13,9 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
+  const dialogRef = useNativeDialog(open)
   const titleId = useId()
   const messageId = useId()
-
-  // Sync the native dialog with the `open` prop. jsdom (and very old browsers) lack
-  // showModal()/close(), so fall back to toggling the `open` attribute there.
-  useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-    if (open && !dialog.hasAttribute('open')) {
-      if (typeof dialog.showModal === 'function') dialog.showModal()
-      else dialog.setAttribute('open', '')
-    } else if (!open && dialog.hasAttribute('open')) {
-      if (typeof dialog.close === 'function') dialog.close()
-      else dialog.removeAttribute('open')
-    }
-  }, [open])
 
   // Escape fires `cancel`. The parent owns the state, so keep the browser from closing
   // the dialog itself and let the `open` prop do it.
