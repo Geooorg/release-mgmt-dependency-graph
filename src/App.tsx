@@ -26,6 +26,9 @@ import './App.css'
 
 const NOTICE_AUTO_DISMISS_MS = 5000
 
+// Module-level so the identity is stable: the sidebar form reports through it in effects.
+const reportSidebarDirty = (dirty: boolean) => graphStore.getState().setSidebarDirty(dirty)
+
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   return target.isContentEditable || target.closest('input, textarea, select, dialog') !== null
@@ -48,6 +51,7 @@ function toPanelProps(
     status: project.statusById.get(id) ?? 'offen',
     ready,
     blocked: project.blockedIds.has(id),
+    inconsistent: project.inconsistentIds.has(id),
   })
   const { counts } = project
   const path = selection.criticalPath
@@ -67,6 +71,12 @@ function toPanelProps(
     },
     cycleNames: selection.cycleIds.map(nameOf),
     blockers: selection.blockers.map((b) => entry(b.id, b.ready)),
+    inconsistent: selection.inconsistent.map((item) => ({
+      id: item.id,
+      name: nameOf(item.id),
+      waitingFor: item.waitingFor.map((id) => ({ name: nameOf(id), status: project.statusById.get(id) ?? 'offen' })),
+    })),
+    unknownStatus: selection.unknownStatus.map((item) => ({ id: item.id, name: nameOf(item.id), raw: item.raw })),
   }
 }
 
@@ -117,6 +127,7 @@ function AppShell() {
   const sidebarEdge = useGraph((s) =>
     s.sidebarEdgeId ? (s.edges.find((e) => e.id === s.sidebarEdgeId) ?? null) : null,
   )
+  const sidebarChangePending = useGraph((s) => s.pendingSidebarChange !== null)
   const sidebarElement = useMemo(() => {
     if (sidebarNode) {
       return {
@@ -281,8 +292,17 @@ function AppShell() {
             }
           }}
           onClose={() => graphStore.getState().closeSidebar()}
+          onDirtyChange={reportSidebarDirty}
         />
       </div>
+      <ConfirmDialog
+        open={sidebarChangePending}
+        title="Änderungen verwerfen"
+        message={`Ungespeicherte Änderungen an „${sidebarNode ? displayName(sidebarNode) : 'Verbindung'}“ verwerfen?`}
+        confirmLabel="Verwerfen"
+        onConfirm={() => graphStore.getState().confirmSidebarChange()}
+        onCancel={() => graphStore.getState().cancelSidebarChange()}
+      />
       <ConfirmDialog
         open={confirmImportOpen}
         title="Modell importieren"

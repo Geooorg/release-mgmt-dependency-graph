@@ -691,6 +691,38 @@
   color: #d97706;
 }
 
+/* Same corner as the red flag: an object is either blocked (unfinished) or inconsistent (finished). */
+.inconsistent-mark {
+  position: absolute;
+  top: -11px;
+  left: -11px;
+  z-index: 1;
+  display: flex;
+  color: #d97706;
+  filter: drop-shadow(0 1px 2px rgb(17 24 39 / 0.45));
+}
+
+.inconsistent-mark--inline {
+  position: static;
+  flex: none;
+  margin-right: 6px;
+  filter: none;
+}
+
+.inconsistent-mark .icon {
+  display: block;
+}
+
+.status-mark--open {
+  background: #fff;
+  color: #6b7280;
+}
+
+.status-mark--unknown {
+  background: #fef3c7;
+  color: #b45309;
+}
+
 @keyframes reveal-flash {
   0%,
   100% {
@@ -791,6 +823,15 @@
   color: var(--gray-900);
 }
 
+.analysis-counts .analysis-counts__clarify {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.analysis-counts .analysis-counts__clarify strong {
+  color: #78350f;
+}
+
 .analysis-section + .analysis-section {
   margin-top: 14px;
 }
@@ -799,6 +840,13 @@
   margin: 0 0 6px;
   font-size: 13px;
   font-weight: 700;
+}
+
+.analysis-subtitle {
+  margin: 8px 0 4px;
+  color: var(--gray-600);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .analysis-hint,
@@ -875,6 +923,14 @@ ol.analysis-list > li::before {
 
 .analysis-item:hover {
   background: var(--blue-50);
+}
+
+/* Plain text rows may wrap instead of being cut off. */
+.analysis-item--text {
+  display: block;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .analysis-item__name {

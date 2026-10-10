@@ -17,10 +17,16 @@ export interface FlowNodeData extends Record<string, unknown> {
   isInCycle: boolean
   /** Element was just revealed from the analysis panel (short flash). */
   isRevealed: boolean
-  /** Release status of an object (undefined for groups). */
+  /** Effective release status of an object (undefined for groups). */
   status?: Status
+  /** Trimmed raw status value; undefined = not set (objects only). */
+  statusRaw?: string
+  /** False = the raw status value is none of the three and counts as `offen` (objects only). */
+  statusKnown?: boolean
   /** Tooltip text of the red flag; set = the element (a group: one of its members) is blocked. */
   blockedTitle?: string
+  /** Tooltip text of the amber warning triangle; set = finished despite an unfinished prerequisite (a group: one of its members). */
+  inconsistentTitle?: string
   /** `#rrggbb` from the `color` metadata field; undefined = default blue. */
   color?: string
   /** Readable text colour for `color`. */

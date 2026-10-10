@@ -24,6 +24,8 @@ function makeProps(overrides: Partial<AnalysisPanelProps> = {}): AnalysisPanelPr
     },
     cycleNames: [],
     blockers: [entry('c', { ready: true }), entry('b', { status: 'in Arbeit', blocked: true })],
+    inconsistent: [],
+    unknownStatus: [],
     onReveal: vi.fn(),
     onCopy: vi.fn(),
     onClose: vi.fn(),
@@ -137,6 +139,61 @@ describe('AnalysisPanel', () => {
     render(<AnalysisPanel {...makeProps({ scope: 'project', selectionNames: [], blockers: [] })} />)
     expect(screen.getByText('Keine umsetzbaren Objekte.')).toBeInTheDocument()
     expect(screen.getByText('Keine blockierten Objekte.')).toBeInTheDocument()
+  })
+
+  describe('to clarify', () => {
+    const inconsistent = [
+      { id: 'c', name: 'Dienst C', waitingFor: [{ name: 'Dienst D', status: 'offen' as const }] },
+      {
+        id: 'x',
+        name: 'Dienst X',
+        waitingFor: [
+          { name: 'Dienst Y', status: 'in Arbeit' as const },
+          { name: 'Dienst Z', status: 'offen' as const },
+        ],
+      },
+    ]
+    const unknownStatus = [{ id: 'u', name: 'Dienst U', raw: 'erledigt' }]
+
+    it('shows nothing when there is nothing to clarify', () => {
+      render(<AnalysisPanel {...makeProps()} />)
+      expect(screen.queryByRole('heading', { name: 'Zu klären' })).not.toBeInTheDocument()
+      expect(screen.queryByText(/zu klären/)).not.toBeInTheDocument()
+    })
+
+    it('lists finished objects with unfinished prerequisites and what they wait for', () => {
+      render(<AnalysisPanel {...makeProps({ inconsistent })} />)
+      const section = screen.getByRole('heading', { name: 'Zu klären' }).closest('section')!
+
+      expect(within(section).getByRole('heading', { name: 'Fertig trotz offener Voraussetzung (2)' })).toBeInTheDocument()
+      expect(within(section).getAllByRole('button').map((b) => b.textContent)).toEqual([
+        'Dienst C – wartet auf Dienst D (offen)',
+        'Dienst X – wartet auf Dienst Y (in Arbeit), Dienst Z (offen)',
+      ])
+      expect(within(section).queryByRole('heading', { name: /Unbekannter Status/ })).not.toBeInTheDocument()
+    })
+
+    it('lists unknown status values', () => {
+      render(<AnalysisPanel {...makeProps({ unknownStatus })} />)
+      const section = screen.getByRole('heading', { name: 'Zu klären' }).closest('section')!
+
+      expect(within(section).getByRole('heading', { name: 'Unbekannter Status (1)' })).toBeInTheDocument()
+      expect(within(section).getByRole('button')).toHaveTextContent('Dienst U – „erledigt“ (zählt als offen)')
+      expect(within(section).queryByRole('heading', { name: /Fertig trotz/ })).not.toBeInTheDocument()
+    })
+
+    it('counts all entries in a chip and reveals an entry on click', async () => {
+      const props = makeProps({ inconsistent, unknownStatus })
+      render(<AnalysisPanel {...props} />)
+
+      const counts = within(screen.getByRole('list', { name: 'Projektstand' }))
+      expect(counts.getByText('zu klären').closest('li')).toHaveTextContent('3 zu klären')
+
+      await userEvent.click(screen.getByRole('button', { name: /Dienst X/ }))
+      await userEvent.click(screen.getByRole('button', { name: /Dienst U/ }))
+      expect(props.onReveal).toHaveBeenNthCalledWith(1, 'x')
+      expect(props.onReveal).toHaveBeenNthCalledWith(2, 'u')
+    })
   })
 
   it('copies and closes', async () => {

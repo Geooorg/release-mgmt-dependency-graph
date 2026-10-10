@@ -51,6 +51,8 @@ export interface SidebarProps {
   /** Called with already normalized metadata (trimmed, empty keys dropped, `name` first). */
   onSave: (metadata: MetadataEntry[]) => void
   onClose: () => void
+  /** Whether the open form has unsaved changes; `false` again once it closes or another element opens. */
+  onDirtyChange: (dirty: boolean) => void
 }
 
 export interface ConfirmDialogProps {
@@ -81,8 +83,24 @@ export interface AnalysisEntry {
   status: Status
   /** Unfinished and not blocked: can be worked on right now. */
   ready: boolean
-  /** Has an unfinished transitive prerequisite. */
+  /** Unfinished with an unfinished transitive prerequisite. */
   blocked: boolean
+  /** Finished although a prerequisite is not. */
+  inconsistent?: boolean
+}
+
+/** A finished object that waits for unfinished prerequisites. */
+export interface InconsistentEntry {
+  id: string
+  name: string
+  waitingFor: { name: string; status: Status }[]
+}
+
+/** An object whose status value is none of the three (it counts as `offen`). */
+export interface UnknownStatusEntry {
+  id: string
+  name: string
+  raw: string
 }
 
 export interface AnalysisCounts {
@@ -105,6 +123,10 @@ export interface AnalysisPanelProps {
   cycleNames: string[]
   /** Unfinished prerequisites of the selection, ready ones first (scope `project`: all unfinished objects). */
   blockers: AnalysisEntry[]
+  /** Section "Zu klären": finished objects with unfinished prerequisites ... */
+  inconsistent: InconsistentEntry[]
+  /** ... and objects with an unknown status value (selection and its prerequisites, or the whole project). */
+  unknownStatus: UnknownStatusEntry[]
   /** Bring the object into view without changing the selection. */
   onReveal: (id: string) => void
   onCopy: () => void

@@ -149,9 +149,58 @@ describe('toFlowNodes status and blockers', () => {
     )
     const [a, b, c] = toFlowNodes(model.nodes, ui(analyzeProject(model)))
     expect([a.data.status, b.data.status, c.data.status]).toEqual(['fertig', 'offen', 'in Arbeit'])
-    expect(a.data.blockedTitle).toBe('Blockiert durch: b')
+    // a is finished but waits for b: a contradiction, not a blockade
+    expect(a.data.blockedTitle).toBeUndefined()
+    expect(a.data.inconsistentTitle).toBe('Fertig, aber Voraussetzung nicht fertig: b')
     expect(b.data.blockedTitle).toBe('Blockiert durch: c')
+    expect(b.data.inconsistentTitle).toBeUndefined()
     expect(c.data.blockedTitle).toBeUndefined()
+    expect(c.data.inconsistentTitle).toBeUndefined()
+  })
+
+  it('tells an unset, an unknown and a real status apart', () => {
+    const model = content([
+      box('unset', 0, 0),
+      withStatus(box('real', 1, 0), ' Offen '),
+      withStatus(box('odd', 2, 0), 'erledigt'),
+      withStatus(box('done', 3, 0), 'fertig'),
+    ])
+    const [unset, real, odd, done] = toFlowNodes(model.nodes, ui(analyzeProject(model)))
+    expect([unset.data.status, unset.data.statusRaw, unset.data.statusKnown]).toEqual(['offen', undefined, true])
+    expect([real.data.status, real.data.statusRaw, real.data.statusKnown]).toEqual(['offen', 'Offen', true])
+    expect([odd.data.status, odd.data.statusRaw, odd.data.statusKnown]).toEqual(['offen', 'erledigt', false])
+    expect([done.data.status, done.data.statusRaw, done.data.statusKnown]).toEqual(['fertig', 'fertig', true])
+  })
+
+  it('lists at most five names in the inconsistency title', () => {
+    const blockers = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map((id, i) => box(id, i + 1, 0))
+    const model = content(
+      [withStatus(box('a', 0, 0), 'fertig'), ...blockers],
+      blockers.map((b) => edge(`e-${b.id}`, 'a', b.id)),
+    )
+    const [a] = toFlowNodes(model.nodes, ui(analyzeProject(model)))
+    expect(a.data.inconsistentTitle).toBe('Fertig, aber Voraussetzung nicht fertig: p1, p2, p3, p4, p5, …')
+  })
+
+  it('marks a group that contains an inconsistent object, besides the blocked flag if there is one', () => {
+    const model = content(
+      [
+        group('g', 0, 0, 300, 200),
+        withStatus(box('m', 1, 1, 'g'), 'fertig'),
+        box('n', 2, 2, 'g'),
+        box('y', 5, 5),
+        group('h', 0, 400, 300, 200),
+        withStatus(box('o', 1, 401, 'h'), 'fertig'),
+      ],
+      [edge('my', 'm', 'y'), edge('ny', 'n', 'y'), edge('oy', 'o', 'y')],
+    )
+    const flows = toFlowNodes(model.nodes, ui(analyzeProject(model)))
+    const g = flows.find((n) => n.id === 'g')!
+    const h = flows.find((n) => n.id === 'h')!
+    expect(g.data.inconsistentTitle).toBe('Enthält fertige Objekte mit nicht fertiger Voraussetzung: m')
+    expect(g.data.blockedTitle).toBe('Enthält blockierte Objekte: n')
+    expect(h.data.inconsistentTitle).toBe('Enthält fertige Objekte mit nicht fertiger Voraussetzung: o')
+    expect(h.data.blockedTitle).toBeUndefined()
   })
 
   it('lists at most five blockers, then an ellipsis', () => {

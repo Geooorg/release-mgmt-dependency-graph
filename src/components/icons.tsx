@@ -88,6 +88,35 @@ export function FlagIcon({ size }: { size?: number }) {
   )
 }
 
+/** Warning triangle (amber via `currentColor`) with a white exclamation mark: finished, but a prerequisite is not. */
+export function WarningIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M12 3 2.5 20.5h19z" fill="currentColor" />
+      <path d="M12 9.5v5M12 17.5h.01" stroke="#fff" strokeWidth="2.5" />
+    </Icon>
+  )
+}
+
+/** Empty ring: status offen. */
+export function OpenCircleIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <circle cx="12" cy="12" r="8" strokeWidth="3.5" />
+    </Icon>
+  )
+}
+
+/** Question mark: unknown status value. */
+export function QuestionIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M8.5 9a3.5 3.5 0 1 1 5.2 3c-1.1.7-1.7 1.3-1.7 2.5" strokeWidth="3.5" />
+      <path d="M12 19.5h.01" strokeWidth="4" />
+    </Icon>
+  )
+}
+
 /** Clipboard with a tick: the release analysis. */
 export function AnalysisIcon({ size }: { size?: number }) {
   return (

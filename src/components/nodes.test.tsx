@@ -207,17 +207,49 @@ describe('node components', () => {
     )
   })
 
-  it('marks finished and running boxes, but not open ones or groups', () => {
+  it('marks every status of a box (tick, half circle, empty circle, question mark) but not groups', () => {
     const { container } = renderNodes([
       box({ id: 'done', data: makeData({ status: 'fertig' }) }),
       box({ id: 'wip', position: { x: 200, y: 0 }, data: makeData({ status: 'in Arbeit' }) }),
-      box({ id: 'open', position: { x: 400, y: 0 }, data: makeData({ status: 'offen' }) }),
+      box({ id: 'open', position: { x: 400, y: 0 }, data: makeData({ status: 'offen', statusRaw: 'offen', statusKnown: true }) }),
+      box({ id: 'unset', position: { x: 600, y: 0 }, data: makeData({ status: 'offen', statusKnown: true }) }),
+      box({ id: 'odd', position: { x: 800, y: 0 }, data: makeData({ status: 'offen', statusRaw: 'erledigt', statusKnown: false }) }),
       group({ data: makeData({ name: 'Gruppe' }) }),
     ])
 
     expect(screen.getByLabelText('Status: fertig')).toHaveClass('status-mark--done')
     expect(screen.getByLabelText('Status: in Arbeit')).toHaveClass('status-mark--progress')
-    expect(container.querySelectorAll('.status-mark')).toHaveLength(2)
+    expect(screen.getByLabelText('Status: offen')).toHaveClass('status-mark--open')
+    expect(screen.getByLabelText('Status: offen (nicht gesetzt)')).toHaveClass('status-mark--open')
+    const unknown = screen.getByLabelText('Status „erledigt“ unbekannt – zählt als offen')
+    expect(unknown).toHaveClass('status-mark--unknown')
+    expect(unknown).toHaveAttribute('title', 'Status „erledigt“ unbekannt – zählt als offen')
+    expect(container.querySelectorAll('.status-mark')).toHaveLength(5)
+  })
+
+  it('shows the amber warning triangle instead of the flag on an inconsistent box', () => {
+    const { container } = renderNodes([
+      box({ data: makeData({ inconsistentTitle: 'Fertig, aber Voraussetzung nicht fertig: D', status: 'fertig' }) }),
+    ])
+
+    const mark = screen.getByLabelText('Fertig, aber Voraussetzung nicht fertig: D')
+    expect(mark).toHaveAttribute('title', 'Fertig, aber Voraussetzung nicht fertig: D')
+    expect(mark).toHaveClass('inconsistent-mark')
+    expect(container.querySelectorAll('.blocked-flag')).toHaveLength(0)
+  })
+
+  it('puts flag and triangle of a group side by side into its title', () => {
+    const { container } = renderNodes([
+      group({
+        data: makeData({
+          blockedTitle: 'Enthält blockierte Objekte: X',
+          inconsistentTitle: 'Enthält fertige Objekte mit nicht fertiger Voraussetzung: Y',
+        }),
+      }),
+    ])
+
+    expect(container.querySelector('.group-node__header .blocked-flag')).not.toBeNull()
+    expect(container.querySelector('.group-node__header .inconsistent-mark')).not.toBeNull()
   })
 
   it('keeps flag, status mark and cycle badge apart on one box', () => {

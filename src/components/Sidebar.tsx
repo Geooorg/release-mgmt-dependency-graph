@@ -1,11 +1,12 @@
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { findDuplicateKeys, isValidColor, normalizeMetadata } from '../model/metadata'
-import { DEFAULT_STATUS, parseStatus, STATUS_KEY, STATUS_VALUES } from '../model/status'
+import { DEFAULT_STATUS, isStatusKey, parseStatus, STATUS_KEY, STATUS_VALUES } from '../model/status'
 import { COLOR_KEY, DEFAULT_COLOR, NAME_KEY } from '../model/types'
 import type { MetadataEntry } from '../model/types'
 import type { SidebarElement, SidebarProps } from './props'
 import { SidebarEdgeForm } from './SidebarEdgeForm'
+import { useReportDirty } from './useReportDirty'
 import './components.css'
 
 /** One editable field row; `rid` is a stable local id used as React key. */
@@ -50,7 +51,8 @@ function toDraft(
 ): Draft {
   const nameIndex = entries.findIndex((entry) => entry.key === NAME_KEY)
   const colorIndex = entries.findIndex((entry) => entry.key === COLOR_KEY)
-  const statusIndex = withStatus ? entries.findIndex((entry) => entry.key === STATUS_KEY) : -1
+  // The status key is matched trimmed and case-insensitively; it is written back as `status`.
+  const statusIndex = withStatus ? entries.findIndex((entry) => isStatusKey(entry.key)) : -1
   const color = colorIndex >= 0 ? entries[colorIndex].value.trim().toLowerCase() : ''
   return {
     name: nameIndex >= 0 ? entries[nameIndex].value : '',
@@ -87,7 +89,7 @@ type SidebarFormProps = Omit<SidebarProps, 'element'> & {
   element: SidebarElement & { kind: 'node' | 'group' }
 }
 
-function SidebarForm({ element, onSave, onClose }: SidebarFormProps) {
+function SidebarForm({ element, onSave, onClose, onDirtyChange }: SidebarFormProps) {
   const formId = useId()
   const withStatus = element.kind === 'node'
   const [received, setReceived] = useState(element.metadata)
@@ -112,6 +114,7 @@ function SidebarForm({ element, onSave, onClose }: SidebarFormProps) {
   }
 
   const dirty = !sameEntries(baseline, toEntries(draft))
+  useReportDirty(dirty, onDirtyChange)
   // After the first failed save the duplicate check stays live, so the alert vanishes once fixed.
   const duplicates = attempted ? findDuplicateKeys(normalizeMetadata(toEntries(draft))) : []
 
@@ -134,7 +137,8 @@ function SidebarForm({ element, onSave, onClose }: SidebarFormProps) {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const normalized = normalizeMetadata(toEntries(draft))
+    // A free row typed as "Status" takes the place of the status field, so the saved entry is canonical.
+    const normalized = normalizeMetadata(toEntries(toDraft(toEntries(draft), withStatus)))
     if (findDuplicateKeys(normalized).length > 0) {
       setAttempted(true)
       return
@@ -302,20 +306,27 @@ function SidebarForm({ element, onSave, onClose }: SidebarFormProps) {
   )
 }
 
-export function Sidebar({ element, onSave, onClose }: SidebarProps) {
+export function Sidebar({ element, onSave, onClose, onDirtyChange }: SidebarProps) {
   if (element === null) return null
 
   return (
     <aside className="sidebar" aria-label="Metadaten">
       {/* Keyed by id: opening a different element starts with a fresh draft. */}
       {element.kind === 'edge' ? (
-        <SidebarEdgeForm key={element.id} element={element} onSave={onSave} onClose={onClose} />
+        <SidebarEdgeForm
+          key={element.id}
+          element={element}
+          onSave={onSave}
+          onClose={onClose}
+          onDirtyChange={onDirtyChange}
+        />
       ) : (
         <SidebarForm
           key={element.id}
           element={{ ...element, kind: element.kind }}
           onSave={onSave}
           onClose={onClose}
+          onDirtyChange={onDirtyChange}
         />
       )}
     </aside>

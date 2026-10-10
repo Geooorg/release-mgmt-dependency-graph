@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
-import { BlockedFlag } from './StatusMarks'
+import { BlockedFlag, InconsistentMark } from './StatusMarks'
 import type { AnalysisEntry, AnalysisPanelProps } from './props'
 import './components.css'
 
 const MAX_TITLE_NAMES = 3
 const BLOCKED_TITLE = 'Blockiert: hat noch nicht fertige Voraussetzungen'
+const INCONSISTENT_TITLE = 'Fertig, aber Voraussetzung nicht fertig'
 
 function titleOf(names: readonly string[]): string {
   if (names.length === 0) return 'Gesamtes Projekt'
@@ -33,6 +34,7 @@ function Entry({ entry, onReveal }: { entry: AnalysisEntry; onReveal: (id: strin
       <StatusChip status={entry.status} />
       {entry.ready && <span className="analysis-chip analysis-chip--ready">jetzt umsetzbar</span>}
       {entry.blocked && <BlockedFlag title={BLOCKED_TITLE} inline />}
+      {entry.inconsistent && <InconsistentMark title={INCONSISTENT_TITLE} inline />}
     </button>
   )
 }
@@ -58,6 +60,17 @@ function EntryList({
   )
 }
 
+/** A plain text row that reveals the object on click (section "Zu klären"). */
+function ClarifyItem({ id, text, onReveal }: { id: string; text: string; onReveal: (id: string) => void }) {
+  return (
+    <li>
+      <button type="button" className="analysis-item analysis-item--text" title="Im Graph zeigen" onClick={() => onReveal(id)}>
+        {text}
+      </button>
+    </li>
+  )
+}
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="analysis-section">
@@ -74,6 +87,8 @@ export function AnalysisPanel({
   criticalPath,
   cycleNames,
   blockers,
+  inconsistent,
+  unknownStatus,
   onReveal,
   onCopy,
   onClose,
@@ -81,6 +96,7 @@ export function AnalysisPanel({
   const ready = blockers.filter((entry) => entry.ready)
   const blocked = blockers.filter((entry) => !entry.ready)
   const title = titleOf(selectionNames)
+  const clarifyCount = inconsistent.length + unknownStatus.length
 
   return (
     <aside className="analysis-panel" aria-label="Release-Analyse">
@@ -110,7 +126,47 @@ export function AnalysisPanel({
           <li>
             <strong>{counts.ready}</strong> jetzt umsetzbar
           </li>
+          {clarifyCount > 0 && (
+            <li className="analysis-counts__clarify">
+              <strong>{clarifyCount}</strong> zu klären
+            </li>
+          )}
         </ul>
+
+        {clarifyCount > 0 && (
+          <Section title="Zu klären">
+            {inconsistent.length > 0 && (
+              <>
+                <h4 className="analysis-subtitle">Fertig trotz offener Voraussetzung ({inconsistent.length})</h4>
+                <ul className="analysis-list">
+                  {inconsistent.map((item) => (
+                    <ClarifyItem
+                      key={item.id}
+                      id={item.id}
+                      text={`${item.name} – wartet auf ${item.waitingFor.map((w) => `${w.name} (${w.status})`).join(', ')}`}
+                      onReveal={onReveal}
+                    />
+                  ))}
+                </ul>
+              </>
+            )}
+            {unknownStatus.length > 0 && (
+              <>
+                <h4 className="analysis-subtitle">Unbekannter Status ({unknownStatus.length})</h4>
+                <ul className="analysis-list">
+                  {unknownStatus.map((item) => (
+                    <ClarifyItem
+                      key={item.id}
+                      id={item.id}
+                      text={`${item.name} – „${item.raw}“ (zählt als offen)`}
+                      onReveal={onReveal}
+                    />
+                  ))}
+                </ul>
+              </>
+            )}
+          </Section>
+        )}
 
         {criticalPath === null ? (
           <Section title="Kritischer Pfad">

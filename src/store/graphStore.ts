@@ -36,6 +36,9 @@ export interface Selection {
   selected: boolean
 }
 
+/** A sidebar change that waits for the user to decide about unsaved edits. */
+export type SidebarChange = { kind: 'close' } | { kind: 'node'; id: string } | { kind: 'edge'; id: string }
+
 export interface GraphState {
   // --- model (single source of truth, persisted) ---
   nodes: ModelNode[]
@@ -49,6 +52,10 @@ export interface GraphState {
   sidebarId: string | null
   /** Edge whose label is being edited (mutually exclusive with `sidebarId`). */
   sidebarEdgeId: string | null
+  /** The open sidebar form has unsaved edits (reported by the form). */
+  sidebarDirty: boolean
+  /** Closing or switching the sidebar that was held back because of unsaved edits; asked about in a dialog. */
+  pendingSidebarChange: SidebarChange | null
   connectMode: ConnectMode
   connectSourceId: string | null
   dropTargetId: string | null
@@ -85,7 +92,13 @@ export interface GraphState {
   openSidebar: (id: string) => void
   openEdgeSidebar: (id: string) => void
   saveEdgeLabel: (id: string, label: string) => void
+  /** Asks first (see `pendingSidebarChange`) if the open form has unsaved edits. */
   closeSidebar: () => void
+  setSidebarDirty: (dirty: boolean) => void
+  /** Carries out the held-back change and discards the unsaved edits. */
+  confirmSidebarChange: () => void
+  /** Keeps the sidebar and its edits as they are. */
+  cancelSidebarChange: () => void
 
   connect: (
     source: string,
@@ -205,6 +218,22 @@ export function createGraphStore(
       return true
     }
 
+    const showSidebar = (change: SidebarChange) =>
+      set({
+        sidebarId: change.kind === 'node' ? change.id : null,
+        sidebarEdgeId: change.kind === 'edge' ? change.id : null,
+        sidebarDirty: false,
+        pendingSidebarChange: null,
+      })
+
+    /** Unsaved edits in the open form are never dropped silently: the change waits for the dialog. */
+    const requestSidebarChange = (change: SidebarChange) => {
+      const { sidebarId, sidebarEdgeId, sidebarDirty } = get()
+      const open = sidebarId !== null || sidebarEdgeId !== null
+      if (open && sidebarDirty) set({ pendingSidebarChange: change })
+      else showSidebar(change)
+    }
+
     const mergeSelection = (current: string[], changes: readonly Selection[]): string[] => {
       const next = new Set(current)
       for (const { id, selected } of changes) {
@@ -222,6 +251,8 @@ export function createGraphStore(
       selectedEdgeIds: [],
       sidebarId: null,
       sidebarEdgeId: null,
+      sidebarDirty: false,
+      pendingSidebarChange: null,
       connectMode: 'off',
       connectSourceId: null,
       dropTargetId: null,
@@ -275,13 +306,25 @@ export function createGraphStore(
         return true
       },
       openSidebar: (id) => {
-        if (get().nodes.some((node) => node.id === id)) set({ sidebarId: id, sidebarEdgeId: null })
+        const { nodes, sidebarId } = get()
+        if (!nodes.some((node) => node.id === id) || sidebarId === id) return
+        requestSidebarChange({ kind: 'node', id })
       },
       openEdgeSidebar: (id) => {
-        if (get().edges.some((e) => e.id === id)) set({ sidebarEdgeId: id, sidebarId: null })
+        const { edges, sidebarEdgeId } = get()
+        if (!edges.some((e) => e.id === id) || sidebarEdgeId === id) return
+        requestSidebarChange({ kind: 'edge', id })
       },
       saveEdgeLabel: (id, label) => apply(graph.updateEdgeLabel(content(), id, label)),
-      closeSidebar: () => set({ sidebarId: null, sidebarEdgeId: null }),
+      closeSidebar: () => requestSidebarChange({ kind: 'close' }),
+      setSidebarDirty: (dirty) => {
+        if (get().sidebarDirty !== dirty) set({ sidebarDirty: dirty })
+      },
+      confirmSidebarChange: () => {
+        const change = get().pendingSidebarChange
+        if (change) showSidebar(change)
+      },
+      cancelSidebarChange: () => set({ pendingSidebarChange: null }),
 
       connect: (source, target, sourceHandle, targetHandle) => {
         tryConnect(source, target, { sourceHandle, targetHandle })
@@ -396,6 +439,8 @@ export function createGraphStore(
           selectedEdgeIds: [],
           sidebarId: null,
           sidebarEdgeId: null,
+          sidebarDirty: false,
+          pendingSidebarChange: null,
           connectMode: 'off',
           connectSourceId: null,
           dropTargetId: null,

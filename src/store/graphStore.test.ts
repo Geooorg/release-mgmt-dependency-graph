@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { getAbsolutePosition } from '../model/graph'
 import { box, content, counterIds, edge, group } from '../test/fixtures'
-import { createGraphStore } from './graphStore'
+import { createGraphStore, type GraphStore } from './graphStore'
 
 const twoNodes = () => content([box('a', 0, 0), box('b', 300, 0)])
 
@@ -70,6 +70,124 @@ describe('graphStore', () => {
       const store = createGraphStore(twoNodes())
       store.getState().openSidebar('nope')
       expect(store.getState().sidebarId).toBeNull()
+    })
+  })
+
+  describe('unsaved sidebar changes', () => {
+    const withEdge = () =>
+      createGraphStore(content([box('a', 0, 0), box('b', 300, 0)], [edge('e', 'a', 'b')]))
+    const dirtySidebar = (open: (store: GraphStore) => void = (s) => s.getState().openSidebar('a')) => {
+      const store = withEdge()
+      open(store)
+      store.getState().setSidebarDirty(true)
+      return store
+    }
+
+    it('closes and switches right away while nothing is unsaved', () => {
+      const store = withEdge()
+      const s = () => store.getState()
+      s().openSidebar('a')
+      s().openSidebar('b')
+      expect(s().sidebarId).toBe('b')
+      s().openEdgeSidebar('e')
+      expect(s().sidebarEdgeId).toBe('e')
+      s().closeSidebar()
+      expect(s().sidebarEdgeId).toBeNull()
+      expect(s().pendingSidebarChange).toBeNull()
+    })
+
+    it('holds back closing, keeps the sidebar and asks', () => {
+      const store = dirtySidebar()
+      store.getState().closeSidebar()
+      expect(store.getState().sidebarId).toBe('a')
+      expect(store.getState().pendingSidebarChange).toEqual({ kind: 'close' })
+    })
+
+    it('closes after confirming and forgets the unsaved state', () => {
+      const store = dirtySidebar()
+      store.getState().closeSidebar()
+      store.getState().confirmSidebarChange()
+      const s = store.getState()
+      expect(s.sidebarId).toBeNull()
+      expect(s.pendingSidebarChange).toBeNull()
+      expect(s.sidebarDirty).toBe(false)
+    })
+
+    it('keeps everything when cancelling', () => {
+      const store = dirtySidebar()
+      store.getState().closeSidebar()
+      store.getState().cancelSidebarChange()
+      const s = store.getState()
+      expect(s.sidebarId).toBe('a')
+      expect(s.pendingSidebarChange).toBeNull()
+      expect(s.sidebarDirty).toBe(true)
+    })
+
+    it('holds back opening another element and opens it after confirming', () => {
+      const store = dirtySidebar()
+      store.getState().openSidebar('b')
+      expect(store.getState().sidebarId).toBe('a')
+      expect(store.getState().pendingSidebarChange).toEqual({ kind: 'node', id: 'b' })
+      store.getState().confirmSidebarChange()
+      expect(store.getState().sidebarId).toBe('b')
+      expect(store.getState().sidebarEdgeId).toBeNull()
+      expect(store.getState().sidebarDirty).toBe(false)
+      expect(store.getState().pendingSidebarChange).toBeNull()
+    })
+
+    it('guards the switch between element and edge sidebar in both directions', () => {
+      const toEdge = dirtySidebar()
+      toEdge.getState().openEdgeSidebar('e')
+      expect(toEdge.getState().sidebarEdgeId).toBeNull()
+      expect(toEdge.getState().pendingSidebarChange).toEqual({ kind: 'edge', id: 'e' })
+      toEdge.getState().confirmSidebarChange()
+      expect(toEdge.getState().sidebarEdgeId).toBe('e')
+      expect(toEdge.getState().sidebarId).toBeNull()
+
+      const toNode = dirtySidebar((s) => s.getState().openEdgeSidebar('e'))
+      toNode.getState().openSidebar('a')
+      expect(toNode.getState().sidebarEdgeId).toBe('e')
+      toNode.getState().cancelSidebarChange()
+      toNode.getState().openSidebar('a')
+      toNode.getState().confirmSidebarChange()
+      expect(toNode.getState().sidebarId).toBe('a')
+      expect(toNode.getState().sidebarEdgeId).toBeNull()
+    })
+
+    it('does not ask when the very same element is opened again or the id is unknown', () => {
+      const store = dirtySidebar()
+      store.getState().openSidebar('a')
+      store.getState().openSidebar('ghost')
+      store.getState().openEdgeSidebar('ghost')
+      expect(store.getState().pendingSidebarChange).toBeNull()
+      expect(store.getState().sidebarId).toBe('a')
+    })
+
+    it('ignores a stale unsaved flag while no sidebar is open', () => {
+      const store = withEdge()
+      store.getState().setSidebarDirty(true)
+      store.getState().openSidebar('a')
+      expect(store.getState().sidebarId).toBe('a')
+      expect(store.getState().pendingSidebarChange).toBeNull()
+    })
+
+    it('is UI state only: no model change and no undo step', () => {
+      const store = dirtySidebar()
+      const { nodes, edges, history } = store.getState()
+      store.getState().closeSidebar()
+      store.getState().confirmSidebarChange()
+      store.getState().setSidebarDirty(true)
+      expect(store.getState().nodes).toBe(nodes)
+      expect(store.getState().edges).toBe(edges)
+      expect(store.getState().history).toBe(history)
+    })
+
+    it('drops the question and the flag when an import replaces the model', () => {
+      const store = dirtySidebar()
+      store.getState().closeSidebar()
+      store.getState().replaceContent(content([box('x', 0, 0)]))
+      expect(store.getState().pendingSidebarChange).toBeNull()
+      expect(store.getState().sidebarDirty).toBe(false)
     })
   })
 

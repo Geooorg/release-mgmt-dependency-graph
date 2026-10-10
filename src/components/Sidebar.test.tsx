@@ -54,6 +54,7 @@ function makeProps(overrides: Partial<SidebarProps> = {}): SidebarProps {
     element: makeElement(),
     onSave: vi.fn(),
     onClose: vi.fn(),
+    onDirtyChange: vi.fn(),
     ...overrides,
   }
 }
@@ -511,6 +512,82 @@ describe('Sidebar', () => {
       ])
     })
 
+    it('recognises the key in any case and writes it back as "status" on save', async () => {
+      const onSave = vi.fn()
+      const element = makeElement({
+        metadata: [
+          { key: 'name', value: 'A' },
+          { key: 'owner', value: 'Team 1' },
+          { key: ' STATUS ', value: 'fertig' },
+        ],
+      })
+      render(<Sidebar {...makeProps({ onSave, element })} />)
+
+      expect(statusSelect().value).toBe('fertig')
+      expect(keyInputs().map((input) => input.value)).toEqual(['owner'])
+      expect(screen.queryByText('Ungespeicherte Änderungen')).not.toBeInTheDocument()
+
+      await userEvent.selectOptions(statusSelect(), 'in Arbeit')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      expect(onSave).toHaveBeenCalledWith([
+        { key: 'name', value: 'A' },
+        { key: 'status', value: 'in Arbeit' },
+        { key: 'owner', value: 'Team 1' },
+      ])
+    })
+
+    it('canonicalizes the key even if the status itself is left untouched', async () => {
+      const onSave = vi.fn()
+      const element = makeElement({
+        metadata: [
+          { key: 'name', value: 'A' },
+          { key: 'Status', value: 'erledigt' },
+        ],
+      })
+      render(<Sidebar {...makeProps({ onSave, element })} />)
+
+      expect(statusSelect().value).toBe('erledigt')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      expect(onSave).toHaveBeenCalledWith([
+        { key: 'name', value: 'A' },
+        { key: 'status', value: 'erledigt' },
+      ])
+    })
+
+    it('treats a typed free-form row "Status" as the status field on save and stays clean afterwards', async () => {
+      const onSave = vi.fn()
+      const onDirtyChange = vi.fn()
+      render(<Sidebar {...makeProps({ onSave, onDirtyChange, element: makeElement({ metadata: [{ key: 'name', value: 'A' }] }) })} />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
+      await userEvent.type(keyInputs()[0], 'Status')
+      await userEvent.type(valueInputs()[0], 'fertig')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(onSave).toHaveBeenCalledWith([
+        { key: 'name', value: 'A' },
+        { key: 'status', value: 'fertig' },
+      ])
+      expect(statusSelect().value).toBe('fertig')
+      expect(keyInputs()).toHaveLength(0)
+      expect(screen.queryByText('Ungespeicherte Änderungen')).not.toBeInTheDocument()
+      expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+    })
+
+    it('keeps "Status" as an ordinary row on groups', () => {
+      const element = makeElement({
+        kind: 'group',
+        metadata: [
+          { key: 'name', value: 'G' },
+          { key: 'Status', value: 'fertig' },
+        ],
+      })
+      render(<Sidebar {...makeProps({ element })} />)
+
+      expect(screen.queryByLabelText('Status')).not.toBeInTheDocument()
+      expect(keyInputs().map((input) => input.value)).toEqual(['Status'])
+    })
+
     it('does not offer a status for groups but summarizes their members', () => {
       render(
         <Sidebar
@@ -529,6 +606,54 @@ describe('Sidebar', () => {
         <Sidebar {...makeProps({ element: makeElement({ kind: 'group', progress: { done: 0, total: 0 } }) })} />,
       )
       expect(screen.getByText('Status aus Mitgliedern: keine Mitglieder')).toBeInTheDocument()
+    })
+  })
+
+  describe('reporting unsaved changes', () => {
+    it('reports false at first, true on an edit, false again after reverting or saving', async () => {
+      const onDirtyChange = vi.fn()
+      render(<Sidebar {...makeProps({ onDirtyChange })} />)
+      expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+
+      await userEvent.type(screen.getByLabelText('Name'), 'X')
+      expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+
+      await userEvent.type(screen.getByLabelText('Name'), '{Backspace}')
+      expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+
+      await userEvent.type(screen.getByLabelText('Name'), 'Y')
+      expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+    })
+
+    it('reports false when the sidebar closes or another element is opened', async () => {
+      const onDirtyChange = vi.fn()
+      const { rerender } = render(<Sidebar {...makeProps({ onDirtyChange })} />)
+      await userEvent.type(screen.getByLabelText('Name'), 'X')
+      expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+
+      rerender(<Sidebar {...makeProps({ onDirtyChange, element: makeElement({ id: ID_B }) })} />)
+      expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+
+      await userEvent.type(screen.getByLabelText('Name'), 'Z')
+      expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+      rerender(<Sidebar {...makeProps({ onDirtyChange, element: null })} />)
+      expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+    })
+
+    it('reports the edge label draft as well', async () => {
+      const onDirtyChange = vi.fn()
+      render(
+        <Sidebar
+          {...makeProps({ onDirtyChange, element: { id: ID_B, kind: 'edge', metadata: [{ key: 'label', value: '' }] } })}
+        />,
+      )
+      expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+      await userEvent.type(screen.getByLabelText('Label'), 'x')
+      expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      expect(onDirtyChange).toHaveBeenLastCalledWith(false)
     })
   })
 

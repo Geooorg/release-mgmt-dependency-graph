@@ -49,6 +49,15 @@ export function toFlowNodes(nodes: readonly ModelNode[], ui: FlowUiState): AppFl
     return listNames('Blockiert durch', namesOf(analysis.blockingDirect.get(node.id) ?? []))
   }
 
+  const inconsistentTitle = (node: ModelNode): string | undefined => {
+    if (node.kind === 'group') {
+      const members = analysis?.inconsistentMembers.get(node.id)
+      return members && listNames('Enthält fertige Objekte mit nicht fertiger Voraussetzung', namesOf(members))
+    }
+    if (!analysis?.inconsistentIds.has(node.id)) return undefined
+    return listNames('Fertig, aber Voraussetzung nicht fertig', namesOf(analysis.blockingDirect.get(node.id) ?? []))
+  }
+
   return sortParentsFirst(nodes).map((node) => {
     const { width, height } = getSize(node)
     const color = getColor(node.metadata)
@@ -69,7 +78,10 @@ export function toFlowNodes(nodes: readonly ModelNode[], ui: FlowUiState): AppFl
         isInCycle: ui.cycleNodeIds.has(node.id),
         isRevealed: ui.revealedId === node.id,
         status: analysis?.statusById.get(node.id),
+        statusRaw: analysis?.statusInfoById.get(node.id)?.raw,
+        statusKnown: analysis?.statusInfoById.get(node.id)?.known,
         blockedTitle: blockedTitle(node),
+        inconsistentTitle: inconsistentTitle(node),
         color,
         textColor: color && getContrastColor(color),
       },

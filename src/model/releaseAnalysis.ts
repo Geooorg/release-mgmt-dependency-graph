@@ -2,7 +2,7 @@ import { findCycles } from './cycles'
 import { buildEffectiveGraph, type EffectiveGraph } from './effectiveGraph'
 import { displayName } from './metadata'
 import { DEFAULT_PROJECT_NAME } from './projectName'
-import { getStatus, type Status } from './status'
+import { getStatusInfo, type Status, type StatusInfo } from './status'
 import type { GraphContent, ModelNode } from './types'
 
 /**
@@ -22,21 +22,36 @@ export interface StatusCounts {
   done: number
   inProgress: number
   open: number
-  /** Objects with an unfinished transitive prerequisite. */
+  /** Unfinished objects with an unfinished transitive prerequisite. */
   blocked: number
+  /** Finished objects with an unfinished transitive prerequisite (a contradiction). */
+  inconsistent: number
+  /** Objects whose status value is none of the three (counted as `offen`). */
+  unknownStatus: number
   /** Unfinished objects that can be worked on right now. */
   ready: number
 }
 
 export interface ProjectAnalysis {
-  /** Status of every object. */
+  /** Effective status of every object. */
   statusById: Map<string, Status>
-  /** Objects with an unfinished transitive prerequisite (whatever their own status), plus groups containing such an object. */
+  /** Status with its raw value of every object (to tell "not set" and "unknown" from a real `offen`). */
+  statusInfoById: Map<string, StatusInfo>
+  /** Objects whose status value is unknown, with the raw value, in node order. */
+  unknownStatusIds: Map<string, string>
+  /** Unfinished objects with an unfinished transitive prerequisite, plus groups containing such an object. */
   blockedIds: Set<string>
-  /** Per blocked object: the direct prerequisites through which the blockade comes, in node order. */
+  /** Finished objects with an unfinished transitive prerequisite (objects only; groups are in `inconsistentMembers`). */
+  inconsistentIds: Set<string>
+  /**
+   * Per blocked or inconsistent object: the direct prerequisites through which the waiting comes
+   * (unfinished, or finished but themselves waiting), in node order.
+   */
   blockingDirect: Map<string, string[]>
   /** Per group: the blocked objects inside (any depth), in node order. */
   blockedMembers: Map<string, string[]>
+  /** Per group: the inconsistent objects inside (any depth), in node order. */
+  inconsistentMembers: Map<string, string[]>
   /** Unfinished objects without any unfinished transitive prerequisite. */
   readyIds: Set<string>
   /** Per group: finished and total objects inside (any depth). */
@@ -73,6 +88,16 @@ export interface SelectionAnalysis {
   criticalPath: CriticalPath | null
   /** Objects of the cycles that are part of the relevant graph; empty if there are none. */
   cycleIds: string[]
+  /** Finished objects of the relevant graph (selection and its prerequisites) with an unfinished prerequisite. */
+  inconsistent: InconsistentObject[]
+  /** Objects of the relevant graph whose status value is unknown (they count as `offen`). */
+  unknownStatus: { id: string; raw: string }[]
+}
+
+export interface InconsistentObject {
+  id: string
+  /** Direct prerequisites through which the contradiction comes, in node order. */
+  waitingFor: string[]
 }
 
 interface Prepared {
@@ -82,11 +107,14 @@ interface Prepared {
   succ: number[][]
   pred: number[][]
   isObject: boolean[]
+  info: (StatusInfo | undefined)[]
   status: (Status | undefined)[]
   /** Unfinished object. */
   open: boolean[]
   /** Some unfinished vertex is reachable via one or more steps (a vertex of a cycle can reach itself). */
   blocked: boolean[]
+  /** Finished object with an unfinished vertex reachable via one or more steps. */
+  inconsistent: boolean[]
 }
 
 function prepare(content: GraphContent): Prepared {
@@ -99,7 +127,8 @@ function prepare(content: GraphContent): Prepared {
   succ.forEach((list, from) => list.forEach((to) => pred[to].push(from)))
 
   const isObject = vertices.map((id) => kinds.get(id)?.kind === 'node')
-  const status = vertices.map((id, i) => (isObject[i] ? getStatus(kinds.get(id)?.metadata ?? []) : undefined))
+  const info = vertices.map((id, i) => (isObject[i] ? getStatusInfo(kinds.get(id)?.metadata ?? []) : undefined))
+  const status = info.map((entry) => entry?.status)
   const open = status.map((s) => s !== undefined && s !== 'fertig')
 
   // Multi-source walk against the arrows from every unfinished vertex. Seeds are marked only when
@@ -117,7 +146,13 @@ function prepare(content: GraphContent): Prepared {
       }
     }
   }
-  return { graph, indexOf, succ, pred, isObject, status, open, blocked }
+  const inconsistent = vertices.map((_, i) => status[i] === 'fertig' && blocked[i])
+  return { graph, indexOf, succ, pred, isObject, info, status, open, blocked, inconsistent }
+}
+
+/** Direct prerequisites of a vertex that are unfinished or finished but waiting themselves. */
+function waitingOn(p: Prepared, i: number): string[] {
+  return p.succ[i].filter((w) => p.open[w] || p.blocked[w]).map((w) => p.graph.vertices[w])
 }
 
 /** Ancestor group ids of an element, nearest first; a corrupt parent loop ends the walk. */
@@ -137,26 +172,45 @@ export function analyzeProject(content: GraphContent): ProjectAnalysis {
   const byId = new Map(content.nodes.map((n) => [n.id, n]))
 
   const statusById = new Map<string, Status>()
+  const statusInfoById = new Map<string, StatusInfo>()
+  const unknownStatusIds = new Map<string, string>()
   const blockedIds = new Set<string>()
+  const inconsistentIds = new Set<string>()
   const readyIds = new Set<string>()
   const blockingDirect = new Map<string, string[]>()
-  const counts: StatusCounts = { total: 0, done: 0, inProgress: 0, open: 0, blocked: 0, ready: 0 }
+  const counts: StatusCounts = {
+    total: 0,
+    done: 0,
+    inProgress: 0,
+    open: 0,
+    blocked: 0,
+    inconsistent: 0,
+    unknownStatus: 0,
+    ready: 0,
+  }
 
   vertices.forEach((id, i) => {
     const status = p.status[i]
-    if (!p.isObject[i] || status === undefined) return
+    const info = p.info[i]
+    if (!p.isObject[i] || status === undefined || info === undefined) return
     statusById.set(id, status)
+    statusInfoById.set(id, info)
+    if (!info.known && info.raw !== undefined) {
+      unknownStatusIds.set(id, info.raw)
+      counts.unknownStatus++
+    }
     counts.total++
     if (status === 'fertig') counts.done++
     else if (status === 'in Arbeit') counts.inProgress++
     else counts.open++
-    if (p.blocked[i]) {
+    if (p.inconsistent[i]) {
+      inconsistentIds.add(id)
+      counts.inconsistent++
+      blockingDirect.set(id, waitingOn(p, i))
+    } else if (p.blocked[i]) {
       blockedIds.add(id)
       counts.blocked++
-      blockingDirect.set(
-        id,
-        p.succ[i].filter((w) => p.open[w] || p.blocked[w]).map((w) => vertices[w]),
-      )
+      blockingDirect.set(id, waitingOn(p, i))
     } else if (p.open[i]) {
       readyIds.add(id)
       counts.ready++
@@ -165,6 +219,12 @@ export function analyzeProject(content: GraphContent): ProjectAnalysis {
 
   const groupProgress = new Map<string, { done: number; total: number }>()
   const blockedMembers = new Map<string, string[]>()
+  const inconsistentMembers = new Map<string, string[]>()
+  const addMember = (members: Map<string, string[]>, groupId: string, id: string) => {
+    const list = members.get(groupId)
+    if (list) list.push(id)
+    else members.set(groupId, [id])
+  }
   for (const node of content.nodes) {
     if (node.kind === 'group') groupProgress.set(node.id, { done: 0, total: 0 })
   }
@@ -176,16 +236,25 @@ export function analyzeProject(content: GraphContent): ProjectAnalysis {
         progress.total++
         if (statusById.get(node.id) === 'fertig') progress.done++
       }
-      if (blockedIds.has(node.id)) {
-        const list = blockedMembers.get(groupId)
-        if (list) list.push(node.id)
-        else blockedMembers.set(groupId, [node.id])
-      }
+      if (blockedIds.has(node.id)) addMember(blockedMembers, groupId, node.id)
+      if (inconsistentIds.has(node.id)) addMember(inconsistentMembers, groupId, node.id)
     }
   }
   for (const groupId of blockedMembers.keys()) blockedIds.add(groupId)
 
-  return { statusById, blockedIds, blockingDirect, blockedMembers, readyIds, groupProgress, counts }
+  return {
+    statusById,
+    statusInfoById,
+    unknownStatusIds,
+    blockedIds,
+    inconsistentIds,
+    blockingDirect,
+    blockedMembers,
+    inconsistentMembers,
+    readyIds,
+    groupProgress,
+    counts,
+  }
 }
 
 /**
@@ -299,7 +368,24 @@ export function analyzeSelection(content: GraphContent, startIds: readonly strin
     criticalPath = longestChain(p, depth, roots.length > 0 ? roots : starts)
   }
 
-  return { scope: whole ? 'project' : 'selection', selectedIds, blockers, criticalPath, cycleIds }
+  const inScopeIndices = vertices.map((_, i) => i).filter((i) => distance[i] !== -1)
+  const inconsistent = inScopeIndices
+    .filter((i) => p.inconsistent[i])
+    .map((i) => ({ id: vertices[i], waitingFor: waitingOn(p, i) }))
+  const unknownStatus = inScopeIndices.flatMap((i) => {
+    const info = p.info[i]
+    return info && !info.known && info.raw !== undefined ? [{ id: vertices[i], raw: info.raw }] : []
+  })
+
+  return {
+    scope: whole ? 'project' : 'selection',
+    selectedIds,
+    blockers,
+    criticalPath,
+    cycleIds,
+    inconsistent,
+    unknownStatus,
+  }
 }
 
 function stepsText(count: number): string {
@@ -322,6 +408,7 @@ export function formatAnalysisMarkdown(
 
   const target = selection.scope === 'project' ? 'Gesamtes Projekt' : selection.selectedIds.map(name).join(', ')
   const { counts } = project
+  const clarifyCount = selection.inconsistent.length + selection.unknownStatus.length
   const lines = [
     `# Release-Analyse: ${content.projectName ?? DEFAULT_PROJECT_NAME} – ${target}`,
     '',
@@ -330,8 +417,31 @@ export function formatAnalysisMarkdown(
     `- offen: ${counts.open}`,
     `- blockiert: ${counts.blocked}`,
     `- jetzt umsetzbar: ${counts.ready}`,
+    ...(clarifyCount > 0 ? [`- zu klären: ${clarifyCount}`] : []),
     '',
   ]
+
+  if (clarifyCount > 0) {
+    lines.push('## Zu klären', '')
+    if (selection.inconsistent.length > 0) {
+      lines.push(
+        `### Fertig trotz offener Voraussetzung (${selection.inconsistent.length})`,
+        '',
+        ...selection.inconsistent.map(
+          (o) => `- ${name(o.id)} – wartet auf ${o.waitingFor.map((id) => `${name(id)} (${statusOf(id)})`).join(', ')}`,
+        ),
+        '',
+      )
+    }
+    if (selection.unknownStatus.length > 0) {
+      lines.push(
+        `### Unbekannter Status (${selection.unknownStatus.length})`,
+        '',
+        ...selection.unknownStatus.map((o) => `- ${name(o.id)} – „${o.raw}“ (zählt als offen)`),
+        '',
+      )
+    }
+  }
 
   const path = selection.criticalPath
   if (path === null) {

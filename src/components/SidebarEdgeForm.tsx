@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { SidebarElement, SidebarProps } from './props'
+import { useReportDirty } from './useReportDirty'
 import './components.css'
 
 export const LABEL_KEY = 'label'
@@ -8,12 +9,14 @@ export const LABEL_KEY = 'label'
 type SidebarEdgeFormProps = Omit<SidebarProps, 'element'> & { element: SidebarElement }
 
 /** Sidebar content for an edge: the read-only UUID and a single "Label" field. */
-export function SidebarEdgeForm({ element, onSave, onClose }: SidebarEdgeFormProps) {
+export function SidebarEdgeForm({ element, onSave, onClose, onDirtyChange }: SidebarEdgeFormProps) {
   const formId = useId()
   const initial = element.metadata.find((entry) => entry.key === LABEL_KEY)?.value ?? ''
   const [baseline, setBaseline] = useState(initial)
   const [label, setLabel] = useState(initial)
   const [saved, setSaved] = useState(false)
+  const dirty = label !== baseline
+  useReportDirty(dirty, onDirtyChange)
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -69,7 +72,7 @@ export function SidebarEdgeForm({ element, onSave, onClose }: SidebarEdgeFormPro
       </div>
 
       <div className="sidebar__footer">
-        {label !== baseline && <p className="sidebar__hint">Ungespeicherte Änderungen</p>}
+        {dirty && <p className="sidebar__hint">Ungespeicherte Änderungen</p>}
         {saved && (
           <p className="sidebar__saved" role="status">
             Gespeichert
