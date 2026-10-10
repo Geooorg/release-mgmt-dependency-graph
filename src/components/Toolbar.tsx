@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { GroupIcon, RedoIcon, UndoIcon, UngroupIcon } from './icons'
+import { CycleIcon, GroupIcon, RedoIcon, UndoIcon, UngroupIcon } from './icons'
 import { ProjectTitle } from './ProjectTitle'
 import type { DependencyDirection, ToolbarProps } from './props'
 import { Tooltip } from './Tooltip'
@@ -12,8 +12,16 @@ const CONNECT_HINTS = {
 } as const
 
 const DEPENDENCY_DIRECTIONS = [
-  { value: 'outgoing', label: 'Ausgehend →', title: 'Alles, was von der Auswahl aus in Pfeilrichtung erreichbar ist' },
-  { value: 'incoming', label: '← Eingehend', title: 'Alles, was in Pfeilrichtung zur Auswahl führt' },
+  {
+    value: 'outgoing',
+    label: '→ Voraussetzungen',
+    title: 'Alles, wovon die Auswahl (direkt oder indirekt) abhängt – in Pfeilrichtung',
+  },
+  {
+    value: 'incoming',
+    label: '← Betroffene',
+    title: 'Alles, was (direkt oder indirekt) von der Auswahl abhängt – gegen die Pfeilrichtung',
+  },
   { value: 'both', label: '↔ Beide', title: 'Der gesamte verbundene Teilgraph' },
 ] as const
 
@@ -40,6 +48,10 @@ export function Toolbar({
   canRedo,
   dependencyMode,
   selectionEmpty,
+  cycleCount,
+  onFocusCycle,
+  analysisOpen,
+  onToggleAnalysis,
   onUndo,
   onRedo,
   onDependencyModeChange,
@@ -167,7 +179,7 @@ export function Toolbar({
       <Separator />
 
       <Section label="Analyse">
-        <Tooltip text="Abhängigkeitsgraph der Auswahl ermitteln: alle erreichbaren Verbindungen werden dick und rot hervorgehoben.">
+        <Tooltip text="Abhängigkeitsgraph der Auswahl ermitteln: alle erreichbaren Verbindungen werden dick und rot hervorgehoben. Richtung: Voraussetzungen (wovon die Auswahl abhängt) oder Betroffene (was von ihr abhängt). Schließt die Release-Analyse.">
           <button
             type="button"
             className="ui-button"
@@ -199,6 +211,24 @@ export function Toolbar({
               </span>
             )}
           </>
+        )}
+        <Tooltip text="Release-Analyse öffnen: Status-Zähler, Blocker und kritischer Pfad (längste Kette offener Voraussetzungen, rot im Graph) für die Auswahl bzw. das ganze Projekt. Schließt die Abhängigkeits-Hervorhebung.">
+          <button
+            type="button"
+            className="ui-button"
+            aria-pressed={analysisOpen}
+            onClick={onToggleAnalysis}
+          >
+            Release-Analyse
+          </button>
+        </Tooltip>
+        {cycleCount > 0 && (
+          <Tooltip text="Zyklische Abhängigkeiten verhindern eine gültige Release-Reihenfolge. Klicken wählt den nächsten Zyklus aus.">
+            <button type="button" className="ui-button ui-button--cycle" onClick={onFocusCycle}>
+              <CycleIcon />
+              {cycleCount === 1 ? '1 Zyklus' : `${cycleCount} Zyklen`}
+            </button>
+          </Tooltip>
         )}
       </Section>
 

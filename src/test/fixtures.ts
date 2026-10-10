@@ -28,6 +28,11 @@ export function group(
   }
 }
 
+/** The element with an added `status` metadata entry. */
+export function withStatus(node: ModelNode, status: string): ModelNode {
+  return { ...node, metadata: [...node.metadata, { key: 'status', value: status }] }
+}
+
 export function edge(id: string, source: string, target: string): ModelEdge {
   return { id, source, target }
 }

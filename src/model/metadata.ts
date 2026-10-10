@@ -56,3 +56,8 @@ export function getContrastColor(background: string): '#111827' | '#ffffff' {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(background.slice(i, i + 2), 16))
   return (r * 299 + g * 587 + b * 114) / 1000 >= 150 ? '#111827' : '#ffffff'
 }
+
+/** Name to show for an element: its `name`, or the shortened id when the name is empty. */
+export function displayName(element: { id: string; metadata: readonly MetadataEntry[] }): string {
+  return getName(element.metadata).trim() || element.id.slice(0, 8)
+}

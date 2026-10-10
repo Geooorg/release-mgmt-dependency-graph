@@ -69,4 +69,51 @@ describe('findDependencies', () => {
     findDependencies(chain, ['a'], 'both')
     expect(JSON.stringify(chain)).toBe(before)
   })
+
+  it('treats an edge to a group as an edge to all its members', () => {
+    // x depends on group g (members m1, m2); m2 depends on z
+    const grouped = content(
+      [box('x', 0, 0), group('g', 0, 0, 300, 200), box('m1', 0, 0, 'g'), box('m2', 0, 0, 'g'), box('z', 9, 9)],
+      [edge('xg', 'x', 'g'), edge('m2z', 'm2', 'z')],
+    )
+    const result = findDependencies(grouped, ['x'], 'outgoing')
+    expect(sorted(result.edgeIds)).toEqual(['m2z', 'xg'])
+    expect(sorted(result.nodeIds)).toEqual(['g', 'm1', 'm2', 'z'])
+  })
+
+  it('follows an edge out of a group for every member (incoming)', () => {
+    const grouped = content(
+      [box('y', 9, 9), group('g', 0, 0, 300, 200), box('m1', 0, 0, 'g'), box('m2', 0, 0, 'g')],
+      [edge('gy', 'g', 'y')],
+    )
+    const result = findDependencies(grouped, ['y'], 'incoming')
+    expect(sorted(result.edgeIds)).toEqual(['gy'])
+    expect(sorted(result.nodeIds)).toEqual(['g', 'm1', 'm2'])
+  })
+
+  it('does not report the group around the selected member', () => {
+    const grouped = content(
+      [group('g', 0, 0, 300, 200), box('m', 0, 0, 'g'), box('y', 9, 9)],
+      [edge('gy', 'g', 'y')],
+    )
+    const result = findDependencies(grouped, ['m'], 'outgoing')
+    expect(sorted(result.edgeIds)).toEqual(['gy'])
+    expect(sorted(result.nodeIds)).toEqual(['y'])
+  })
+
+  it('follows paths through a group between a member and an outside object', () => {
+    // a depends on group g; member m of g depends on d
+    const grouped = content(
+      [box('a', 0, 0), group('g', 0, 0, 300, 200), box('m', 0, 0, 'g'), box('d', 9, 9)],
+      [edge('ag', 'a', 'g'), edge('md', 'm', 'd')],
+    )
+    expect(sorted(findDependencies(grouped, ['a'], 'outgoing').nodeIds)).toEqual(['d', 'g', 'm'])
+    expect(sorted(findDependencies(grouped, ['d'], 'incoming').nodeIds)).toEqual(['a', 'g', 'm'])
+  })
+
+  it('reports an empty group as an element', () => {
+    const model = content([box('x', 0, 0), group('e', 0, 0, 10, 10)], [edge('xe', 'x', 'e')])
+    const result = findDependencies(model, ['x'], 'outgoing')
+    expect(sorted(result.nodeIds)).toEqual(['e'])
+  })
 })

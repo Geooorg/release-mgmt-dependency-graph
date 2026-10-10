@@ -2,16 +2,18 @@ import type { ReactNode } from 'react'
 
 interface IconProps {
   children: ReactNode
+  /** Edge length in px; the toolbar uses 20. */
+  size?: number
 }
 
 /** Shared frame for the toolbar icons: 24x24 grid, 2px round strokes, decorative only. */
-function Icon({ children }: IconProps) {
+function Icon({ children, size = 20 }: IconProps) {
   return (
     <svg
       className="icon"
       viewBox="0 0 24 24"
-      width="20"
-      height="20"
+      width={size}
+      height={size}
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -61,6 +63,46 @@ export function UngroupIcon() {
       <rect x="3" y="3" width="7" height="7" rx="1" />
       <rect x="14" y="14" width="7" height="7" rx="1" />
       <path d="M14 10h-1.5M10 14v-1.5M16 8l3-3M5 19l3-3" />
+    </Icon>
+  )
+}
+
+export function CycleIcon() {
+  return (
+    <Icon>
+      <path d="M20 12a8 8 0 0 1-13.7 5.6" />
+      <path d="M4 12a8 8 0 0 1 13.7-5.6" />
+      <path d="M18 3v4h-4" />
+      <path d="M6 21v-4h4" />
+    </Icon>
+  )
+}
+
+/** Pennant on a pole (blocked). Colour comes from `currentColor`. */
+export function FlagIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M5 22V3" />
+      <path d="M5 4h13l-3.5 4.5L18 13H5z" fill="currentColor" />
+    </Icon>
+  )
+}
+
+/** Clipboard with a tick: the release analysis. */
+export function AnalysisIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <rect x="5" y="4" width="14" height="17" rx="2" />
+      <path d="M9 4V3h6v1" />
+      <path d="m9 13 2 2 4-4" />
+    </Icon>
+  )
+}
+
+export function CheckIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="m5 12.5 4.5 4.5L19 7.5" strokeWidth="3.5" />
     </Icon>
   )
 }

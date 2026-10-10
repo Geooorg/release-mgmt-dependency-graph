@@ -4,7 +4,9 @@ import {
   Controls,
   MiniMap,
   ReactFlow,
+  getViewportForBounds,
   useReactFlow,
+  useStoreApi,
   type Connection,
   type Edge,
   type EdgeChange,
@@ -12,8 +14,10 @@ import {
 } from '@xyflow/react'
 import { useCallback, useEffect, useMemo } from 'react'
 import { nodeTypes } from '../components/nodeTypes'
+import type { CycleResult } from '../model/cycles'
 import { findDependencies } from '../model/dependency'
 import { checkConnection } from '../model/graph'
+import type { ProjectAnalysis } from '../model/releaseAnalysis'
 import { HANDLE_SIDES, type HandleSide } from '../model/types'
 import { graphStore, useGraph } from '../store/appStore'
 import { toFlowEdges, toFlowNodes } from './mapping'
@@ -32,7 +36,17 @@ const endDragGesture = (draggedIds: readonly string[]) => {
   state.endGesture()
 }
 
-export function Canvas() {
+const REVEAL_FLASH_MS = 1600
+
+interface CanvasProps {
+  cycles: CycleResult
+  /** Status and blockers of the project (status marks, red flags). */
+  analysis: ProjectAnalysis
+  /** Critical path drawn in red while the analysis panel is open; null = none. */
+  critical: { nodeIds: ReadonlySet<string>; edgeIds: ReadonlySet<string> } | null
+}
+
+export function Canvas({ cycles, analysis, critical }: CanvasProps) {
   const nodes = useGraph((s) => s.nodes)
   const edges = useGraph((s) => s.edges)
   const selectedNodeIds = useGraph((s) => s.selectedNodeIds)
@@ -41,7 +55,10 @@ export function Canvas() {
   const dropTargetId = useGraph((s) => s.dropTargetId)
   const dependencyMode = useGraph((s) => s.dependencyMode)
   const contentRevision = useGraph((s) => s.contentRevision)
-  const { fitView } = useReactFlow()
+  const focusRequest = useGraph((s) => s.focusRequest)
+  const revealedId = useGraph((s) => s.revealedId)
+  const { fitView, getNodesBounds, setViewport } = useReactFlow()
+  const flowStore = useStoreApi()
 
   // The dependency graph follows the selection while the mode is on.
   const dependencies = useMemo(
@@ -52,20 +69,26 @@ export function Canvas() {
     [nodes, edges, selectedNodeIds, dependencyMode],
   )
 
+  // Panel and dependency mode exclude each other, so at most one of them draws the red highlight.
+  const highlight = critical ?? dependencies
+
   const flowNodes = useMemo(
     () =>
       toFlowNodes(nodes, {
         selectedIds: new Set(selectedNodeIds),
         connectSourceId,
         dropTargetId,
-        dependencyNodeIds: dependencies.nodeIds,
-        dependencyEdgeIds: dependencies.edgeIds,
+        dependencyNodeIds: highlight.nodeIds,
+        dependencyEdgeIds: highlight.edgeIds,
+        cycleNodeIds: cycles.nodeIds,
+        analysis,
+        revealedId,
       }),
-    [nodes, selectedNodeIds, connectSourceId, dropTargetId, dependencies],
+    [nodes, selectedNodeIds, connectSourceId, dropTargetId, highlight, cycles, analysis, revealedId],
   )
   const flowEdges = useMemo(
-    () => toFlowEdges(edges, new Set(selectedEdgeIds), dependencies.edgeIds, nodes),
-    [edges, nodes, selectedEdgeIds, dependencies],
+    () => toFlowEdges(edges, new Set(selectedEdgeIds), highlight.edgeIds, nodes, cycles.edgeIds),
+    [edges, nodes, selectedEdgeIds, highlight, cycles],
   )
 
   // After an import the new graph may be anywhere: bring it into view.
@@ -74,6 +97,23 @@ export function Canvas() {
     const frame = requestAnimationFrame(() => void fitView({ padding: 0.2, duration: 200 }))
     return () => cancelAnimationFrame(frame)
   }, [contentRevision, fitView])
+
+  // Focus requests (cycle button, analysis panel): bring the requested elements into view. Not via
+  // fitView: with controlled nodes it stays queued until the next node change, so the view would
+  // lag one click behind.
+  useEffect(() => {
+    if (!focusRequest || focusRequest.nodeIds.length === 0) return
+    const { width, height, minZoom } = flowStore.getState()
+    const bounds = getNodesBounds(focusRequest.nodeIds)
+    void setViewport(getViewportForBounds(bounds, width, height, minZoom, 1.2, 0.4), { duration: 300 })
+  }, [focusRequest, flowStore, getNodesBounds, setViewport])
+
+  // The flash after "reveal" is a CSS animation; drop the marker once it is over.
+  useEffect(() => {
+    if (!focusRequest || revealedId === null) return
+    const timer = setTimeout(() => graphStore.getState().clearReveal(), REVEAL_FLASH_MS)
+    return () => clearTimeout(timer)
+  }, [focusRequest, revealedId])
 
   const onNodesChange = useCallback((changes: NodeChange<AppFlowNode>[]) => {
     const state = graphStore.getState()

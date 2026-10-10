@@ -578,6 +578,88 @@ describe('graphStore', () => {
     })
   })
 
+  describe('analysis panel', () => {
+    it('is closed by default and excludes the dependency highlight', () => {
+      const store = createGraphStore(twoNodes())
+      const s = () => store.getState()
+      expect(s().analysisOpen).toBe(false)
+
+      s().setDependencyMode('both')
+      s().setAnalysisOpen(true)
+      expect(s().analysisOpen).toBe(true)
+      expect(s().dependencyMode).toBe('off')
+
+      s().setDependencyMode('incoming')
+      expect(s().analysisOpen).toBe(false)
+      expect(s().dependencyMode).toBe('incoming')
+
+      s().setAnalysisOpen(false)
+      expect(s().dependencyMode).toBe('incoming')
+    })
+
+    it('does not touch model or history', () => {
+      const store = createGraphStore(twoNodes())
+      const { nodes, edges, history } = store.getState()
+      store.getState().setAnalysisOpen(true)
+      expect(store.getState().nodes).toBe(nodes)
+      expect(store.getState().edges).toBe(edges)
+      expect(store.getState().history).toBe(history)
+    })
+  })
+
+  describe('revealNode', () => {
+    it('requests a view focus and a flash but keeps the selection', () => {
+      const store = createGraphStore(twoNodes())
+      const s = () => store.getState()
+      s().applyNodeSelection([{ id: 'a', selected: true }])
+      const { nodes, history } = s()
+
+      s().revealNode('b')
+      expect(s().selectedNodeIds).toEqual(['a'])
+      expect(s().focusRequest).toEqual({ id: 1, nodeIds: ['b'] })
+      expect(s().revealedId).toBe('b')
+      expect(s().nodes).toBe(nodes)
+      expect(s().history).toBe(history)
+
+      s().clearReveal()
+      expect(s().revealedId).toBeNull()
+    })
+
+    it('ignores unknown elements', () => {
+      const store = createGraphStore(twoNodes())
+      store.getState().revealNode('ghost')
+      expect(store.getState().focusRequest).toBeNull()
+      expect(store.getState().revealedId).toBeNull()
+    })
+  })
+
+  describe('focusNodes', () => {
+    it('selects exactly the given elements and requests a view focus without touching the model or history', () => {
+      const store = createGraphStore(content([box('a', 0, 0), box('b', 1, 1), box('c', 2, 2)], [edge('e', 'a', 'b')]))
+      const s = () => store.getState()
+      s().applyNodeSelection([{ id: 'c', selected: true }])
+      s().applyEdgeSelection([{ id: 'e', selected: true }])
+      const { nodes, edges, history } = s()
+
+      s().focusNodes(['a', 'b', 'ghost'])
+      expect(s().selectedNodeIds).toEqual(['a', 'b'])
+      expect(s().selectedEdgeIds).toEqual([])
+      expect(s().focusRequest).toEqual({ id: 1, nodeIds: ['a', 'b'] })
+      expect(s().nodes).toBe(nodes)
+      expect(s().edges).toBe(edges)
+      expect(s().history).toBe(history)
+
+      s().focusNodes(['a', 'b'])
+      expect(s().focusRequest?.id).toBe(2)
+    })
+
+    it('ignores a request without existing elements', () => {
+      const store = createGraphStore(twoNodes())
+      store.getState().focusNodes(['ghost'])
+      expect(store.getState().focusRequest).toBeNull()
+    })
+  })
+
   describe('replaceContent', () => {
     it('swaps the model, resets UI state and bumps the revision', () => {
       const store = createGraphStore(twoNodes())

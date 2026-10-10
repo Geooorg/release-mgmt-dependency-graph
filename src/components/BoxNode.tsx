@@ -2,7 +2,9 @@ import type { CSSProperties } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import type { BoxFlowNode } from '../flow/types'
 import { NODE_SIZE } from '../model/types'
+import { CycleBadge } from './CycleBadge'
 import { NodeHandles } from './NodeHandles'
+import { BlockedFlag, StatusMark } from './StatusMarks'
 import './components.css'
 
 export function BoxNode({ data, selected }: NodeProps<BoxFlowNode>) {
@@ -12,6 +14,7 @@ export function BoxNode({ data, selected }: NodeProps<BoxFlowNode>) {
     selected && 'box-node--selected',
     data.isConnectSource && 'box-node--connect-source',
     data.isDependency && 'box-node--dependency',
+    data.isRevealed && 'box-node--revealed',
   ]
     .filter(Boolean)
     .join(' ')
@@ -25,6 +28,9 @@ export function BoxNode({ data, selected }: NodeProps<BoxFlowNode>) {
   return (
     <div className={className} style={style}>
       <NodeHandles />
+      {data.blockedTitle && <BlockedFlag title={data.blockedTitle} />}
+      {data.isInCycle && <CycleBadge />}
+      <StatusMark status={data.status} />
       <span className={hasName ? 'box-node__label' : 'box-node__label box-node__label--empty'}>
         {hasName ? data.name : data.id.slice(0, 8)}
       </span>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { box, edge, group } from '../test/fixtures'
+import { analyzeProject } from '../model/releaseAnalysis'
+import { box, content, edge, group, withStatus } from '../test/fixtures'
 import { toFlowEdges, toFlowNodes } from './mapping'
 
 const nodes = [box('a', 0, 0), box('b', 400, 0), box('c', 0, 400)]
@@ -42,6 +43,27 @@ describe('toFlowEdges', () => {
   })
 })
 
+describe('toFlowEdges cycles', () => {
+  const cycleIds = new Set(['cyc', 'both', 'cycsel'])
+
+  it('draws cycle edges purple, dashed and 3 wide, with a matching arrow', () => {
+    const [cyc, plain] = toFlowEdges([edge('cyc', 'a', 'b'), edge('plain', 'b', 'c')], none, none, nodes, cycleIds)
+    expect(cyc.style).toMatchObject({ stroke: '#9333ea', strokeWidth: 3, strokeDasharray: '6 4' })
+    expect(cyc.markerEnd).toMatchObject({ color: '#9333ea' })
+    expect(plain.style?.strokeDasharray).toBeUndefined()
+  })
+
+  it('lets the dependency highlight win over the cycle colour but keeps the dashes', () => {
+    const [both] = toFlowEdges([edge('both', 'a', 'b')], none, new Set(['both']), nodes, cycleIds)
+    expect(both.style).toMatchObject({ stroke: '#dc2626', strokeWidth: 6, strokeDasharray: '6 4' })
+  })
+
+  it('shows a selected cycle edge in a darker purple', () => {
+    const [flow] = toFlowEdges([edge('cycsel', 'a', 'b')], new Set(['cycsel']), none, nodes, cycleIds)
+    expect(flow.style).toMatchObject({ stroke: '#6b21a8', strokeDasharray: '6 4' })
+  })
+})
+
 describe('toFlowNodes', () => {
   const ui = {
     selectedIds: none,
@@ -49,6 +71,7 @@ describe('toFlowNodes', () => {
     dropTargetId: null,
     dependencyNodeIds: new Set(['b']),
     dependencyEdgeIds: none,
+    cycleNodeIds: new Set(['a']),
   }
 
   it('passes colour, contrast text and dependency flag to the node data', () => {
@@ -62,6 +85,12 @@ describe('toFlowNodes', () => {
     const [a, b] = toFlowNodes([coloured, box('b', 1, 1)], ui)
     expect(a.data).toMatchObject({ color: '#facc15', textColor: '#111827', isDependency: false })
     expect(b.data).toMatchObject({ color: undefined, isDependency: true })
+  })
+
+  it('passes the cycle flag to the node data', () => {
+    const [a, b] = toFlowNodes([box('a', 0, 0), box('b', 1, 1)], ui)
+    expect(a.data.isInCycle).toBe(true)
+    expect(b.data.isInCycle).toBe(false)
   })
 
   it('maps kinds to node types and orders parents first', () => {
@@ -98,5 +127,61 @@ describe('toFlowEdges labels', () => {
     expect(plain.label).toBeUndefined()
     expect(labelled.label).toBe('braucht')
     expect(labelled.labelStyle).toMatchObject({ fill: '#dc2626' })
+  })
+})
+
+describe('toFlowNodes status and blockers', () => {
+  const ui = (analysis: ReturnType<typeof analyzeProject>, revealedId: string | null = null) => ({
+    selectedIds: new Set<string>(),
+    connectSourceId: null,
+    dropTargetId: null,
+    dependencyNodeIds: new Set<string>(),
+    dependencyEdgeIds: new Set<string>(),
+    cycleNodeIds: new Set<string>(),
+    analysis,
+    revealedId,
+  })
+
+  it('carries the status and the blockers of an object', () => {
+    const model = content(
+      [withStatus(box('a', 0, 0), 'fertig'), box('b', 1, 0), withStatus(box('c', 2, 0), 'in Arbeit')],
+      [edge('ab', 'a', 'b'), edge('bc', 'b', 'c')],
+    )
+    const [a, b, c] = toFlowNodes(model.nodes, ui(analyzeProject(model)))
+    expect([a.data.status, b.data.status, c.data.status]).toEqual(['fertig', 'offen', 'in Arbeit'])
+    expect(a.data.blockedTitle).toBe('Blockiert durch: b')
+    expect(b.data.blockedTitle).toBe('Blockiert durch: c')
+    expect(c.data.blockedTitle).toBeUndefined()
+  })
+
+  it('lists at most five blockers, then an ellipsis', () => {
+    const blockers = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map((id, i) => box(id, i + 1, 0))
+    const model = content(
+      [box('a', 0, 0), ...blockers],
+      blockers.map((b) => edge(`e-${b.id}`, 'a', b.id)),
+    )
+    const [a] = toFlowNodes(model.nodes, ui(analyzeProject(model)))
+    expect(a.data.blockedTitle).toBe('Blockiert durch: p1, p2, p3, p4, p5, …')
+  })
+
+  it('names the blocked members on a group and gives it no status', () => {
+    const model = content(
+      [group('g', 0, 0, 300, 200), box('m', 1, 1, 'g'), box('y', 5, 5)],
+      [edge('my', 'm', 'y')],
+    )
+    const flows = toFlowNodes(model.nodes, ui(analyzeProject(model)))
+    const g = flows.find((n) => n.id === 'g')!
+    expect(g.data.blockedTitle).toBe('Enthält blockierte Objekte: m')
+    expect(g.data.status).toBeUndefined()
+  })
+
+  it('flags the revealed element and works without analysis', () => {
+    const nodes = [box('a', 0, 0), box('b', 1, 0)]
+    const withReveal = toFlowNodes(nodes, ui(analyzeProject(content(nodes)), 'b'))
+    expect(withReveal.map((n) => n.data.isRevealed)).toEqual([false, true])
+
+    const [plain] = toFlowNodes(nodes, { ...ui(analyzeProject(content(nodes))), analysis: undefined })
+    expect(plain.data.status).toBeUndefined()
+    expect(plain.data.blockedTitle).toBeUndefined()
   })
 })

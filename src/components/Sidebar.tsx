@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { findDuplicateKeys, isValidColor, normalizeMetadata } from '../model/metadata'
+import { DEFAULT_STATUS, parseStatus, STATUS_KEY, STATUS_VALUES } from '../model/status'
 import { COLOR_KEY, DEFAULT_COLOR, NAME_KEY } from '../model/types'
 import type { MetadataEntry } from '../model/types'
 import type { SidebarElement, SidebarProps } from './props'
@@ -16,11 +17,13 @@ interface Row {
   autoFocus?: boolean
 }
 
-/** Local edit state: the fixed `name` and `color` fields plus the free-form rows. */
+/** Local edit state: the fixed `name`, `color` and `status` fields plus the free-form rows. */
 interface Draft {
   name: string
   /** `#rrggbb`, or '' = no colour set (default blue). */
   color: string
+  /** Raw (trimmed) value of the `status` entry, '' = none; objects only (a group keeps `status` as a free row). */
+  status: string
   rows: Row[]
 }
 
@@ -40,16 +43,23 @@ function toRows(entries: readonly MetadataEntry[], previous: readonly Row[] = []
   }))
 }
 
-function toDraft(entries: readonly MetadataEntry[], previousRows: readonly Row[] = []): Draft {
+function toDraft(
+  entries: readonly MetadataEntry[],
+  withStatus: boolean,
+  previousRows: readonly Row[] = [],
+): Draft {
   const nameIndex = entries.findIndex((entry) => entry.key === NAME_KEY)
   const colorIndex = entries.findIndex((entry) => entry.key === COLOR_KEY)
+  const statusIndex = withStatus ? entries.findIndex((entry) => entry.key === STATUS_KEY) : -1
   const color = colorIndex >= 0 ? entries[colorIndex].value.trim().toLowerCase() : ''
   return {
     name: nameIndex >= 0 ? entries[nameIndex].value : '',
     // An unusable colour value counts as "not set" and is dropped on the next save.
     color: isValidColor(color) ? color : '',
+    // An unknown value is kept as it is (and offered as an extra option), never silently replaced.
+    status: statusIndex >= 0 ? entries[statusIndex].value.trim() : '',
     rows: toRows(
-      entries.filter((_, index) => index !== nameIndex && index !== colorIndex),
+      entries.filter((_, index) => index !== nameIndex && index !== colorIndex && index !== statusIndex),
       previousRows,
     ),
   }
@@ -59,6 +69,7 @@ function toEntries(draft: Draft): MetadataEntry[] {
   return [
     { key: NAME_KEY, value: draft.name },
     ...(draft.color ? [{ key: COLOR_KEY, value: draft.color }] : []),
+    ...(draft.status ? [{ key: STATUS_KEY, value: draft.status }] : []),
     ...draft.rows.map(({ key, value }) => ({ key, value })),
   ]
 }
@@ -68,8 +79,8 @@ function sameEntries(a: readonly MetadataEntry[], b: readonly MetadataEntry[]): 
 }
 
 /** Entries in the shape the draft edits them (`name` first), so comparisons ignore ordering quirks. */
-function canonical(entries: readonly MetadataEntry[]): MetadataEntry[] {
-  return toEntries(toDraft(entries))
+function canonical(entries: readonly MetadataEntry[], withStatus: boolean): MetadataEntry[] {
+  return toEntries(toDraft(entries, withStatus))
 }
 
 type SidebarFormProps = Omit<SidebarProps, 'element'> & {
@@ -78,9 +89,10 @@ type SidebarFormProps = Omit<SidebarProps, 'element'> & {
 
 function SidebarForm({ element, onSave, onClose }: SidebarFormProps) {
   const formId = useId()
+  const withStatus = element.kind === 'node'
   const [received, setReceived] = useState(element.metadata)
-  const [baseline, setBaseline] = useState(() => canonical(element.metadata))
-  const [draft, setDraft] = useState(() => toDraft(element.metadata))
+  const [baseline, setBaseline] = useState(() => canonical(element.metadata, withStatus))
+  const [draft, setDraft] = useState(() => toDraft(element.metadata, withStatus))
   const [saved, setSaved] = useState(false)
   const [attempted, setAttempted] = useState(false)
 
@@ -88,9 +100,12 @@ function SidebarForm({ element, onSave, onClose }: SidebarFormProps) {
   // adopt it. Our own save echoes back as equal to `baseline` and is skipped.
   if (received !== element.metadata) {
     setReceived(element.metadata)
-    if (!sameEntries(received, element.metadata) && !sameEntries(baseline, canonical(element.metadata))) {
-      setBaseline(canonical(element.metadata))
-      setDraft(toDraft(element.metadata))
+    if (
+      !sameEntries(received, element.metadata) &&
+      !sameEntries(baseline, canonical(element.metadata, withStatus))
+    ) {
+      setBaseline(canonical(element.metadata, withStatus))
+      setDraft(toDraft(element.metadata, withStatus))
       setSaved(false)
       setAttempted(false)
     }
@@ -128,7 +143,7 @@ function SidebarForm({ element, onSave, onClose }: SidebarFormProps) {
     // Re-sync from what was saved (empty-key rows vanish, values appear trimmed). Surviving rows keep
     // their ids so a focused input stays focused after Enter.
     const survivors = draft.rows.filter((row) => row.key.trim() !== '')
-    setDraft(toDraft(normalized, survivors))
+    setDraft(toDraft(normalized, withStatus, survivors))
     setBaseline(normalized)
     setSaved(true)
     setAttempted(false)
@@ -199,6 +214,37 @@ function SidebarForm({ element, onSave, onClose }: SidebarFormProps) {
           </button>
         </div>
       </div>
+
+      {withStatus && (
+        <div className="sidebar__field">
+          <label className="sidebar__label" htmlFor={`${formId}-status`}>
+            Status
+          </label>
+          <select
+            id={`${formId}-status`}
+            className="ui-input"
+            value={parseStatus(draft.status) ?? (draft.status || DEFAULT_STATUS)}
+            onChange={(event) => edit({ ...draft, status: event.target.value })}
+          >
+            {STATUS_VALUES.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+            {draft.status !== '' && parseStatus(draft.status) === undefined && (
+              <option value={draft.status}>{draft.status} (unbekannt)</option>
+            )}
+          </select>
+        </div>
+      )}
+
+      {element.kind === 'group' && element.progress && (
+        <p className="sidebar__info">
+          {element.progress.total === 0
+            ? 'Status aus Mitgliedern: keine Mitglieder'
+            : `Status aus Mitgliedern: ${element.progress.done} von ${element.progress.total} fertig`}
+        </p>
+      )}
 
       {draft.rows.length > 0 && (
         <ul className="sidebar__rows">

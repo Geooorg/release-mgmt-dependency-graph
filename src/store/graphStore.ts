@@ -61,6 +61,12 @@ export interface GraphState {
   gesture: boolean
   /** Bumped when the whole content is replaced (import) so the canvas can re-fit the view. */
   contentRevision: number
+  /** Ask the canvas to select and bring elements into view; `id` makes repeated requests distinct. */
+  focusRequest: { id: number; nodeIds: string[] } | null
+  /** The release analysis panel is open (mutually exclusive with the dependency highlight). */
+  analysisOpen: boolean
+  /** Element briefly highlighted after `revealNode`; cleared by the canvas. */
+  revealedId: string | null
 
   addNodeAt: (position: Point) => void
   moveNode: (id: string, position: Point) => void
@@ -69,6 +75,11 @@ export interface GraphState {
 
   applyNodeSelection: (changes: readonly Selection[]) => void
   applyEdgeSelection: (changes: readonly Selection[]) => void
+  /** Selects exactly these (existing) elements and asks the canvas to show them. UI state only. */
+  focusNodes: (ids: readonly string[]) => void
+  /** Brings one element into view and flashes it; selection, sidebar and model stay untouched. UI state only. */
+  revealNode: (id: string) => void
+  clearReveal: () => void
   /** Returns false (and changes nothing) if `name` is not a valid project name. */
   renameProject: (name: string) => boolean
   openSidebar: (id: string) => void
@@ -98,7 +109,10 @@ export interface GraphState {
   /** Start/end a drag or resize: everything in between becomes one undo step. */
   beginGesture: () => void
   endGesture: () => void
+  /** Switching the highlight on closes the analysis panel. */
   setDependencyMode: (mode: DependencyMode) => void
+  /** Opening the panel switches the dependency highlight off. */
+  setAnalysisOpen: (open: boolean) => void
 
   replaceContent: (content: GraphContent) => void
   /** Parses an exported JSON document; replaces the model on success, otherwise keeps it and reports why. */
@@ -216,6 +230,9 @@ export function createGraphStore(
       history: emptyHistory,
       gesture: false,
       contentRevision: 0,
+      focusRequest: null,
+      analysisOpen: false,
+      revealedId: null,
 
       addNodeAt: (position) => {
         const node = graph.createNode(placement.findFreePosition(get().nodes, position), newId)
@@ -232,6 +249,26 @@ export function createGraphStore(
         set({ selectedNodeIds: mergeSelection(get().selectedNodeIds, changes) }),
       applyEdgeSelection: (changes) =>
         set({ selectedEdgeIds: mergeSelection(get().selectedEdgeIds, changes) }),
+      focusNodes: (ids) => {
+        const known = new Set(get().nodes.map((n) => n.id))
+        const nodeIds = ids.filter((id) => known.has(id))
+        if (nodeIds.length === 0) return
+        set({
+          selectedNodeIds: nodeIds,
+          selectedEdgeIds: [],
+          focusRequest: { id: (get().focusRequest?.id ?? 0) + 1, nodeIds },
+        })
+      },
+      revealNode: (id) => {
+        if (!get().nodes.some((n) => n.id === id)) return
+        set({
+          revealedId: id,
+          focusRequest: { id: (get().focusRequest?.id ?? 0) + 1, nodeIds: [id] },
+        })
+      },
+      clearReveal: () => {
+        if (get().revealedId !== null) set({ revealedId: null })
+      },
       renameProject: (name) => {
         if (!isValidProjectName(name)) return false
         apply({ ...content(), projectName: name })
@@ -344,7 +381,10 @@ export function createGraphStore(
         const unchanged = start !== undefined && sameContent(start, content())
         set({ gesture: false, history: unchanged ? discardLastRecord(history) : history })
       },
-      setDependencyMode: (mode) => set({ dependencyMode: mode }),
+      setDependencyMode: (mode) =>
+        set(mode === 'off' ? { dependencyMode: mode } : { dependencyMode: mode, analysisOpen: false }),
+      setAnalysisOpen: (open) =>
+        set(open ? { analysisOpen: true, dependencyMode: 'off' } : { analysisOpen: false }),
 
       replaceContent: (next) =>
         set({

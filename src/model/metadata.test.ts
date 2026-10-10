@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  displayName,
   findDuplicateKeys,
   getColor,
   getContrastColor,
@@ -145,5 +146,12 @@ describe('colour helpers', () => {
     expect(getContrastColor('#000000')).toBe('#ffffff')
     expect(getContrastColor('#2563eb')).toBe('#ffffff')
     expect(getContrastColor('#dc2626')).toBe('#ffffff')
+  })
+})
+
+describe('displayName', () => {
+  it('uses the name, or the shortened id when it is empty', () => {
+    expect(displayName({ id: 'abcdef12-3456', metadata: [{ key: 'name', value: 'Dienst' }] })).toBe('Dienst')
+    expect(displayName({ id: 'abcdef12-3456', metadata: [{ key: 'name', value: '  ' }] })).toBe('abcdef12')
   })
 })

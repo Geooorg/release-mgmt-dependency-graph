@@ -1,4 +1,5 @@
 import type { Node } from '@xyflow/react'
+import type { Status } from '../model/status'
 
 /** Data handed to the custom React Flow node components. */
 export interface FlowNodeData extends Record<string, unknown> {
@@ -12,6 +13,14 @@ export interface FlowNodeData extends Record<string, unknown> {
   isDropTarget: boolean
   /** Element is part of the highlighted dependency graph. */
   isDependency: boolean
+  /** Element is part of a dependency cycle. */
+  isInCycle: boolean
+  /** Element was just revealed from the analysis panel (short flash). */
+  isRevealed: boolean
+  /** Release status of an object (undefined for groups). */
+  status?: Status
+  /** Tooltip text of the red flag; set = the element (a group: one of its members) is blocked. */
+  blockedTitle?: string
   /** `#rrggbb` from the `color` metadata field; undefined = default blue. */
   color?: string
   /** Readable text colour for `color`. */

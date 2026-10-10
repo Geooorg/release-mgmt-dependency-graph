@@ -30,6 +30,8 @@ function makeData(overrides: Partial<FlowNodeData> = {}): FlowNodeData {
     isConnectSource: false,
     isDropTarget: false,
     isDependency: false,
+    isInCycle: false,
+    isRevealed: false,
     ...overrides,
   }
 }
@@ -168,5 +170,73 @@ describe('node components', () => {
 
     expect(container.querySelector('.box-node')).toHaveClass('box-node--dependency')
     expect(container.querySelector('.group-node')).toHaveClass('group-node--dependency')
+  })
+
+  it('shows a cycle badge on boxes and groups in a cycle only', () => {
+    const { container } = renderNodes([
+      box({ data: makeData({ isInCycle: true }) }),
+      group({ data: makeData({ isInCycle: true }) }),
+      box({ id: 'b2', position: { x: 300, y: 0 } }),
+    ])
+
+    expect(screen.getAllByLabelText('Teil eines Zyklus')).toHaveLength(2)
+    expect(container.querySelector('.box-node .cycle-badge')).toHaveAttribute('title', 'Teil eines Zyklus')
+    expect(container.querySelector('.group-node .cycle-badge')).not.toBeNull()
+  })
+
+  it('shows the red flag with the blockers on blocked boxes only', () => {
+    const { container } = renderNodes([
+      box({ data: makeData({ blockedTitle: 'Blockiert durch: Dienst B' }) }),
+      box({ id: 'b2', position: { x: 300, y: 0 } }),
+    ])
+
+    const flags = screen.getAllByLabelText('Blockiert durch: Dienst B')
+    expect(flags).toHaveLength(1)
+    expect(flags[0]).toHaveAttribute('title', 'Blockiert durch: Dienst B')
+    expect(container.querySelectorAll('.blocked-flag')).toHaveLength(1)
+  })
+
+  it('puts the flag of a group into its title', () => {
+    const { container } = renderNodes([
+      group({ data: makeData({ blockedTitle: 'Enthält blockierte Objekte: X' }) }),
+    ])
+
+    expect(container.querySelector('.group-node__header .blocked-flag')).toHaveAttribute(
+      'aria-label',
+      'Enthält blockierte Objekte: X',
+    )
+  })
+
+  it('marks finished and running boxes, but not open ones or groups', () => {
+    const { container } = renderNodes([
+      box({ id: 'done', data: makeData({ status: 'fertig' }) }),
+      box({ id: 'wip', position: { x: 200, y: 0 }, data: makeData({ status: 'in Arbeit' }) }),
+      box({ id: 'open', position: { x: 400, y: 0 }, data: makeData({ status: 'offen' }) }),
+      group({ data: makeData({ name: 'Gruppe' }) }),
+    ])
+
+    expect(screen.getByLabelText('Status: fertig')).toHaveClass('status-mark--done')
+    expect(screen.getByLabelText('Status: in Arbeit')).toHaveClass('status-mark--progress')
+    expect(container.querySelectorAll('.status-mark')).toHaveLength(2)
+  })
+
+  it('keeps flag, status mark and cycle badge apart on one box', () => {
+    const { container } = renderNodes([
+      box({ data: makeData({ blockedTitle: 'Blockiert durch: X', isInCycle: true, status: 'fertig' }) }),
+    ])
+
+    expect(container.querySelector('.box-node .blocked-flag')).not.toBeNull()
+    expect(container.querySelector('.box-node .cycle-badge')).not.toBeNull()
+    expect(container.querySelector('.box-node .status-mark')).not.toBeNull()
+  })
+
+  it('flashes a revealed element', () => {
+    const { container } = renderNodes([
+      box({ data: makeData({ isRevealed: true }) }),
+      group({ data: makeData({ isRevealed: true }) }),
+    ])
+
+    expect(container.querySelector('.box-node')).toHaveClass('box-node--revealed')
+    expect(container.querySelector('.group-node')).toHaveClass('group-node--revealed')
   })
 })

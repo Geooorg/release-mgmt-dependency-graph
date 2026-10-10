@@ -444,6 +444,94 @@ describe('Sidebar', () => {
     })
   })
 
+  describe('status field', () => {
+    const statusSelect = () => screen.getByLabelText<HTMLSelectElement>('Status')
+    const withStatus = (value: string, kind: SidebarElement['kind'] = 'node') =>
+      makeElement({
+        kind,
+        metadata: [
+          { key: 'name', value: 'A' },
+          { key: 'status', value: value },
+        ],
+      })
+
+    it('offers the three values and shows "offen" when no status is set', () => {
+      render(<Sidebar {...makeProps()} />)
+
+      expect(statusSelect().value).toBe('offen')
+      expect([...statusSelect().options].map((o) => o.value)).toEqual(['offen', 'in Arbeit', 'fertig'])
+    })
+
+    it('does not write a status entry as long as it is untouched', async () => {
+      const onSave = vi.fn()
+      render(<Sidebar {...makeProps({ onSave })} />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      expect(onSave.mock.calls[0][0]).not.toContainEqual(expect.objectContaining({ key: 'status' }))
+    })
+
+    it('shows the stored status, not as a free-form row', () => {
+      render(<Sidebar {...makeProps({ element: withStatus('fertig') })} />)
+
+      expect(statusSelect().value).toBe('fertig')
+      expect(keyInputs()).toHaveLength(0)
+    })
+
+    it('saves the chosen status after name and colour', async () => {
+      const onSave = vi.fn()
+      render(<Sidebar {...makeProps({ onSave })} />)
+
+      fireEvent.input(screen.getByLabelText(/Farbe/), { target: { value: '#dc2626' } })
+      await userEvent.selectOptions(statusSelect(), 'in Arbeit')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(onSave).toHaveBeenCalledWith([
+        { key: 'name', value: 'Projekt A' },
+        { key: 'color', value: '#dc2626' },
+        { key: 'status', value: 'in Arbeit' },
+        { key: 'owner', value: 'Team 1' },
+      ])
+    })
+
+    it('keeps an unknown imported value as an extra option and does not change it', async () => {
+      const onSave = vi.fn()
+      render(<Sidebar {...makeProps({ onSave, element: withStatus('bald') })} />)
+
+      expect(statusSelect().value).toBe('bald')
+      expect([...statusSelect().options].map((o) => o.textContent)).toEqual([
+        'offen',
+        'in Arbeit',
+        'fertig',
+        'bald (unbekannt)',
+      ])
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      expect(onSave).toHaveBeenCalledWith([
+        { key: 'name', value: 'A' },
+        { key: 'status', value: 'bald' },
+      ])
+    })
+
+    it('does not offer a status for groups but summarizes their members', () => {
+      render(
+        <Sidebar
+          {...makeProps({
+            element: { ...withStatus('fertig', 'group'), progress: { done: 2, total: 5 } },
+          })}
+        />,
+      )
+
+      expect(screen.queryByLabelText('Status')).not.toBeInTheDocument()
+      expect(screen.getByText('Status aus Mitgliedern: 2 von 5 fertig')).toBeInTheDocument()
+    })
+
+    it('says so for a group without members', () => {
+      render(
+        <Sidebar {...makeProps({ element: makeElement({ kind: 'group', progress: { done: 0, total: 0 } }) })} />,
+      )
+      expect(screen.getByText('Status aus Mitgliedern: keine Mitglieder')).toBeInTheDocument()
+    })
+  })
+
   describe('edge variant', () => {
     const edgeElement = (label = ''): SidebarElement => ({
       id: ID_B,

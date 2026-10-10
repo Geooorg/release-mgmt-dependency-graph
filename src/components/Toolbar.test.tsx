@@ -16,6 +16,10 @@ function makeProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
     canRedo: true,
     dependencyMode: 'off',
     selectionEmpty: false,
+    cycleCount: 0,
+    onFocusCycle: vi.fn(),
+    analysisOpen: false,
+    onToggleAnalysis: vi.fn(),
     onUndo: vi.fn(),
     onRedo: vi.fn(),
     onDependencyModeChange: vi.fn(),
@@ -45,6 +49,7 @@ describe('Toolbar', () => {
       'Rückgängig',
       'Wiederholen',
       'Abhängigkeiten',
+      'Release-Analyse',
       'Export',
       'Import',
     ]) {
@@ -170,6 +175,15 @@ describe('Toolbar', () => {
       expect(onDependencyModeChange).toHaveBeenLastCalledWith('both')
     })
 
+    it('names the directions by what they show', () => {
+      render(<Toolbar {...makeProps({ dependencyMode: 'outgoing' })} />)
+      expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+        '→ Voraussetzungen',
+        '← Betroffene',
+        '↔ Beide',
+      ])
+    })
+
     it('tells the user to select something when nothing is selected', () => {
       const { rerender } = render(
         <Toolbar {...makeProps({ dependencyMode: 'outgoing', selectionEmpty: true })} />,
@@ -178,6 +192,52 @@ describe('Toolbar', () => {
 
       rerender(<Toolbar {...makeProps({ dependencyMode: 'outgoing', selectionEmpty: false })} />)
       expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('release analysis', () => {
+    it('is a toggle button in the analysis section', async () => {
+      const props = makeProps()
+      const { rerender } = render(<Toolbar {...props} />)
+      const button = screen.getByRole('button', { name: 'Release-Analyse' })
+      expect(button).toHaveAttribute('aria-pressed', 'false')
+      expect(screen.getByRole('group', { name: 'Analyse' })).toContainElement(button)
+
+      await userEvent.click(button)
+      expect(props.onToggleAnalysis).toHaveBeenCalledTimes(1)
+
+      rerender(<Toolbar {...props} analysisOpen />)
+      expect(screen.getByRole('button', { name: 'Release-Analyse' })).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it('explains itself in a tooltip', async () => {
+      render(<Toolbar {...makeProps()} />)
+      await userEvent.hover(screen.getByRole('button', { name: 'Release-Analyse' }))
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('kritischer Pfad')
+    })
+  })
+
+  describe('cycle warning', () => {
+    it('is absent without cycles', () => {
+      render(<Toolbar {...makeProps({ cycleCount: 0 })} />)
+      expect(screen.queryByRole('button', { name: /Zyklus|Zyklen/ })).not.toBeInTheDocument()
+    })
+
+    it('shows the number of cycles and jumps to the next one on click', async () => {
+      const props = makeProps({ cycleCount: 2 })
+      render(<Toolbar {...props} />)
+
+      const button = screen.getByRole('button', { name: /2 Zyklen/ })
+      await userEvent.click(button)
+      expect(props.onFocusCycle).toHaveBeenCalledTimes(1)
+    })
+
+    it('uses the singular for one cycle and explains itself in a tooltip', async () => {
+      render(<Toolbar {...makeProps({ cycleCount: 1 })} />)
+
+      const button = screen.getByRole('button', { name: /1 Zyklus/ })
+      await userEvent.hover(button)
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('Zyklische Abhängigkeiten verhindern')
     })
   })
 
