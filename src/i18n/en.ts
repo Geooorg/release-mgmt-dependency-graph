@@ -319,4 +319,59 @@ export const en: Catalog = {
   'parse.edge.duplicate': 'There is already an edge from {source} to {target} (edge {index}).',
   'parse.edge.handle': '{field} must be {sides}.',
   'parse.edge.labelType': 'label must be a text.',
+  'agent.title': 'Agent help: Release Management (Vite, localhost:5173)',
+  'agent.model.title': 'Data model',
+  'agent.model.storage': 'The graph is stored in <c>localStorage</c> under <c>{key}</c> (JSON):',
+  'agent.model.node': 'Object: <c>{shape}</c>',
+  'agent.model.group': 'Group: <c>{shape}</c>',
+  'agent.edge.example': 'needs',
+  'agent.model.edge':
+    'Edge: <c>{shape}</c> (the arrow points to target; source/target may be groups). Optional <c>metadata</c> as for objects: the entry <c>name</c> is the caption of the connection, e.g. <c>{example}</c>. Older files with <c>version: 1</c> and <c>label</c> are still imported.',
+  'agent.model.children':
+    'Children refer to their group via <c>parentId</c>; their <c>position</c> is RELATIVE to the group.',
+  'agent.model.order': 'Groups must come BEFORE their children in the array.',
+  'agent.model.measures':
+    'Measures: object {w}x{h}, group header {header}px, inner padding {padding}. Child offset ({offsetX},{offsetY}), gap between children {gap}, default group (around one object) {groupW}x{groupH}. Width of a group with n children: {padding} + n*{w} + (n-1)*{gap} + {padding}.',
+  'agent.model.empty': 'Empty groups are allowed.',
+  'agent.model.regroup': 'When grouping in the UI, an object gets a new ID.',
+  'agent.schema.title': 'JSON schema',
+  'agent.schema.body':
+    'The format is described as a JSON Schema (draft 2020-12): <l>graph.schema.json</l>. It lets you check a generated JSON up front (structure, types, required fields, size of the groups, connector sides). Not verifiable in the schema and only checked when the app imports: unique ids, existing <c>parentId</c> (groups only, no cycles), edges between existing elements without self-loops or duplicates, no duplicate metadata keys. The schema rejects unknown properties (the app ignores them).',
+  'agent.bulk.title': 'Fastest way for bulk changes',
+  'agent.bulk.build': 'Build the JSON (UUIDs via <c>crypto.randomUUID()</c>).',
+  'agent.bulk.store': '<c>{code}</c> The app loads this state and does not overwrite it.',
+  'agent.bulk.check': 'Verify: count <c>.react-flow__node</c> and <c>.react-flow__edge</c>.',
+  'agent.language.title': 'Language',
+  'agent.language.default':
+    'German (<c>de</c>) is the default language of the interface. The labels and <c>aria-label</c>s of the interface follow the chosen language (<c>de</c> German, <c>en</c> English, <c>fr</c> French), and so does this agent help: the names of buttons and text fields it mentions are those of the current language. Agents have it simplest with German, because then every name a script or instruction expects is available in German.',
+  'agent.language.storage':
+    'Set it via storage: field <c>locale</c> (values <c>de</c>, <c>en</c>, <c>fr</c>) in the JSON object under <c>{key}</c>, then reload. The other fields of the entry (e.g. the mode) are kept: <c>{code}</c>',
+  'agent.language.select':
+    'Set it via the interface: select field <c>aria-label="{label}"</c> in the toolbar. The choice is remembered under <c>{key}</c> and also applies to this page (reload after a change in another tab).',
+  'agent.language.help':
+    'The button <c>aria-label="{help}"</c> opens the help on operating the tool for people, in the chosen language; this agent help is at <c>{route}</c>.',
+  'agent.json.title': 'Read and import JSON as text (without a file)',
+  'agent.json.read':
+    'Read: button <c>aria-label="{show}"</c> opens the dialog “{exportTitle}”. The text field <c>{exportLabel}</c> contains exactly the content of the export file (<c>textarea.value</c>). “{copy}” copies it (counts as exported).',
+  'agent.json.write':
+    'Write: button <c>aria-label="{paste}"</c> opens the dialog “{importTitle}”. The text field <c>{importLabel}</c> is a React textarea: use the native value setter and fire an <c>input</c> event, then click “{submit}”. The project is replaced (can be reverted with “{undo}”); with invalid JSON the dialog stays open and lists the errors (<c>role="alert"</c>), and the project stays unchanged.',
+  'agent.json.both':
+    'Both also work in analysis mode. For large changes without the UI, the <c>localStorage</c> route above stays the fastest.',
+  'agent.ui.title': 'Operating the UI (only if necessary)',
+  'agent.ui.create':
+    'Object: button <c>aria-label="{create}"</c>, then click on <c>.react-flow__pane</c>. Name in the sidebar input (id ends in <c>-name</c>). It is a React input: use the native value setter and fire an <c>input</c> event.',
+  'agent.ui.group': 'Group: button <c>aria-label="{group}"</c> (also works with 1 object).',
+  'agent.ui.multi':
+    'Multiple selection (Ctrl/Shift click, selection rectangle) does NOT work with simulated events. Use the JSON route instead.',
+  'agent.ui.files':
+    'File import/export (“{import}”, “{export}”) open native file dialogs or downloads and are unreliable for agents. Use the text route instead (previous section).',
+  'agent.chrome.title': 'Pitfalls when driving Chrome (execute_javascript)',
+  'agent.chrome.world':
+    'Runs in an isolated world: no access to React fiber or the page’s own window objects; the DOM and events are shared.',
+  'agent.chrome.async':
+    'No top-level await. Wrap the code in an IIFE and <c>return</c> the result. Store async results in <c>window.__r</c> and read them in a second call.',
+  'agent.chrome.apple': '“Allow JavaScript from Apple Events” must be enabled in Chrome.',
+  'agent.direction.title': 'Edge direction',
+  'agent.direction.body':
+    'The arrow <c>A -> B</c> means “A depends on B” (B is released before A). Convention for <c>{pair}</c>: source = the dependent unit, target = the unit it depends on.',
 }

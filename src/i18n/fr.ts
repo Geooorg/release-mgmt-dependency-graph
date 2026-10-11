@@ -319,4 +319,59 @@ export const fr: Catalog = {
   'parse.edge.duplicate': 'Il existe déjà une arête de {source} vers {target} (arête {index}).',
   'parse.edge.handle': '{field} doit valoir {sides}.',
   'parse.edge.labelType': 'label doit être un texte.',
+  'agent.title': 'Aide pour agents : Release Management (Vite, localhost:5173)',
+  'agent.model.title': 'Modèle de données',
+  'agent.model.storage': 'Le graphe est stocké dans <c>localStorage</c> sous <c>{key}</c> (JSON) :',
+  'agent.model.node': 'Objet : <c>{shape}</c>',
+  'agent.model.group': 'Groupe : <c>{shape}</c>',
+  'agent.edge.example': 'nécessite',
+  'agent.model.edge':
+    'Liaison : <c>{shape}</c> (la flèche pointe vers target ; source/target peuvent être des groupes). <c>metadata</c> est facultatif, comme pour les objets : l’entrée <c>name</c> est la légende de la liaison, p. ex. <c>{example}</c>. Les anciens fichiers avec <c>version: 1</c> et <c>label</c> sont toujours importés.',
+  'agent.model.children':
+    'Les enfants renvoient à leur groupe par <c>parentId</c> ; leur <c>position</c> est RELATIVE au groupe.',
+  'agent.model.order': 'Les groupes doivent figurer dans le tableau AVANT leurs enfants.',
+  'agent.model.measures':
+    'Dimensions : objet {w}x{h}, en-tête de groupe {header}px, marge intérieure {padding}. Décalage d’un enfant ({offsetX},{offsetY}), espacement entre enfants {gap}, groupe par défaut (autour d’un objet) {groupW}x{groupH}. Largeur d’un groupe de n enfants : {padding} + n*{w} + (n-1)*{gap} + {padding}.',
+  'agent.model.empty': 'Les groupes vides sont autorisés.',
+  'agent.model.regroup': 'Lors du regroupement dans l’interface, un objet reçoit un nouvel ID.',
+  'agent.schema.title': 'Schéma JSON',
+  'agent.schema.body':
+    'Le format est décrit sous forme de schéma JSON (draft 2020-12) : <l>graph.schema.json</l>. Il permet de vérifier à l’avance un JSON généré (structure, types, champs obligatoires, taille des groupes, côtés des connecteurs). Non vérifiable dans le schéma et contrôlé seulement lors de l’import par l’application : ids uniques, <c>parentId</c> existant (groupes uniquement, sans cycle), liaisons entre éléments existants sans boucle ni doublon, pas de clés de métadonnées en double. Le schéma rejette les propriétés inconnues (l’application les ignore).',
+  'agent.bulk.title': 'La voie la plus rapide pour les modifications en masse',
+  'agent.bulk.build': 'Construire le JSON (UUID via <c>crypto.randomUUID()</c>).',
+  'agent.bulk.store': '<c>{code}</c> L’application charge cet état et ne l’écrase pas.',
+  'agent.bulk.check': 'Vérifier : compter <c>.react-flow__node</c> et <c>.react-flow__edge</c>.',
+  'agent.language.title': 'Langue / Language',
+  'agent.language.default':
+    'L’allemand (<c>de</c>) est la langue par défaut de l’interface. Les libellés et les <c>aria-label</c> de l’interface suivent la langue choisie (<c>de</c> allemand, <c>en</c> anglais, <c>fr</c> français), et cette aide pour agents aussi : les noms des boutons et des champs de texte qu’elle cite sont ceux de la langue actuelle. Les agents sont plus à l’aise avec l’allemand, car tous les noms qu’un script ou une consigne attend sont alors en allemand.',
+  'agent.language.storage':
+    'Définir via le stockage : champ <c>locale</c> (valeurs <c>de</c>, <c>en</c>, <c>fr</c>) dans l’objet JSON sous <c>{key}</c>, puis recharger. Les autres champs de l’entrée (p. ex. le mode) sont conservés : <c>{code}</c>',
+  'agent.language.select':
+    'Définir via l’interface : liste de choix <c>aria-label="{label}"</c> dans la barre d’outils. Le choix est mémorisé sous <c>{key}</c> et s’applique aussi à cette page (recharger après un changement dans un autre onglet).',
+  'agent.language.help':
+    'Le bouton <c>aria-label="{help}"</c> ouvre l’aide à l’utilisation destinée aux personnes, dans la langue choisie ; cette aide pour agents se trouve sous <c>{route}</c>.',
+  'agent.json.title': 'Lire et importer du JSON sous forme de texte (sans fichier)',
+  'agent.json.read':
+    'Lire : le bouton <c>aria-label="{show}"</c> ouvre la boîte de dialogue « {exportTitle} ». Le champ de texte <c>{exportLabel}</c> contient exactement le contenu du fichier d’export (<c>textarea.value</c>). « {copy} » le copie (compte comme exporté).',
+  'agent.json.write':
+    'Écrire : le bouton <c>aria-label="{paste}"</c> ouvre la boîte de dialogue « {importTitle} ». Le champ de texte <c>{importLabel}</c> est un textarea React : utiliser le setter natif de value et déclencher un événement <c>input</c>, puis cliquer sur « {submit} ». Le projet est remplacé (annulable avec « {undo} ») ; si le JSON est invalide, la boîte de dialogue reste ouverte et indique les erreurs (<c>role="alert"</c>), le projet reste inchangé.',
+  'agent.json.both':
+    'Les deux fonctionnent aussi en mode analyse. Pour les grosses modifications sans interface, la voie <c>localStorage</c> ci-dessus reste la plus rapide.',
+  'agent.ui.title': 'Utilisation de l’interface (seulement si nécessaire)',
+  'agent.ui.create':
+    'Objet : bouton <c>aria-label="{create}"</c>, puis clic sur <c>.react-flow__pane</c>. Nom dans le champ de la barre latérale (l’id se termine par <c>-name</c>). C’est un input React : utiliser le setter natif de value et déclencher un événement <c>input</c>.',
+  'agent.ui.group': 'Regrouper : bouton <c>aria-label="{group}"</c> (fonctionne aussi avec 1 objet).',
+  'agent.ui.multi':
+    'La sélection multiple (clic avec Ctrl/Maj, rectangle de sélection) ne fonctionne PAS avec des événements simulés. Utiliser plutôt la voie JSON.',
+  'agent.ui.files':
+    'L’import/export de fichiers (« {import} », « {export} ») ouvre des boîtes de dialogue de fichiers natives ou des téléchargements et n’est pas fiable pour les agents. Utiliser plutôt la voie par le texte (section précédente).',
+  'agent.chrome.title': 'Pièges du pilotage de Chrome (execute_javascript)',
+  'agent.chrome.world':
+    'S’exécute dans un monde isolé : pas d’accès au fiber React ni aux objets window propres à la page ; le DOM et les événements sont partagés.',
+  'agent.chrome.async':
+    'Pas de await de premier niveau. Placer le code dans une IIFE et <c>return</c> le résultat. Stocker les résultats asynchrones dans <c>window.__r</c> et les lire lors d’un second appel.',
+  'agent.chrome.apple': '« Autoriser JavaScript depuis les Apple Events » doit être activé dans Chrome.',
+  'agent.direction.title': 'Sens des liaisons',
+  'agent.direction.body':
+    'La flèche <c>A -> B</c> signifie « A dépend de B » (B est livré avant A). Convention pour <c>{pair}</c> : source = l’unité dépendante, target = l’unité dont elle dépend.',
 }

@@ -1,5 +1,8 @@
-import { STORAGE_KEY } from '../storage/localStorage'
+import { useT } from '../i18n/react'
 import { GROUP_HEADER_HEIGHT, GROUP_PADDING, NODE_SIZE, SCHEMA_VERSION } from '../model/types'
+import { STORAGE_KEY } from '../storage/localStorage'
+import { UI_KEY } from '../storage/uiPreferences'
+import { RichText } from './AgentHelpText'
 import './AgentHelp.css'
 
 /** Served from `public/`, so it follows the base path the app is hosted under. */
@@ -10,123 +13,149 @@ const GAP = GROUP_PADDING
 const OFFSET = { x: GROUP_PADDING, y: GROUP_HEADER_HEIGHT + GROUP_PADDING }
 const SINGLE_GROUP = { width: W + 2 * GROUP_PADDING, height: H + 2 * GROUP_PADDING + GROUP_HEADER_HEIGHT }
 
+// Technical snippets are identical in every language, so they are passed in instead of being translated.
+const NODE_SHAPE = '{ id, kind: "node", position:{x,y}, metadata:[{key:"name",value}], parentId? }'
+const GROUP_SHAPE = '{ id, kind: "group", position:{x,y}, size:{width,height}, metadata:[...] }'
+const EDGE_SHAPE = '{ id, source, target, metadata? }'
+const AGENT_HELP_ROUTE = '#/agent-hilfe'
+const PAIR = '{ source, target }'
+const MODEL_SKELETON = `{ version: ${SCHEMA_VERSION}, projectName, nodes: [...], edges: [...] }`
+const STORE_JSON = `localStorage.setItem('${STORAGE_KEY}', json); location.reload();`
+const SET_LOCALE = `localStorage.setItem('${UI_KEY}', JSON.stringify({ ...JSON.parse(localStorage.getItem('${UI_KEY}') ?? '{}'), locale: 'en' })); location.reload();`
+
 /** Static page for automation agents (no store access, so opening it never changes the saved project). */
 export function AgentHelp() {
+  const t = useT()
+  // The control names come from the interface catalog, so the help can never drift from the real labels.
+  const names = {
+    show: t('toolbar.showJson'),
+    paste: t('toolbar.pasteJson'),
+    exportTitle: t('jsonExport.title'),
+    exportLabel: t('jsonExport.label'),
+    copy: t('jsonExport.copy'),
+    importTitle: t('jsonImport.title'),
+    importLabel: t('jsonImport.label'),
+    submit: t('jsonImport.submit'),
+    undo: t('toolbar.undo'),
+    create: t('toolbar.tool.create.name'),
+    group: t('toolbar.group'),
+    import: t('toolbar.import'),
+    export: t('toolbar.export'),
+  }
+
   return (
     <main className="agent-help">
-      <h1>Agent-Hilfe: Release-Management (Vite, localhost:5173)</h1>
+      <h1>{t('agent.title')}</h1>
 
-      <h2>Datenmodell</h2>
+      <h2>{t('agent.model.title')}</h2>
       <p>
-        Der Graph liegt in <code>localStorage</code> unter <code>{STORAGE_KEY}</code> (JSON):
+        <RichText text={t('agent.model.storage', { key: STORAGE_KEY })} />
       </p>
-      <pre>{`{ version: ${SCHEMA_VERSION}, projectName, nodes: [...], edges: [...] }`}</pre>
+      <pre>{MODEL_SKELETON}</pre>
       <ul>
         <li>
-          Objekt: <code>{'{ id, kind: "node", position:{x,y}, metadata:[{key:"name",value}], parentId? }'}</code>
+          <RichText text={t('agent.model.node', { shape: NODE_SHAPE })} />
         </li>
         <li>
-          Gruppe:{' '}
-          <code>{'{ id, kind: "group", position:{x,y}, size:{width,height}, metadata:[...] }'}</code>
+          <RichText text={t('agent.model.group', { shape: GROUP_SHAPE })} />
         </li>
         <li>
-          Kante: <code>{'{ id, source, target, metadata? }'}</code> (Pfeil zeigt auf target; source/target dürfen Gruppen
-          sein). Optional <code>metadata</code> wie bei Objekten: der Eintrag <code>name</code> ist die Beschriftung der
-          Verbindung, z. B. <code>{'[{"key":"name","value":"braucht"}]'}</code>. Ältere Dateien mit <code>version: 1</code> und{' '}
-          <code>label</code> werden weiter importiert.
+          <RichText
+            text={t('agent.model.edge', { shape: EDGE_SHAPE, example: `[{"key":"name","value":"${t('agent.edge.example')}"}]` })}
+          />
         </li>
         <li>
-          Kinder verweisen per <code>parentId</code> auf die Gruppe; ihre <code>position</code> ist RELATIV zur
-          Gruppe.
+          <RichText text={t('agent.model.children')} />
         </li>
-        <li>Gruppen müssen im Array VOR ihren Kindern stehen.</li>
+        <li>{t('agent.model.order')}</li>
         <li>
-          Maße: Objekt {W}x{H}, Gruppen-Header {GROUP_HEADER_HEIGHT}px, Innenabstand {GROUP_PADDING}. Kind-Offset (
-          {OFFSET.x},{OFFSET.y}), Abstand zwischen Kindern {GAP}, Standardgruppe (um ein Objekt) {SINGLE_GROUP.width}x
-          {SINGLE_GROUP.height}. Breite einer Gruppe mit n Kindern: {GROUP_PADDING} + n*{W} + (n-1)*{GAP} +{' '}
-          {GROUP_PADDING}.
+          {t('agent.model.measures', {
+            w: W,
+            h: H,
+            header: GROUP_HEADER_HEIGHT,
+            padding: GROUP_PADDING,
+            offsetX: OFFSET.x,
+            offsetY: OFFSET.y,
+            gap: GAP,
+            groupW: SINGLE_GROUP.width,
+            groupH: SINGLE_GROUP.height,
+          })}
         </li>
-        <li>Leere Gruppen sind erlaubt.</li>
-        <li>Beim Gruppieren in der UI bekommt ein Objekt eine neue ID.</li>
+        <li>{t('agent.model.empty')}</li>
+        <li>{t('agent.model.regroup')}</li>
       </ul>
 
-      <h2>JSON-Schema</h2>
+      <h2>{t('agent.schema.title')}</h2>
       <p>
-        Das Format ist als JSON Schema (Draft 2020-12) beschrieben: <a href={SCHEMA_URL}>graph.schema.json</a>. Damit
-        lässt sich ein gebautes JSON vorab prüfen (Struktur, Typen, Pflichtfelder, Größe der Gruppen, Connector-Seiten).
-        Nicht im Schema prüfbar und erst beim Import der App kontrolliert: eindeutige ids, existierende{' '}
-        <code>parentId</code> (nur Gruppen, keine Zyklen), Kanten zu vorhandenen Elementen ohne Selbstschleife oder
-        Duplikat, keine doppelten Metadaten-Schlüssel. Unbekannte Eigenschaften lehnt das Schema ab (die App
-        ignoriert sie).
+        <RichText text={t('agent.schema.body')} href={SCHEMA_URL} />
       </p>
 
-      <h2>Schnellster Weg für Massenänderungen</h2>
+      <h2>{t('agent.bulk.title')}</h2>
       <ol>
         <li>
-          JSON bauen (UUIDs per <code>crypto.randomUUID()</code>).
+          <RichText text={t('agent.bulk.build')} />
         </li>
         <li>
-          <code>{`localStorage.setItem('${STORAGE_KEY}', json); location.reload();`}</code> Die App lädt den Stand und
-          überschreibt ihn nicht.
+          <RichText text={t('agent.bulk.store', { code: STORE_JSON })} />
         </li>
         <li>
-          Prüfen: <code>.react-flow__node</code> und <code>.react-flow__edge</code> zählen.
+          <RichText text={t('agent.bulk.check')} />
         </li>
       </ol>
 
-      <h2>JSON als Text lesen und importieren (ohne Datei)</h2>
+      <h2>{t('agent.language.title')}</h2>
       <ul>
         <li>
-          Lesen: Button <code>aria-label="JSON anzeigen"</code> öffnet den Dialog „Projekt als JSON“. Das Textfeld{' '}
-          <code>Projekt-JSON (schreibgeschützt)</code> enthält genau den Inhalt der Export-Datei (
-          <code>textarea.value</code>). „In Zwischenablage kopieren“ kopiert ihn (zählt als exportiert).
+          <RichText text={t('agent.language.default')} />
         </li>
         <li>
-          Schreiben: Button <code>aria-label="JSON einfügen"</code> öffnet den Dialog „JSON einfügen“. Das Textfeld{' '}
-          <code>JSON-Text</code> ist ein React-Textarea: nativen value-Setter nutzen und ein <code>input</code>-Event
-          auslösen, dann Button „Importieren“. Das Projekt wird ersetzt (mit „Rückgängig“ zurücknehmbar); bei ungültigem
-          JSON bleibt der Dialog offen und nennt die Fehler (<code>role="alert"</code>), das Projekt bleibt unverändert.
+          <RichText text={t('agent.language.storage', { key: UI_KEY, code: SET_LOCALE })} />
         </li>
         <li>
-          Beides geht auch im Analysemodus. Für große Änderungen ohne UI bleibt der <code>localStorage</code>-Weg oben
-          der schnellste.
+          <RichText text={t('agent.language.select', { label: t('language.label'), key: UI_KEY })} />
+        </li>
+        <li>
+          <RichText text={t('agent.language.help', { help: t('toolbar.help'), route: AGENT_HELP_ROUTE })} />
         </li>
       </ul>
 
-      <h2>UI-Bedienung (nur wenn nötig)</h2>
+      <h2>{t('agent.json.title')}</h2>
       <ul>
         <li>
-          Objekt: Button <code>aria-label="Objekt anlegen"</code>, dann Klick auf <code>.react-flow__pane</code>. Name
-          im Sidebar-Input (id endet auf <code>-name</code>). Es ist ein React-Input: nativen value-Setter nutzen und
-          ein <code>input</code>-Event auslösen.
+          <RichText text={t('agent.json.read', names)} />
         </li>
         <li>
-          Gruppieren: Button <code>aria-label="Gruppieren"</code> (funktioniert auch mit 1 Objekt).
+          <RichText text={t('agent.json.write', names)} />
         </li>
         <li>
-          Mehrfachauswahl (Strg/Shift-Klick, Aufziehrechteck) funktioniert mit simulierten Events NICHT. Stattdessen
-          den JSON-Weg nehmen.
+          <RichText text={t('agent.json.both')} />
         </li>
-        <li>Datei-Import/-Export („Import“, „Export“) öffnen native Dateidialoge bzw. Downloads und sind für Agenten unzuverlässig. Dafür gibt es den Weg über Text (nächster Abschnitt).</li>
       </ul>
 
-      <h2>Stolpersteine bei Chrome-Steuerung (execute_javascript)</h2>
+      <h2>{t('agent.ui.title')}</h2>
       <ul>
         <li>
-          Läuft in einer isolierten Welt: kein Zugriff auf React-Fiber oder page-eigene window-Objekte; DOM und Events
-          sind geteilt.
+          <RichText text={t('agent.ui.create', names)} />
         </li>
         <li>
-          Kein Top-Level-await. Code in eine IIFE packen und das Ergebnis <code>return</code>en. Async-Ergebnisse in{' '}
-          <code>window.__r</code> ablegen und im zweiten Aufruf lesen.
+          <RichText text={t('agent.ui.group', names)} />
         </li>
-        <li>„JavaScript von Apple Events zulassen“ muss in Chrome aktiv sein.</li>
+        <li>{t('agent.ui.multi')}</li>
+        <li>{t('agent.ui.files', names)}</li>
       </ul>
 
-      <h2>Kantenrichtung</h2>
+      <h2>{t('agent.chrome.title')}</h2>
+      <ul>
+        <li>{t('agent.chrome.world')}</li>
+        <li>
+          <RichText text={t('agent.chrome.async')} />
+        </li>
+        <li>{t('agent.chrome.apple')}</li>
+      </ul>
+
+      <h2>{t('agent.direction.title')}</h2>
       <p>
-        Pfeil <code>A -&gt; B</code> heißt „A hängt von B ab“ (B wird vor A released). Konvention für{' '}
-        <code>{'{ source, target }'}</code>: source = abhängige Einheit, target = Einheit, von der sie abhängt.
+        <RichText text={t('agent.direction.body', { pair: PAIR })} />
       </p>
     </main>
   )

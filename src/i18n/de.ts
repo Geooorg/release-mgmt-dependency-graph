@@ -318,4 +318,59 @@ export const de = {
   'parse.edge.duplicate': 'Es gibt bereits eine Kante von {source} nach {target} (Kante {index}).',
   'parse.edge.handle': '{field} muss {sides} sein.',
   'parse.edge.labelType': 'label muss ein Text sein.',
+  'agent.title': 'Agent-Hilfe: Release-Management (Vite, localhost:5173)',
+  'agent.model.title': 'Datenmodell',
+  'agent.model.storage': 'Der Graph liegt in <c>localStorage</c> unter <c>{key}</c> (JSON):',
+  'agent.model.node': 'Objekt: <c>{shape}</c>',
+  'agent.model.group': 'Gruppe: <c>{shape}</c>',
+  'agent.edge.example': 'braucht',
+  'agent.model.edge':
+    'Kante: <c>{shape}</c> (Pfeil zeigt auf target; source/target dürfen Gruppen sein). Optional <c>metadata</c> wie bei Objekten: der Eintrag <c>name</c> ist die Beschriftung der Verbindung, z. B. <c>{example}</c>. Ältere Dateien mit <c>version: 1</c> und <c>label</c> werden weiter importiert.',
+  'agent.model.children':
+    'Kinder verweisen per <c>parentId</c> auf die Gruppe; ihre <c>position</c> ist RELATIV zur Gruppe.',
+  'agent.model.order': 'Gruppen müssen im Array VOR ihren Kindern stehen.',
+  'agent.model.measures':
+    'Maße: Objekt {w}x{h}, Gruppen-Header {header}px, Innenabstand {padding}. Kind-Offset ({offsetX},{offsetY}), Abstand zwischen Kindern {gap}, Standardgruppe (um ein Objekt) {groupW}x{groupH}. Breite einer Gruppe mit n Kindern: {padding} + n*{w} + (n-1)*{gap} + {padding}.',
+  'agent.model.empty': 'Leere Gruppen sind erlaubt.',
+  'agent.model.regroup': 'Beim Gruppieren in der UI bekommt ein Objekt eine neue ID.',
+  'agent.schema.title': 'JSON-Schema',
+  'agent.schema.body':
+    'Das Format ist als JSON Schema (Draft 2020-12) beschrieben: <l>graph.schema.json</l>. Damit lässt sich ein gebautes JSON vorab prüfen (Struktur, Typen, Pflichtfelder, Größe der Gruppen, Connector-Seiten). Nicht im Schema prüfbar und erst beim Import der App kontrolliert: eindeutige ids, existierende <c>parentId</c> (nur Gruppen, keine Zyklen), Kanten zu vorhandenen Elementen ohne Selbstschleife oder Duplikat, keine doppelten Metadaten-Schlüssel. Unbekannte Eigenschaften lehnt das Schema ab (die App ignoriert sie).',
+  'agent.bulk.title': 'Schnellster Weg für Massenänderungen',
+  'agent.bulk.build': 'JSON bauen (UUIDs per <c>crypto.randomUUID()</c>).',
+  'agent.bulk.store': '<c>{code}</c> Die App lädt den Stand und überschreibt ihn nicht.',
+  'agent.bulk.check': 'Prüfen: <c>.react-flow__node</c> und <c>.react-flow__edge</c> zählen.',
+  'agent.language.title': 'Sprache / Language',
+  'agent.language.default':
+    'Standardsprache der Oberfläche ist Deutsch (<c>de</c>). Die Beschriftungen und <c>aria-label</c>s der Oberfläche folgen der gewählten Sprache (<c>de</c> Deutsch, <c>en</c> Englisch, <c>fr</c> Französisch), ebenso diese Agent-Hilfe: Die Namen von Buttons und Textfeldern, die sie nennt, sind die der aktuellen Sprache. Für Agenten ist Deutsch am einfachsten, weil dann alle Namen, die ein Skript oder eine Anleitung erwartet, auf Deutsch vorliegen.',
+  'agent.language.storage':
+    'Per Speicher setzen: Feld <c>locale</c> (Werte <c>de</c>, <c>en</c>, <c>fr</c>) im JSON-Objekt unter <c>{key}</c> und neu laden. Die übrigen Felder des Eintrags (z. B. der Modus) bleiben dabei erhalten: <c>{code}</c>',
+  'agent.language.select':
+    'Per Oberfläche setzen: Auswahlfeld <c>aria-label="{label}"</c> in der Werkzeugleiste. Die Wahl wird unter <c>{key}</c> gemerkt und gilt auch für diese Seite (nach einem Wechsel in einem anderen Tab neu laden).',
+  'agent.language.help':
+    'Der Button <c>aria-label="{help}"</c> öffnet die Hilfe zur Bedienung für Menschen in der gewählten Sprache; diese Agent-Hilfe liegt unter <c>{route}</c>.',
+  'agent.json.title': 'JSON als Text lesen und importieren (ohne Datei)',
+  'agent.json.read':
+    'Lesen: Button <c>aria-label="{show}"</c> öffnet den Dialog „{exportTitle}“. Das Textfeld <c>{exportLabel}</c> enthält genau den Inhalt der Export-Datei (<c>textarea.value</c>). „{copy}“ kopiert ihn (zählt als exportiert).',
+  'agent.json.write':
+    'Schreiben: Button <c>aria-label="{paste}"</c> öffnet den Dialog „{importTitle}“. Das Textfeld <c>{importLabel}</c> ist ein React-Textarea: nativen value-Setter nutzen und ein <c>input</c>-Event auslösen, dann Button „{submit}“. Das Projekt wird ersetzt (mit „{undo}“ zurücknehmbar); bei ungültigem JSON bleibt der Dialog offen und nennt die Fehler (<c>role="alert"</c>), das Projekt bleibt unverändert.',
+  'agent.json.both':
+    'Beides geht auch im Analysemodus. Für große Änderungen ohne UI bleibt der <c>localStorage</c>-Weg oben der schnellste.',
+  'agent.ui.title': 'UI-Bedienung (nur wenn nötig)',
+  'agent.ui.create':
+    'Objekt: Button <c>aria-label="{create}"</c>, dann Klick auf <c>.react-flow__pane</c>. Name im Sidebar-Input (id endet auf <c>-name</c>). Es ist ein React-Input: nativen value-Setter nutzen und ein <c>input</c>-Event auslösen.',
+  'agent.ui.group': 'Gruppieren: Button <c>aria-label="{group}"</c> (funktioniert auch mit 1 Objekt).',
+  'agent.ui.multi':
+    'Mehrfachauswahl (Strg/Shift-Klick, Aufziehrechteck) funktioniert mit simulierten Events NICHT. Stattdessen den JSON-Weg nehmen.',
+  'agent.ui.files':
+    'Datei-Import/-Export („{import}“, „{export}“) öffnen native Dateidialoge bzw. Downloads und sind für Agenten unzuverlässig. Dafür gibt es den Weg über Text (nächster Abschnitt).',
+  'agent.chrome.title': 'Stolpersteine bei Chrome-Steuerung (execute_javascript)',
+  'agent.chrome.world':
+    'Läuft in einer isolierten Welt: kein Zugriff auf React-Fiber oder page-eigene window-Objekte; DOM und Events sind geteilt.',
+  'agent.chrome.async':
+    'Kein Top-Level-await. Code in eine IIFE packen und das Ergebnis <c>return</c>en. Async-Ergebnisse in <c>window.__r</c> ablegen und im zweiten Aufruf lesen.',
+  'agent.chrome.apple': '„JavaScript von Apple Events zulassen“ muss in Chrome aktiv sein.',
+  'agent.direction.title': 'Kantenrichtung',
+  'agent.direction.body':
+    'Pfeil <c>A -> B</c> heißt „A hängt von B ab“ (B wird vor A released). Konvention für <c>{pair}</c>: source = abhängige Einheit, target = Einheit, von der sie abhängt.',
 } as const

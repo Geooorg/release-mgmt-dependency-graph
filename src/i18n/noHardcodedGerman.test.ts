@@ -4,9 +4,7 @@ import { describe, expect, it } from 'vitest'
  * Files that still contain hard-coded German UI text. Every migration task removes its files from this
  * list; the test fails for a file that is clean but still listed, so the list cannot go stale.
  */
-const PENDING: readonly string[] = [
-  'components/AgentHelp.tsx',
-]
+const PENDING: readonly string[] = []
 
 const CATALOGS = new Set(['i18n/de.ts', 'i18n/en.ts', 'i18n/fr.ts'])
 const GERMAN =
