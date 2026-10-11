@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useT } from '../i18n/react'
 import { GROUP_HEADER_HEIGHT, GROUP_PADDING, NODE_SIZE, SCHEMA_VERSION } from '../model/types'
 import { STORAGE_KEY } from '../storage/localStorage'
@@ -26,6 +27,10 @@ const SET_LOCALE = `localStorage.setItem('${UI_KEY}', JSON.stringify({ ...JSON.p
 /** Static page for automation agents (no store access, so opening it never changes the saved project). */
 export function AgentHelp() {
   const t = useT()
+  // index.html carries a German title; without this the tab would keep it in the other languages.
+  useEffect(() => {
+    document.title = t('agent.title')
+  }, [t])
   // The control names come from the interface catalog, so the help can never drift from the real labels.
   const names = {
     show: t('toolbar.showJson'),

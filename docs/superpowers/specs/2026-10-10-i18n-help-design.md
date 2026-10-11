@@ -23,21 +23,21 @@ Abhängigkeitsrichtung: `components` (nur Props + `useT`) · `flow`/`App` → `s
 
 ### `src/i18n/` (Kern, rein, ohne React/DOM)
 
-- `types.ts`: `Locale = 'de' | 'en' | 'fr'`, `LOCALES`, `LOCALE_NAMES` (Eigenbezeichnungen: „Deutsch“, „English“, „Français“), `MessageKey = keyof typeof de`, `Translate = (key, params?) => string`.
+- `locale.ts`: `Locale = 'de' | 'en' | 'fr'`, `LOCALES`, `LOCALE_NAMES` (Eigenbezeichnungen: „Deutsch“, „English“, „Français“), `DEFAULT_LOCALE`, `parseLocale`; `messages.ts`: `MessageKey = keyof typeof de`, `Catalog`, `MessageRef`; `translate.ts`: `Translate = (key, params?) => string` (plus `plural`).
 - `de.ts` (Referenz, `as const`-Objekt), `en.ts`, `fr.ts` (`satisfies Record<MessageKey, string>` ⇒ `tsc` meldet fehlende/überzählige Schlüssel).
 - `translate.ts`: `createTranslate(locale): Translate`. Platzhalter `{name}`; unbekannter Platzhalter bleibt stehen. Plural: Schlüssel `foo_one`/`foo_other` (ggf. `_zero`), Auswahl über `Intl.PluralRules(locale)` mit `params.count`; fehlende Form ⇒ `_other`.
-- `locale.ts`: `DEFAULT_LOCALE = 'de'`, `isLocale`, `parseLocale(value): Locale` (ungültig ⇒ Standard).
 
-### React-Anbindung (`src/i18n/react.tsx`)
+### React-Anbindung (`src/i18n/react.ts`, `src/store/localeStore.ts`)
 
-- `I18nProvider` (Props: `locale`), `useT(): Translate`, `useLocale(): Locale`. Ohne Provider liefert der Kontext Deutsch (bestehende Tests bleiben unverändert).
-- Komponentendateien exportieren nur Komponenten; Hooks liegen in eigener Datei bzw. folgen der react-refresh-Regel.
+*Abweichung vom ursprünglichen Entwurf (bewusst vereinfacht):* statt eines `I18nProvider` gibt es einen kleinen zustand-Store für die Sprache (`src/store/localeStore.ts`: `locale`, `setLocale`, Persistenz). Die Hooks `useLocale(): Locale` und `useT(): Translate` (`src/i18n/react.ts`) lesen daraus; `useDocumentLanguage()` hält `<html lang>` aktuell. Ohne weitere Einrichtung gilt Deutsch (bestehende Tests bleiben unverändert; `src/test/setup.ts` setzt die Sprache nach jedem Test zurück). Das Verhalten für den Nutzer ist gleich.
+- Komponentendateien exportieren nur Komponenten; Hooks liegen in eigener Datei.
 
 ### Store / Persistenz
 
-- `appStore`: `locale` (UI-Zustand) und Aktion `setLocale`. Persistiert in `UI_KEY` (`storage/`), `try/catch` wie bisher. Beim Start `parseLocale` auf den gelesenen Wert.
-- `Root` liest die Sprache **vor** dem ersten Render (auch die Agent-Hilfe braucht sie, ohne den Projekt-Store zu laden): kleine Funktion in `storage/` (`loadLocale`), `Root` hält die Sprache im State und teilt sie über `I18nProvider`; `App` ändert sie über `setLocale` (Callback/Prop aus `Root`, kein Store-Import in `Root`).
-- Beim Umschalten: `document.documentElement.lang`, `document.title` aktualisieren.
+- `localeStore` (eigener Store, getrennt vom Projekt-Store): `locale` (UI-Zustand) und Aktion `setLocale`. Persistiert in `UI_KEY` (`storage/uiPreferences.ts`: `loadLocale`/`saveLocale`), `try/catch` wie bisher. Beim Start `parseLocale` auf den gelesenen Wert. Da der Store beim Import liest, steht die Sprache **vor** dem ersten Render fest – auch die Agent-Hilfe bekommt sie, ohne den Projekt-Store zu laden.
+- `Root` hält die Sprache **nicht** im State, sondern setzt nur `<html lang>` (`useDocumentLanguage`); `App` ändert sie über `setLocale` und aktualisiert `document.title`.
+- **Namen in den Daten:** Die Standardnamen neuer Elemente („Neues Objekt“ / „New object“ / „Nouvel objet“, „Neue Gruppe“ …) und die Namen des Startgraphen („Projekt A/B“ …) werden in der **beim Anlegen aktiven Sprache** in die Daten geschrieben; ein späterer Sprachwechsel übersetzt sie nicht (es sind Nutzerdaten).
+- **React-Flow-Texte:** Zoom-Buttons, Minimap und Tastaturhinweise der Bibliothek sind per `ariaLabelConfig` (`flow/ariaLabels.ts`) übersetzt.
 
 ### Texte außerhalb von React
 
@@ -94,9 +94,9 @@ Besonderheit **Agent-Hilfe:** Sie nennt `aria-label`s und Bedienung; diese stehe
 - **Model:** `parseModelJson` und Markdown-Auswertung liefern in `en`/`fr` übersetzte Texte; mit Standard-`t` bleiben bestehende Ausgaben byte-identisch (bestehende Tests unverändert).
 - **Komponenten:** Toolbar zeigt Hilfe-Button und Sprachwahl in zweiter Zeile unter „Export“; Sprachwechsel ruft `onLocaleChange`; Beschriftung, Tooltip und `aria-label` ändern sich je Sprache; `HelpDialog` öffnet/schließt per Button, Esc und Schließen-Button und rendert alle Abschnitte.
 - **App/Root:** Sprache überlebt Neuladen (`UI_KEY`), setzt `<html lang>` und Titel; ungültiger Speicherwert ⇒ Deutsch; Agent-Hilfe folgt der Sprache.
-- **Bestehende Tests** laufen unverändert in Deutsch (Standard ohne Provider).
+- **Bestehende Tests** laufen unverändert in Deutsch (Standardsprache).
 - Abschluss: `npm test && npm run typecheck && npm run lint && npm run build` und Sichtprüfung im Browser (DE/EN/FR, beide Modi, 1024 px, Hilfe-Overlay, Import-Fehlermeldung, Analyse-Markdown).
 
 ## Dokumentation
 
-`CLAUDE.md` (Modul `src/i18n/`, Regel „neue Texte in alle drei Kataloge“, Notices als Schlüssel, Daten bleiben deutsch), `README.md` (Sprachwahl, Hilfe), `AgentHelp` (siehe oben).
+`CLAUDE.md` (Modul `src/i18n/`, `localeStore`, Regel „neue Texte in alle drei Kataloge“, Notices als Schlüssel, Daten bleiben deutsch, Standardnamen in Aktivsprache), `README.md` (Sprachwahl, Hilfe), `AgentHelp` (siehe oben).

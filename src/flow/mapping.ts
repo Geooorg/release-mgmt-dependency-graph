@@ -95,7 +95,7 @@ export function toFlowNodes(
 /**
  * Directed edges with an arrow at the target: blue, darker when selected, thick red when part of
  * the highlighted dependency graph. Edges in a cycle are purple and dashed; the dependency colour
- * wins over the cycle colour, the dashes stay. Connectors are the ones the edge was drawn between; edges
+ * wins over the cycle colour, the dashes stay; the accessible label is written in the language of `t`. Connectors are the ones the edge was drawn between; edges
  * without stored connectors (older files) get the facing sides.
  */
 export function toFlowEdges(
@@ -104,7 +104,9 @@ export function toFlowEdges(
   dependencyIds: ReadonlySet<string>,
   nodes: readonly ModelNode[],
   cycleIds: ReadonlySet<string> = NO_IDS,
+  t: Translate = createTranslate('de'),
 ): Edge[] {
+  const names = new Map(nodes.map((n) => [n.id, displayName(n)]))
   return edges.map((edge) => {
     const facing = edge.sourceHandle && edge.targetHandle ? undefined : pickSides(nodes, edge.source, edge.target)
     const selected = selectedIds.has(edge.id)
@@ -126,6 +128,11 @@ export function toFlowEdges(
       sourceHandle: edge.sourceHandle ?? facing?.sourceHandle,
       targetHandle: edge.targetHandle ?? facing?.targetHandle,
       selected,
+      // React Flow's own default is an English sentence built from the raw ids.
+      ariaLabel: t('flow.edge.label', {
+        source: names.get(edge.source) ?? edge.source.slice(0, 8),
+        target: names.get(edge.target) ?? edge.target.slice(0, 8),
+      }),
       label: getEdgeName(edge) || undefined,
       labelStyle: { fill: color, fontWeight: 600, fontSize: 13 },
       labelBgPadding: [6, 3],

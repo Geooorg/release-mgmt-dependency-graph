@@ -23,6 +23,7 @@ import { checkConnection, checkReconnection } from '../model/graph'
 import type { ProjectAnalysis } from '../model/releaseAnalysis'
 import { HANDLE_SIDES, type HandleSide } from '../model/types'
 import { graphStore, useGraph } from '../store/appStore'
+import { flowAriaLabels } from './ariaLabels'
 import { nodeIdAtPoint, pointOfEvent } from './dropTarget'
 import { toFlowEdges, toFlowNodes } from './mapping'
 import { viewportToReveal } from './reveal'
@@ -53,6 +54,7 @@ interface CanvasProps {
 
 export function Canvas({ cycles, analysis, critical }: CanvasProps) {
   const t = useT()
+  const ariaLabels = useMemo(() => flowAriaLabels(t), [t])
   const nodes = useGraph((s) => s.nodes)
   const edges = useGraph((s) => s.edges)
   const selectedNodeIds = useGraph((s) => s.selectedNodeIds)
@@ -102,8 +104,8 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
     [nodes, selectedNodeIds, connectSourceId, dropTargetId, highlight, cycles, analysis, revealedId, t],
   )
   const flowEdges = useMemo(
-    () => toFlowEdges(edges, new Set(selectedEdgeIds), highlight.edgeIds, nodes, cycles.edgeIds),
-    [edges, nodes, selectedEdgeIds, highlight, cycles],
+    () => toFlowEdges(edges, new Set(selectedEdgeIds), highlight.edgeIds, nodes, cycles.edgeIds, t),
+    [edges, nodes, selectedEdgeIds, highlight, cycles, t],
   )
 
   // After an import the new graph may be anywhere: bring it into view.
@@ -280,6 +282,7 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
         nodesConnectable={!analyzing}
         className={[analyzing && 'flow--locked', tool === 'create' && 'flow--create'].filter(Boolean).join(' ') || undefined}
         zoomOnDoubleClick={false}
+        ariaLabelConfig={ariaLabels}
         fitView
         fitViewOptions={{ padding: 0.3 }}
         minZoom={0.2}

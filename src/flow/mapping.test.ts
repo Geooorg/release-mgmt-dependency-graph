@@ -24,6 +24,14 @@ describe('toFlowEdges', () => {
     expect(flows[1]).toMatchObject({ sourceHandle: 'bottom', targetHandle: 'top' })
   })
 
+  it('labels edges for screen readers with the element names in the language of t', () => {
+    const named = [box('a', 0, 0), box('b', 400, 0)].map((n) => ({ ...n, metadata: [{ key: 'name', value: n.id === 'a' ? 'Alpha' : 'Beta' }] }))
+    const [de] = toFlowEdges([edge('e', 'a', 'b')], none, none, named)
+    const [fr] = toFlowEdges([edge('e', 'a', 'b')], none, none, named, none, createTranslate('fr'))
+    expect(de.ariaLabel).toBe('Verbindung von Alpha nach Beta')
+    expect(fr.ariaLabel).toBe('Connexion de Alpha vers Beta')
+  })
+
   it('fills only the missing side', () => {
     const [flow] = toFlowEdges([{ ...edge('e', 'a', 'b'), sourceHandle: 'top' }], none, none, nodes)
     expect(flow).toMatchObject({ sourceHandle: 'top', targetHandle: 'left' })

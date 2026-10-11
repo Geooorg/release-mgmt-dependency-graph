@@ -92,4 +92,14 @@ describe('AgentHelp', () => {
     for (const value of [UI_KEY, 'locale', 'de', 'en', 'fr', STORAGE_KEY, '160x56']) expect(text).toContain(value)
     expect(text).not.toContain('Datenmodell')
   })
+
+  it.each([
+    ['de', 'Agent-Hilfe: Release-Management (Vite, localhost:5173)'],
+    ['en', 'Agent help: Release Management (Vite, localhost:5173)'],
+    ['fr', 'Aide pour agents : Release Management (Vite, localhost:5173)'],
+  ] as const)('sets the tab title in %s', (locale, title) => {
+    setTestLocale(locale)
+    render(<AgentHelp />)
+    expect(document.title).toBe(title)
+  })
 })

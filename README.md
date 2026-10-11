@@ -98,6 +98,8 @@ npm run preview    # gebauten Stand lokal ansehen
 
 Die Toolbar hat oben links einen Umschalter **Editieren | Analysieren**. Welche Aktionen verfügbar sind, hängt vom Modus ab.
 
+**Hilfe und Sprache:** Im Datei-Bereich der Toolbar (ganz rechts, unter *Export*) öffnet der Button **Hilfe** (Fragezeichen) ein Overlay, das die Bedienung in zehn Abschnitten erklärt (Esc oder × schließt es). Daneben wählt die **Sprachwahl** zwischen *Deutsch*, *English* und *Français*; sie betrifft die gesamte Oberfläche (Beschriftungen, Tooltips, Meldungen, Dialoge, Analyse-Panel samt Markdown-Auswertung, Agent-Hilfe, Seitentitel). Standard ist Deutsch (keine Erkennung der Browsersprache); die Wahl bleibt pro Browser erhalten (`release-management.ui.v1`, Feld `locale`), gehört nicht zum Projekt und wird nicht exportiert. **Die Daten bleiben unverändert deutsch:** Statuswerte (`offen`, `in Arbeit`, `blockiert`, `fertig`) und Schlüssel (`status`, `blockiert_grund`, `color`, `name`) stehen in JSON und `localStorage` immer so; die Oberfläche zeigt dafür übersetzte Anzeigenamen. Namen neuer Elemente („Neues Objekt“ / „New object“ / „Nouvel objet“) werden in der beim Anlegen gewählten Sprache gespeichert.
+
 ### In beiden Modi
 
 | Aktion | So geht's |
@@ -202,7 +204,8 @@ Feldnamen (z. B. `Release-Datum`) wären als XML-Elementnamen ungültig.
 
 ```
 src/model/       reine Domänenlogik (Typen, Metadaten, Gruppen/Kanten, Validierung/Serialisierung)
-src/storage/     localStorage (Modell, Modus, Export-Fingerabdruck) und Datei-Download/-Upload
+src/i18n/        Übersetzung (Kataloge de/en/fr, createTranslate, useT)
+src/storage/     localStorage (Modell, Modus, Sprache, Export-Fingerabdruck) und Datei-Download/-Upload
 src/store/       zustand-Store (Modell + UI-Zustand)
 src/flow/        Anbindung an React Flow (Canvas, Mapping)
 src/components/  Toolbar, Sidebar, Knoten, Dialoge
