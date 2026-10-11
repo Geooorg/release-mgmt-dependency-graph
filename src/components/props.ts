@@ -43,10 +43,9 @@ export interface ToolbarProps {
   /** The search field is shown. */
   searchOpen: boolean
   onToggleSearch: () => void
+  /** Opens the export dialog (JSON file, SVG, JSON on the clipboard). */
   onExport: () => void
   onImport: () => void
-  /** Show the project JSON read-only (to copy it). */
-  onShowJson: () => void
   /** Open the dialog to import pasted JSON text. */
   onPasteJson: () => void
   /** The interface language shown in the language switch. */
@@ -164,12 +163,15 @@ export interface ImportDialogProps {
   onCancel: () => void
 }
 
-export interface JsonExportDialogProps {
+/** What the export dialog offers: the project as a JSON file, the graph as an SVG file, the project as JSON text on the clipboard. */
+export type ExportFormat = 'json-file' | 'svg' | 'json-clipboard'
+
+export interface ExportDialogProps {
   open: boolean
-  /** The serialized project, exactly what the file export writes. */
-  json: string
-  /** Copies the JSON; resolves with whether that worked. */
-  onCopy: () => Promise<boolean>
+  /** The graph has no elements, so there is nothing to draw as SVG. */
+  svgDisabled: boolean
+  /** Runs the export; resolves with whether it worked (only the clipboard can fail). */
+  onExport: (format: ExportFormat) => Promise<boolean>
   onClose: () => void
 }
 

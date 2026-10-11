@@ -5,7 +5,7 @@ import { Banner } from './components/Banner'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { HelpDialog } from './components/HelpDialog'
 import { ImportDialog } from './components/ImportDialog'
-import { JsonExportDialog } from './components/JsonExportDialog'
+import { ExportDialog } from './components/ExportDialog'
 import { JsonImportDialog } from './components/JsonImportDialog'
 import { SearchBar } from './components/SearchBar'
 import { Sidebar } from './components/Sidebar'
@@ -17,9 +17,11 @@ import type {
   AnalysisSelected,
   BulkColor,
   BulkStatus,
+  ExportFormat,
   SearchOutcome,
 } from './components/props'
 import { Canvas } from './flow/Canvas'
+import { buildSvg } from './flow/svgExport'
 import { useLocale, useT } from './i18n/react'
 import { findCycles } from './model/cycles'
 import { canGroup } from './model/graph'
@@ -118,7 +120,7 @@ function AppShell() {
   const locale = useLocale()
   const t = useT()
   const lastSearch = useRef<{ query: string; id: string | null }>({ query: '', id: null })
-  const [jsonExport, setJsonExport] = useState<string | null>(null)
+  const [exportOpen, setExportOpen] = useState(false)
   const [jsonImport, setJsonImport] = useState<{ unsaved: boolean; errors: string[] } | null>(null)
 
   const projectName = useGraph((s) => s.projectName)
@@ -344,15 +346,21 @@ function AppShell() {
 
   const requestImport = () => setImportDialog({ unsaved: hasUnexportedChanges() })
 
-  const showJson = () => {
-    const { nodes, edges, projectName: name } = graphStore.getState()
-    setJsonExport(serializeModel(toModel({ nodes, edges, projectName: name })))
-  }
-
-  // Copying counts as an export: the text is a full copy of the project.
-  const copyJson = async () => {
-    if (jsonExport === null || !(await copyText(jsonExport))) return false
-    graphStore.getState().markExported()
+  // Files and the clipboard JSON are full copies of the project and so count as an export; the SVG is not (it cannot be imported).
+  const runExport = async (format: ExportFormat): Promise<boolean> => {
+    const state = graphStore.getState()
+    const { nodes: current, edges: currentEdges, projectName: name } = state
+    const content = { nodes: current, edges: currentEdges, projectName: name }
+    if (format === 'json-file') {
+      exportModel()
+      return true
+    }
+    if (format === 'svg') {
+      downloadTextFile(exportFileName(new Date(), name, 'svg'), buildSvg(content), 'image/svg+xml')
+      return true
+    }
+    if (!(await copyText(serializeModel(toModel(content))))) return false
+    state.markExported()
     return true
   }
 
@@ -422,9 +430,8 @@ function AppShell() {
         onPaste={() => graphStore.getState().paste()}
         searchOpen={searchOpen}
         onToggleSearch={toggleSearch}
-        onExport={exportModel}
+        onExport={() => setExportOpen(true)}
         onImport={requestImport}
-        onShowJson={showJson}
         onPasteJson={() => setJsonImport({ unsaved: hasUnexportedChanges(), errors: [] })}
         locale={locale}
         onLocaleChange={setLocale}
@@ -505,11 +512,11 @@ function AppShell() {
         onImportWithoutExport={() => void pickAndImport()}
         onCancel={() => setImportDialog(null)}
       />
-      <JsonExportDialog
-        open={jsonExport !== null}
-        json={jsonExport ?? ''}
-        onCopy={copyJson}
-        onClose={() => setJsonExport(null)}
+      <ExportDialog
+        open={exportOpen}
+        svgDisabled={nodes.length === 0}
+        onExport={runExport}
+        onClose={() => setExportOpen(false)}
       />
       <JsonImportDialog
         open={jsonImport !== null}

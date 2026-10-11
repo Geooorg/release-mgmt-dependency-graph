@@ -1453,6 +1453,66 @@ ol.analysis-list > li::before {
   margin: 12px 0;
 }
 
+/* ---------- Export dialog (choose the format) ---------- */
+
+.export-dialog {
+  width: min(480px, calc(100vw - 32px));
+}
+
+.export-dialog__formats {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.export-dialog__legend {
+  margin-bottom: 6px;
+  padding: 0;
+  color: var(--gray-600);
+  font-weight: 600;
+}
+
+.export-dialog__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.export-dialog__option:hover:not(.export-dialog__option--disabled),
+.export-dialog__option:has(input:checked) {
+  border-color: var(--blue-600);
+  background: var(--blue-50);
+}
+
+.export-dialog__option--disabled {
+  color: var(--gray-600);
+  cursor: not-allowed;
+}
+
+.export-dialog__option input {
+  margin-top: 3px;
+}
+
+.export-dialog__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.export-dialog__label {
+  font-weight: 600;
+}
+
+.export-dialog__hint {
+  color: var(--gray-600);
+  font-size: 13px;
+}
+
 /* ---------- Help dialog ---------- */
 
 .help-dialog__body {

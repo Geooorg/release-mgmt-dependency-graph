@@ -5,7 +5,6 @@ import { useT } from '../i18n/react'
 import type { Highlight, Tool, WorkMode } from '../model/workMode'
 import {
   AddObjectIcon,
-  BracesIcon,
   ClipboardIcon,
   ConnectIcon,
   CopyIcon,
@@ -131,7 +130,6 @@ export function Toolbar({
   onToggleSearch,
   onExport,
   onImport,
-  onShowJson,
   onPasteJson,
   locale,
   onLocaleChange,
@@ -379,16 +377,6 @@ export function Toolbar({
             <Tooltip text={t('toolbar.export.title')}>
               <button type="button" className="ui-button" onClick={onExport}>
                 {t('toolbar.export')}
-              </button>
-            </Tooltip>
-            <Tooltip text={t('toolbar.showJson.title')}>
-              <button
-                type="button"
-                className="ui-button ui-button--tool"
-                aria-label={t('toolbar.showJson')}
-                onClick={onShowJson}
-              >
-                <BracesIcon />
               </button>
             </Tooltip>
             <Separator />

@@ -38,7 +38,7 @@ describe('AgentHelp', () => {
     const { container } = render(<AgentHelp />)
     const text = container.textContent ?? ''
 
-    for (const label of ['JSON anzeigen', 'JSON einfügen', 'Projekt-JSON (schreibgeschützt)', 'JSON-Text', 'Importieren']) {
+    for (const label of ['Exportieren', 'JSON (Zwischenablage)', 'JSON einfügen', 'JSON-Text', 'Importieren']) {
       expect(text).toContain(label)
     }
   })
@@ -70,14 +70,14 @@ describe('AgentHelp', () => {
       locale: 'en',
       heading: 'Agent help: Release Management',
       section: 'Language',
-      labels: ['Export', 'Undo', 'Show JSON', 'Paste JSON', 'Project JSON (read-only)', 'JSON text', 'Create object', 'Group'],
+      labels: ['Export', 'Undo', 'JSON (clipboard)', 'Paste JSON', 'JSON text', 'Create object', 'Group'],
       hint: 'German (de) is the default',
     },
     {
       locale: 'fr',
       heading: 'Aide pour agents : Release Management',
       section: 'Langue / Language',
-      labels: ['Exporter', 'Annuler', 'Afficher le JSON', 'Coller du JSON', 'JSON du projet (lecture seule)', 'Texte JSON', 'Créer un objet', 'Regrouper'],
+      labels: ['Exporter', 'Annuler', 'JSON (presse-papiers)', 'Coller du JSON', 'Texte JSON', 'Créer un objet', 'Regrouper'],
       hint: 'L’allemand (de) est la langue par défaut',
     },
   ] as const)('is written in $locale with the labels of the real interface', ({ locale, heading, section, labels, hint }) => {

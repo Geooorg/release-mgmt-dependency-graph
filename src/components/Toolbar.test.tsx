@@ -38,7 +38,6 @@ function makeProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
     onToggleSearch: vi.fn(),
     onExport: vi.fn(),
     onImport: vi.fn(),
-    onShowJson: vi.fn(),
     onPasteJson: vi.fn(),
     locale: 'de',
     onLocaleChange: vi.fn(),
@@ -68,7 +67,6 @@ describe('Toolbar', () => {
       'Rückgängig',
       'Wiederholen',
       'Export',
-      'JSON anzeigen',
       'Import',
       'JSON einfügen',
       'Hilfe',
@@ -174,7 +172,6 @@ describe('Toolbar', () => {
     await user.click(screen.getByRole('button', { name: 'Einfügen' }))
     await user.click(screen.getByRole('button', { name: 'Export' }))
     await user.click(screen.getByRole('button', { name: 'Import' }))
-    await user.click(screen.getByRole('button', { name: 'JSON anzeigen' }))
     await user.click(screen.getByRole('button', { name: 'JSON einfügen' }))
 
     expect(props.onGroup).toHaveBeenCalledTimes(1)
@@ -184,7 +181,6 @@ describe('Toolbar', () => {
     expect(props.onPaste).toHaveBeenCalledTimes(1)
     expect(props.onExport).toHaveBeenCalledTimes(1)
     expect(props.onImport).toHaveBeenCalledTimes(1)
-    expect(props.onShowJson).toHaveBeenCalledTimes(1)
     expect(props.onPasteJson).toHaveBeenCalledTimes(1)
   })
 
@@ -498,8 +494,7 @@ describe('Toolbar', () => {
         expect(groups.at(-1)).toHaveAccessibleName('Datei')
         expect(within(groups.at(-1)!).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
           'Export',
-          'JSON anzeigen',
-          'Import',
+              'Import',
           'JSON einfügen',
         ])
         unmount()
@@ -610,11 +605,21 @@ describe('Toolbar', () => {
       expect(await screen.findByRole('tooltip')).toHaveTextContent('JSON')
     })
 
-    it('explains the JSON buttons', async () => {
+    it('names the export formats in the Export tooltip and explains the JSON paste button', async () => {
       render(<Toolbar {...makeProps()} />)
 
-      await userEvent.hover(screen.getByRole('button', { name: 'JSON anzeigen' }))
-      expect(await screen.findByRole('tooltip')).toHaveTextContent('Zwischenablage')
+      await userEvent.hover(screen.getByRole('button', { name: 'Export' }))
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(/JSON-Datei.*SVG.*Zwischenablage/)
+      await userEvent.unhover(screen.getByRole('button', { name: 'Export' }))
+
+      await userEvent.hover(screen.getByRole('button', { name: 'JSON einfügen' }))
+      expect(await screen.findByText(/eingefügtem JSON-Text/)).toBeInTheDocument()
+    })
+
+    it('has no button to show the JSON any more', () => {
+      render(<Toolbar {...makeProps()} />)
+
+      expect(screen.queryByRole('button', { name: 'JSON anzeigen' })).not.toBeInTheDocument()
     })
 
     it('groups the buttons into labelled sections', () => {

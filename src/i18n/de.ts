@@ -33,7 +33,7 @@ export const de = {
     '- Strg/Cmd + C kopiert die markierten Objekte und Gruppen samt dem Inhalt der Gruppen, aber ohne Verbindungen. Strg/Cmd + V fügt sie als neue Elemente mit neuen IDs ein. Beides geht nur im Editiermodus; im Analysemodus ist Einfügen gesperrt.\n- Strg/Cmd + Z macht die letzte Änderung rückgängig, Strg/Cmd + Umschalt + Z oder Strg/Cmd + Y stellt sie wieder her. Diese Kürzel gelten in beiden Modi.\n- Die Schaltflächen für diese Aktionen stehen nur im Editiermodus zur Verfügung.',
   'help.file.title': 'Speichern, Export und Import',
   'help.file.body':
-    '- Das Projekt wird automatisch im Browser gespeichert (nur in diesem Browser).\n- „Export“ lädt das Projekt als JSON-Datei <Projektname>_<Datum>_<Uhrzeit>.json herunter.\n- „Import“ lädt eine JSON-Datei und ersetzt das aktuelle Projekt; vorher wird gefragt, bei nicht exportierten Änderungen zusätzlich gewarnt.\n- „JSON anzeigen“ zeigt den Export als Text zum Kopieren, „JSON einfügen“ lädt ein Projekt aus eingefügtem Text.\n- Der Projektname (oben links, änderbar) darf nur A–Z, a–z, 0–9 sowie - _ . enthalten.',
+    '- Das Projekt wird automatisch im Browser gespeichert (nur in diesem Browser).\n- „Export“ öffnet einen Dialog: Das Projekt lässt sich als JSON-Datei <Projektname>_<Datum>_<Uhrzeit>.json herunterladen, der Graph als SVG-Grafik (gleiche Namensform, nicht importierbar) oder das Projekt als JSON-Text in die Zwischenablage kopieren.\n- „Import“ lädt eine JSON-Datei und ersetzt das aktuelle Projekt; vorher wird gefragt, bei nicht exportierten Änderungen zusätzlich gewarnt.\n- „JSON einfügen“ lädt ein Projekt aus eingefügtem Text.\n- Der Projektname (oben links, änderbar) darf nur A–Z, a–z, 0–9 sowie - _ . enthalten.',
   'help.shortcuts.title': 'Tastenkürzel',
   'help.shortcuts.body':
     '- V: Auswählen · N: Objekt · C: Verbinden (nur im Editiermodus)\n- Entf oder Rücktaste: Markiertes löschen (nur im Editiermodus)\n- Esc: Werkzeug beenden, dann Panel schließen, dann Auswahl aufheben\n- Strg/Cmd + C / V: Kopieren / Einfügen (nur im Editiermodus)\n- Strg/Cmd + Z / Strg/Cmd + Umschalt + Z oder Strg/Cmd + Y: Rückgängig / Wiederholen (in beiden Modi)\n- Enter im Suchfeld: nächster Treffer',
@@ -107,9 +107,7 @@ export const de = {
   'toolbar.search.title':
     'Objekt oder Gruppe über den Namen suchen (Anfang des Namens, Groß-/Kleinschreibung egal). Enter springt zum Treffer, nochmal Enter zum nächsten.',
   'toolbar.export': 'Export',
-  'toolbar.export.title': 'Das Projekt als JSON-Datei herunterladen',
-  'toolbar.showJson': 'JSON anzeigen',
-  'toolbar.showJson.title': 'Das Projekt als JSON-Text anzeigen (nur lesen) und in die Zwischenablage kopieren',
+  'toolbar.export.title': 'Das Projekt exportieren: als JSON-Datei, als SVG-Grafik oder als JSON in die Zwischenablage',
   'toolbar.import': 'Import',
   'toolbar.import.title':
     'Ein Projekt aus einer JSON-Datei laden. Es ersetzt das aktuelle Projekt; vorher wird gefragt und bei nicht exportierten Änderungen gewarnt.',
@@ -138,11 +136,18 @@ export const de = {
   'jsonImport.label': 'JSON-Text',
   'jsonImport.invalid': 'Der Text ist kein gültiges Modell. Das aktuelle Projekt blieb unverändert.',
   'jsonImport.submit': 'Importieren',
-  'jsonExport.title': 'Projekt als JSON',
-  'jsonExport.label': 'Projekt-JSON (schreibgeschützt)',
-  'jsonExport.copied': 'In die Zwischenablage kopiert.',
-  'jsonExport.copyFailed': 'Kopieren nicht möglich – der Text ist markiert, bitte mit Strg/Cmd + C kopieren.',
-  'jsonExport.copy': 'In Zwischenablage kopieren',
+  'export.title': 'Exportieren',
+  'export.format': 'Format',
+  'export.json': 'JSON-Datei',
+  'export.json.hint': 'Das Projekt als Datei herunterladen. Sie lässt sich wieder importieren.',
+  'export.svg': 'SVG',
+  'export.svg.hint': 'Den Graphen als Vektorgrafik herunterladen, z. B. für Dokumente. Sie lässt sich nicht importieren.',
+  'export.svg.empty': 'Der Graph ist leer – es gibt nichts zu zeichnen.',
+  'export.clipboard': 'JSON (Zwischenablage)',
+  'export.clipboard.hint': 'Das Projekt als JSON-Text in die Zwischenablage kopieren.',
+  'export.submit': 'Exportieren',
+  'export.copied': 'In die Zwischenablage kopiert.',
+  'export.copyFailed': 'Kopieren nicht möglich. Bitte stattdessen „JSON-Datei“ wählen.',
   'search.label': 'Suchen nach Name',
   'search.placeholder': 'Name beginnt mit … (Enter)',
   'search.none': 'Kein Treffer',
@@ -368,7 +373,7 @@ export const de = {
     'Der Button <c>aria-label="{help}"</c> öffnet die Hilfe zur Bedienung für Menschen in der gewählten Sprache; diese Agent-Hilfe liegt unter <c>{route}</c>.',
   'agent.json.title': 'JSON als Text lesen und importieren (ohne Datei)',
   'agent.json.read':
-    'Lesen: Button <c>aria-label="{show}"</c> öffnet den Dialog „{exportTitle}“. Das Textfeld <c>{exportLabel}</c> enthält genau den Inhalt der Export-Datei (<c>textarea.value</c>). „{copy}“ kopiert ihn (zählt als exportiert).',
+    'Lesen: Der JSON-Text liegt unverändert unter <c>localStorage</c> <c>{key}</c> (siehe oben). Über die Oberfläche: Button <c>aria-label="{export}"</c> öffnet den Dialog „{exportTitle}“; Option „{clipboard}“ und Button „{exportSubmit}“ kopieren genau den Inhalt der Export-Datei in die Zwischenablage (zählt als exportiert). Ein Textfeld zum Auslesen gibt es nicht mehr.',
   'agent.json.write':
     'Schreiben: Button <c>aria-label="{paste}"</c> öffnet den Dialog „{importTitle}“. Das Textfeld <c>{importLabel}</c> ist ein React-Textarea: nativen value-Setter nutzen und ein <c>input</c>-Event auslösen, dann Button „{submit}“. Das Projekt wird ersetzt (mit „{undo}“ zurücknehmbar); bei ungültigem JSON bleibt der Dialog offen und nennt die Fehler (<c>role="alert"</c>), das Projekt bleibt unverändert.',
   'agent.json.both':

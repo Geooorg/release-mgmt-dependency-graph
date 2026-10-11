@@ -34,7 +34,7 @@ export const en: Catalog = {
     '- Ctrl/Cmd + C copies the selected objects and groups including the content of groups, but without connections. Ctrl/Cmd + V pastes them as new elements with new IDs. Both only work in edit mode; pasting is locked in analysis mode.\n- Ctrl/Cmd + Z undoes the last change, Ctrl/Cmd + Shift + Z or Ctrl/Cmd + Y restores it. These shortcuts work in both modes.\n- The buttons for these actions are only available in edit mode.',
   'help.file.title': 'Saving, export and import',
   'help.file.body':
-    '- The project is saved automatically in the browser (this browser only).\n- “Export” downloads the project as a JSON file <project name>_<date>_<time>.json.\n- “Import” loads a JSON file and replaces the current project; you are asked first and warned about changes that were not exported.\n- “Show JSON” shows the export as text to copy, “Paste JSON” loads a project from pasted text.\n- The project name (top left, editable) may only contain A–Z, a–z, 0–9 and - _ .',
+    '- The project is saved automatically in the browser (this browser only).\n- “Export” opens a dialog: download the project as a JSON file <project name>_<date>_<time>.json, download the graph as an SVG image (same naming, cannot be imported) or copy the project as JSON text to the clipboard.\n- “Import” loads a JSON file and replaces the current project; you are asked first and warned about changes that were not exported.\n- “Paste JSON” loads a project from pasted text.\n- The project name (top left, editable) may only contain A–Z, a–z, 0–9 and - _ .',
   'help.shortcuts.title': 'Keyboard shortcuts',
   'help.shortcuts.body':
     '- V: Select · N: Object · C: Connect (edit mode only)\n- Del or Backspace: delete the selection (edit mode only)\n- Esc: end the tool, then close the panel, then clear the selection\n- Ctrl/Cmd + C / V: copy / paste (edit mode only)\n- Ctrl/Cmd + Z / Ctrl/Cmd + Shift + Z or Ctrl/Cmd + Y: undo / redo (both modes)\n- Enter in the search field: next hit',
@@ -108,9 +108,7 @@ export const en: Catalog = {
   'toolbar.search.title':
     'Search an object or group by name (start of the name, case-insensitive). Enter jumps to the hit, Enter again to the next one.',
   'toolbar.export': 'Export',
-  'toolbar.export.title': 'Download the project as a JSON file',
-  'toolbar.showJson': 'Show JSON',
-  'toolbar.showJson.title': 'Show the project as JSON text (read-only) and copy it to the clipboard',
+  'toolbar.export.title': 'Export the project: as a JSON file, as an SVG image or as JSON on the clipboard',
   'toolbar.import': 'Import',
   'toolbar.import.title':
     'Load a project from a JSON file. It replaces the current project; you are asked first and warned about changes that were not exported.',
@@ -139,11 +137,18 @@ export const en: Catalog = {
   'jsonImport.label': 'JSON text',
   'jsonImport.invalid': 'The text is not a valid model. The current project was left unchanged.',
   'jsonImport.submit': 'Import',
-  'jsonExport.title': 'Project as JSON',
-  'jsonExport.label': 'Project JSON (read-only)',
-  'jsonExport.copied': 'Copied to the clipboard.',
-  'jsonExport.copyFailed': 'Copying is not possible – the text is selected, please copy it with Ctrl/Cmd + C.',
-  'jsonExport.copy': 'Copy to clipboard',
+  'export.title': 'Export',
+  'export.format': 'Format',
+  'export.json': 'JSON file',
+  'export.json.hint': 'Download the project as a file. It can be imported again.',
+  'export.svg': 'SVG',
+  'export.svg.hint': 'Download the graph as a vector image, e.g. for documents. It cannot be imported.',
+  'export.svg.empty': 'The graph is empty – there is nothing to draw.',
+  'export.clipboard': 'JSON (clipboard)',
+  'export.clipboard.hint': 'Copy the project as JSON text to the clipboard.',
+  'export.submit': 'Export',
+  'export.copied': 'Copied to the clipboard.',
+  'export.copyFailed': 'Copying is not possible. Please choose “JSON file” instead.',
   'search.label': 'Search by name',
   'search.placeholder': 'Name starts with … (Enter)',
   'search.none': 'No match',
@@ -369,7 +374,7 @@ export const en: Catalog = {
     'The button <c>aria-label="{help}"</c> opens the help on operating the tool for people, in the chosen language; this agent help is at <c>{route}</c>.',
   'agent.json.title': 'Read and import JSON as text (without a file)',
   'agent.json.read':
-    'Read: button <c>aria-label="{show}"</c> opens the dialog “{exportTitle}”. The text field <c>{exportLabel}</c> contains exactly the content of the export file (<c>textarea.value</c>). “{copy}” copies it (counts as exported).',
+    'Read: the JSON text is available unchanged in <c>localStorage</c> <c>{key}</c> (see above). Via the interface: button <c>aria-label="{export}"</c> opens the dialog “{exportTitle}”; the option “{clipboard}” and the button “{exportSubmit}” copy exactly the content of the export file to the clipboard (counts as exported). There is no text field to read it from any more.',
   'agent.json.write':
     'Write: button <c>aria-label="{paste}"</c> opens the dialog “{importTitle}”. The text field <c>{importLabel}</c> is a React textarea: use the native value setter and fire an <c>input</c> event, then click “{submit}”. The project is replaced (can be reverted with “{undo}”); with invalid JSON the dialog stays open and lists the errors (<c>role="alert"</c>), and the project stays unchanged.',
   'agent.json.both':

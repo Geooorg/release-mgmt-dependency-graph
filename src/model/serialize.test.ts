@@ -730,6 +730,12 @@ describe('exportFileName', () => {
     )
   })
 
+  it('takes another extension for the SVG export', () => {
+    expect(exportFileName(new Date(2026, 9, 9, 14, 10, 22), 'Release-Management', 'svg')).toBe(
+      'Release-Management_2026-10-09_141022.svg',
+    )
+  })
+
   it('uses the given project name', () => {
     expect(exportFileName(new Date(2026, 9, 9, 14, 10, 22), 'Mein_Projekt.v2')).toBe(
       'Mein_Projekt.v2_2026-10-09_141022.json',

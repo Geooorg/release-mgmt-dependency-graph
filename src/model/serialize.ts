@@ -73,18 +73,20 @@ function canonicalNode(node: ModelNode) {
 }
 
 /**
- * `<project name>_<YYYY-MM-DD>_<HHmmss>.json` using the LOCAL time of `date`, e.g.
- * `Release-Management_2026-10-09_141022.json`. A name that is not file-safe falls back to the default.
+ * `<project name>_<YYYY-MM-DD>_<HHmmss>.<extension>` (`json` unless told otherwise) using the LOCAL
+ * time of `date`, e.g. `Release-Management_2026-10-09_141022.json`. A name that is not file-safe
+ * falls back to the default.
  */
 export function exportFileName(
   date: Date = new Date(),
   projectName: string = DEFAULT_PROJECT_NAME,
+  extension: 'json' | 'svg' = 'json',
 ): string {
   const pad = (value: number, length = 2) => String(value).padStart(length, '0')
   const name = isValidProjectName(projectName) ? projectName : DEFAULT_PROJECT_NAME
   const day = `${pad(date.getFullYear(), 4)}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
   const time = `${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
-  return `${name}_${day}_${time}.json`
+  return `${name}_${day}_${time}.${extension}`
 }
 
 // ---------------------------------------------------------------------------

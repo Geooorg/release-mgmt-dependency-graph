@@ -508,6 +508,7 @@ describe('App: import warning', () => {
   it('after an export the dialog says the state is exported; an edit makes it unsaved again', async () => {
     render(<App />)
     await userEvent.click(screen.getByRole('button', { name: 'Export' }))
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Exportieren' })).getByRole('button', { name: 'Exportieren' }))
     expect(localStorage.getItem(EXPORT_FINGERPRINT_KEY)).toBe(contentFingerprint(graphStore.getState()))
 
     await userEvent.click(screen.getByRole('button', { name: 'Import' }))
@@ -803,10 +804,13 @@ describe('App: copy and paste', () => {
   })
 })
 
-describe('App: JSON as text', () => {
-  const showDialog = () => screen.queryByRole('dialog', { name: 'Projekt als JSON' })
-  const pasteDialog = () => screen.queryByRole('dialog', { name: 'JSON einfügen' })
-  const modelJson = (projectName: string) => serializeModel(toModel({ nodes: [], edges: [], projectName }))
+describe('App: export dialog', () => {
+  const exportDialog = () => screen.queryByRole('dialog', { name: 'Exportieren' })
+  const chooseAndExport = async (format: RegExp) => {
+    await userEvent.click(screen.getByRole('button', { name: 'Export' }))
+    await userEvent.click(within(exportDialog()!).getByRole('radio', { name: format }))
+    await userEvent.click(within(exportDialog()!).getByRole('button', { name: 'Exportieren' }))
+  }
 
   beforeEach(() => {
     act(() => graphStore.getState().replaceContent(createDefaultContent()))
@@ -814,31 +818,91 @@ describe('App: JSON as text', () => {
     act(() => graphStore.setState({ exportedFingerprint: null }))
   })
 
-  it('shows exactly the JSON of the file export, read-only', async () => {
+  it('opens from the Export button without exporting anything yet', async () => {
     render(<App />)
+    expect(exportDialog()).toBeNull()
+
     await userEvent.click(screen.getByRole('button', { name: 'Export' }))
-    const exported = vi.mocked(downloadTextFile).mock.calls[0][1]
 
-    await userEvent.click(screen.getByRole('button', { name: 'JSON anzeigen' }))
-
-    const area = within(showDialog()!).getByRole('textbox', { name: 'Projekt-JSON (schreibgeschützt)' })
-    expect(area).toHaveValue(exported)
-    expect(area).toHaveAttribute('readonly')
+    expect(exportDialog()).not.toBeNull()
+    expect(downloadTextFile).not.toHaveBeenCalled()
+    expect(graphStore.getState().exportedFingerprint).toBeNull()
   })
 
-  it('does not count as exported until it is copied', async () => {
+  it('downloads the JSON file by default, counts it as exported and closes', async () => {
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: 'Export' }))
+    await userEvent.click(within(exportDialog()!).getByRole('button', { name: 'Exportieren' }))
+
+    const [name, text] = vi.mocked(downloadTextFile).mock.calls[0]
+    expect(name).toMatch(/^Release-Management_\d{4}-\d{2}-\d{2}_\d{6}\.json$/)
+    expect(text).toBe(serializeModel(toModel(graphStore.getState())))
+    expect(graphStore.getState().exportedFingerprint).toBe(contentFingerprint(graphStore.getState()))
+    expect(exportDialog()).toBeNull()
+  })
+
+  it('downloads the graph as an SVG file, which does not count as exported', async () => {
+    render(<App />)
+    await chooseAndExport(/^SVG/)
+
+    const [name, text, mime] = vi.mocked(downloadTextFile).mock.calls[0]
+    expect(name).toMatch(/^Release-Management_\d{4}-\d{2}-\d{2}_\d{6}\.svg$/)
+    expect(mime).toBe('image/svg+xml')
+    expect(text).toContain('<svg')
+    for (const node of graphStore.getState().nodes) expect(text).toContain(`data-id="${node.id}"`)
+    expect(graphStore.getState().exportedFingerprint).toBeNull()
+    expect(exportDialog()).toBeNull()
+  })
+
+  it('copies exactly the JSON of the file export and counts it as exported', async () => {
     const user = userEvent.setup()
     const write = vi.spyOn(navigator.clipboard, 'writeText')
     render(<App />)
-
-    await user.click(screen.getByRole('button', { name: 'JSON anzeigen' }))
-    expect(graphStore.getState().exportedFingerprint).toBeNull()
-
-    await user.click(within(showDialog()!).getByRole('button', { name: 'In Zwischenablage kopieren' }))
+    await user.click(screen.getByRole('button', { name: 'Export' }))
+    await user.click(within(exportDialog()!).getByRole('radio', { name: /^JSON \(Zwischenablage\)/ }))
+    await user.click(within(exportDialog()!).getByRole('button', { name: 'Exportieren' }))
 
     expect(write).toHaveBeenCalledWith(serializeModel(toModel(graphStore.getState())))
     expect(graphStore.getState().exportedFingerprint).toBe(contentFingerprint(graphStore.getState()))
-    expect(await within(showDialog()!).findByRole('status')).toHaveTextContent('kopiert')
+    expect(await within(exportDialog()!).findByRole('status')).toHaveTextContent('kopiert')
+    expect(downloadTextFile).not.toHaveBeenCalled()
+  })
+
+  it('cancels without a trace', async () => {
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: 'Export' }))
+    await userEvent.click(within(exportDialog()!).getByRole('button', { name: 'Abbrechen' }))
+
+    expect(exportDialog()).toBeNull()
+    expect(downloadTextFile).not.toHaveBeenCalled()
+    expect(graphStore.getState().exportedFingerprint).toBeNull()
+  })
+
+  it('offers no SVG for an empty graph', async () => {
+    act(() => graphStore.getState().replaceContent({ nodes: [], edges: [] }))
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: 'Export' }))
+
+    expect(within(exportDialog()!).getByRole('radio', { name: /^SVG/ })).toBeDisabled()
+  })
+
+  it('works from the analysis mode too', async () => {
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: 'Analysieren' }))
+    await chooseAndExport(/^SVG/)
+
+    expect(vi.mocked(downloadTextFile).mock.calls[0][0]).toMatch(/\.svg$/)
+  })
+})
+
+describe('App: JSON as text', () => {
+  const pasteDialog = () => screen.queryByRole('dialog', { name: 'JSON einfügen' })
+  const modelJson = (projectName: string) => serializeModel(toModel({ nodes: [], edges: [], projectName }))
+
+  beforeEach(() => {
+    act(() => graphStore.getState().replaceContent(createDefaultContent()))
+    localStorage.removeItem(EXPORT_FINGERPRINT_KEY)
+    act(() => graphStore.setState({ exportedFingerprint: null }))
   })
 
   it('imports pasted text, replaces the project and closes', async () => {
@@ -896,9 +960,6 @@ describe('App: JSON as text', () => {
     render(<App />)
     await userEvent.click(screen.getByRole('button', { name: 'Analysieren' }))
 
-    await userEvent.click(screen.getByRole('button', { name: 'JSON anzeigen' }))
-    expect(showDialog()).not.toBeNull()
-    await userEvent.click(within(showDialog()!).getByRole('button', { name: 'Schließen' }))
     await userEvent.click(screen.getByRole('button', { name: 'JSON einfügen' }))
     expect(pasteDialog()).not.toBeNull()
   })

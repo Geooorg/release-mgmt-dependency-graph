@@ -33,11 +33,10 @@ export function AgentHelp() {
   }, [t])
   // The control names come from the interface catalog, so the help can never drift from the real labels.
   const names = {
-    show: t('toolbar.showJson'),
     paste: t('toolbar.pasteJson'),
-    exportTitle: t('jsonExport.title'),
-    exportLabel: t('jsonExport.label'),
-    copy: t('jsonExport.copy'),
+    exportTitle: t('export.title'),
+    clipboard: t('export.clipboard'),
+    exportSubmit: t('export.submit'),
     importTitle: t('jsonImport.title'),
     importLabel: t('jsonImport.label'),
     submit: t('jsonImport.submit'),
@@ -127,7 +126,7 @@ export function AgentHelp() {
       <h2>{t('agent.json.title')}</h2>
       <ul>
         <li>
-          <RichText text={t('agent.json.read', names)} />
+          <RichText text={t('agent.json.read', { ...names, key: STORAGE_KEY })} />
         </li>
         <li>
           <RichText text={t('agent.json.write', names)} />

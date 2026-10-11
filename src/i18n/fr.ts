@@ -34,7 +34,7 @@ export const fr: Catalog = {
     '- Ctrl/Cmd + C copie les objets et groupes sélectionnés avec le contenu des groupes, mais sans les liaisons. Ctrl/Cmd + V les colle comme nouveaux éléments avec de nouveaux ID. Les deux ne fonctionnent qu’en mode édition ; le collage est verrouillé en mode analyse.\n- Ctrl/Cmd + Z annule la dernière modification, Ctrl/Cmd + Maj + Z ou Ctrl/Cmd + Y la rétablit. Ces raccourcis fonctionnent dans les deux modes.\n- Les boutons correspondants ne sont disponibles qu’en mode édition.',
   'help.file.title': 'Enregistrement, export et import',
   'help.file.body':
-    '- Le projet est enregistré automatiquement dans le navigateur (uniquement dans ce navigateur).\n- « Exporter » télécharge le projet sous forme de fichier JSON <nom du projet>_<date>_<heure>.json.\n- « Importer » charge un fichier JSON et remplace le projet actuel ; une confirmation est demandée et les modifications non exportées sont signalées.\n- « Afficher le JSON » montre l’export sous forme de texte à copier, « Coller du JSON » charge un projet depuis du texte collé.\n- Le nom du projet (en haut à gauche, modifiable) ne peut contenir que A–Z, a–z, 0–9 ainsi que - _ .',
+    '- Le projet est enregistré automatiquement dans le navigateur (uniquement dans ce navigateur).\n- « Exporter » ouvre une boîte de dialogue : télécharger le projet en fichier JSON <nom du projet>_<date>_<heure>.json, télécharger le graphe en image SVG (même nommage, non importable) ou copier le projet en texte JSON dans le presse-papiers.\n- « Importer » charge un fichier JSON et remplace le projet actuel ; une confirmation est demandée et les modifications non exportées sont signalées.\n- « Coller du JSON » charge un projet depuis du texte collé.\n- Le nom du projet (en haut à gauche, modifiable) ne peut contenir que A–Z, a–z, 0–9 ainsi que - _ .',
   'help.shortcuts.title': 'Raccourcis clavier',
   'help.shortcuts.body':
     '- V : Sélectionner · N : Objet · C : Relier (mode édition uniquement)\n- Suppr ou Retour arrière : supprimer la sélection (mode édition uniquement)\n- Échap : terminer l’outil, puis fermer le panneau, puis effacer la sélection\n- Ctrl/Cmd + C / V : copier / coller (mode édition uniquement)\n- Ctrl/Cmd + Z / Ctrl/Cmd + Maj + Z ou Ctrl/Cmd + Y : annuler / rétablir (dans les deux modes)\n- Entrée dans le champ de recherche : résultat suivant',
@@ -108,9 +108,7 @@ export const fr: Catalog = {
   'toolbar.search.title':
     'Rechercher un objet ou un groupe par son nom (début du nom, sans tenir compte de la casse). Entrée saute au résultat, Entrée à nouveau au suivant.',
   'toolbar.export': 'Exporter',
-  'toolbar.export.title': 'Télécharger le projet sous forme de fichier JSON',
-  'toolbar.showJson': 'Afficher le JSON',
-  'toolbar.showJson.title': 'Afficher le projet sous forme de texte JSON (lecture seule) et le copier dans le presse-papiers',
+  'toolbar.export.title': 'Exporter le projet : en fichier JSON, en image SVG ou en JSON dans le presse-papiers',
   'toolbar.import': 'Importer',
   'toolbar.import.title':
     'Charger un projet depuis un fichier JSON. Il remplace le projet actuel ; une confirmation est demandée et les modifications non exportées sont signalées.',
@@ -139,11 +137,18 @@ export const fr: Catalog = {
   'jsonImport.label': 'Texte JSON',
   'jsonImport.invalid': 'Le texte n’est pas un modèle valide. Le projet actuel est resté inchangé.',
   'jsonImport.submit': 'Importer',
-  'jsonExport.title': 'Projet au format JSON',
-  'jsonExport.label': 'JSON du projet (lecture seule)',
-  'jsonExport.copied': 'Copié dans le presse-papiers.',
-  'jsonExport.copyFailed': 'Copie impossible – le texte est sélectionné, copiez-le avec Ctrl/Cmd + C.',
-  'jsonExport.copy': 'Copier dans le presse-papiers',
+  'export.title': 'Exporter',
+  'export.format': 'Format',
+  'export.json': 'Fichier JSON',
+  'export.json.hint': 'Télécharger le projet sous forme de fichier. Il peut être réimporté.',
+  'export.svg': 'SVG',
+  'export.svg.hint': 'Télécharger le graphe sous forme d’image vectorielle, par ex. pour des documents. Elle ne peut pas être réimportée.',
+  'export.svg.empty': 'Le graphe est vide – il n’y a rien à dessiner.',
+  'export.clipboard': 'JSON (presse-papiers)',
+  'export.clipboard.hint': 'Copier le projet sous forme de texte JSON dans le presse-papiers.',
+  'export.submit': 'Exporter',
+  'export.copied': 'Copié dans le presse-papiers.',
+  'export.copyFailed': 'Copie impossible. Choisissez plutôt « Fichier JSON ».',
   'search.label': 'Rechercher par nom',
   'search.placeholder': 'Le nom commence par … (Entrée)',
   'search.none': 'Aucun résultat',
@@ -369,7 +374,7 @@ export const fr: Catalog = {
     'Le bouton <c>aria-label="{help}"</c> ouvre l’aide à l’utilisation destinée aux personnes, dans la langue choisie ; cette aide pour agents se trouve sous <c>{route}</c>.',
   'agent.json.title': 'Lire et importer du JSON sous forme de texte (sans fichier)',
   'agent.json.read':
-    'Lire : le bouton <c>aria-label="{show}"</c> ouvre la boîte de dialogue « {exportTitle} ». Le champ de texte <c>{exportLabel}</c> contient exactement le contenu du fichier d’export (<c>textarea.value</c>). « {copy} » le copie (compte comme exporté).',
+    'Lire : le texte JSON se trouve tel quel dans <c>localStorage</c> <c>{key}</c> (voir ci-dessus). Via l’interface : le bouton <c>aria-label="{export}"</c> ouvre la boîte de dialogue « {exportTitle} » ; l’option « {clipboard} » et le bouton « {exportSubmit} » copient exactement le contenu du fichier d’export dans le presse-papiers (compte comme exporté). Il n’y a plus de champ de texte pour le lire.',
   'agent.json.write':
     'Écrire : le bouton <c>aria-label="{paste}"</c> ouvre la boîte de dialogue « {importTitle} ». Le champ de texte <c>{importLabel}</c> est un textarea React : utiliser le setter natif de value et déclencher un événement <c>input</c>, puis cliquer sur « {submit} ». Le projet est remplacé (annulable avec « {undo} ») ; si le JSON est invalide, la boîte de dialogue reste ouverte et indique les erreurs (<c>role="alert"</c>), le projet reste inchangé.',
   'agent.json.both':
