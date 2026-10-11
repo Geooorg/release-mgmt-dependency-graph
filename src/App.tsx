@@ -16,6 +16,7 @@ import type {
   AnalysisPanelProps,
   AnalysisSelected,
   BulkColor,
+  BulkStatus,
   SearchOutcome,
 } from './components/props'
 import { Canvas } from './flow/Canvas'
@@ -24,9 +25,10 @@ import { findCycles } from './model/cycles'
 import { canGroup } from './model/graph'
 import { contentFingerprint } from './model/fingerprint'
 import { displayName, getColor, getEdgeName } from './model/metadata'
+import { isSoftEdge } from './model/softDependency'
 import { findByName, nextHit, normalizeQuery } from './model/search'
 import { sidebarTarget } from './model/sidebarTarget'
-import { getBlockReason, getStatusInfo } from './model/status'
+import { DEFAULT_STATUS, getBlockReason, getStatusInfo, parseStatus } from './model/status'
 import type { Tool } from './model/workMode'
 import {
   analyzeProject,
@@ -188,6 +190,23 @@ function AppShell() {
       onChange: (color) => graphStore.getState().setSelectionColor(color),
     }
   }, [target, nodes, selectedNodeIds])
+  // ... and so can their status (groups have none, they stay out of the count).
+  const bulkStatus = useMemo<BulkStatus | undefined>(() => {
+    if (target.kind !== 'multiple') return undefined
+    const infos = nodes
+      .filter((n) => n.kind === 'node' && selectedNodeIds.includes(n.id))
+      .map((n) => getStatusInfo(n.metadata))
+    if (infos.length === 0) return undefined
+    // A missing value is `offen`; an unknown one counts as its own value, so it is never overwritten unseen.
+    const values = infos.map((info) => (info.raw === undefined ? DEFAULT_STATUS : (parseStatus(info.raw) ?? info.raw)))
+    const shared = new Set(values)
+    return {
+      count: infos.length,
+      status: shared.size === 1 ? values[0] : '',
+      mixed: shared.size > 1,
+      onChange: (status) => graphStore.getState().setSelectionStatus(status),
+    }
+  }, [target, nodes, selectedNodeIds])
   const sidebarEdge = useMemo(
     () => (target.kind === 'edge' ? (edges.find((e) => e.id === target.id) ?? null) : null),
     [target, edges],
@@ -219,6 +238,7 @@ function AppShell() {
         id: sidebarEdge.id,
         kind: 'edge' as const,
         metadata: [{ key: 'name', value: getEdgeName(sidebarEdge) }],
+        soft: isSoftEdge(sidebarEdge),
       }
     }
     return null
@@ -447,6 +467,7 @@ function AppShell() {
           element={sidebarElement}
           selectionCount={selectedNodeIds.length + selectedEdgeIds.length}
           bulkColor={bulkColor}
+          bulkStatus={bulkStatus}
           onChange={(metadata) => {
             if (!sidebarElement) return
             const state = graphStore.getState()
@@ -459,6 +480,9 @@ function AppShell() {
           onEditStart={beginSidebarEdit}
           onEditEnd={endSidebarEdit}
           onClose={() => graphStore.getState().closeSidebar()}
+          onSoftChange={(soft) => {
+            if (sidebarElement?.kind === 'edge') graphStore.getState().setEdgeSoft(sidebarElement.id, soft)
+          }}
           onInvalidChange={reportSidebarInvalid}
         />
       </div>

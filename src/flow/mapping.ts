@@ -3,6 +3,7 @@ import { createTranslate, type Translate } from '../i18n/translate'
 import { getSize, pickSides, sortParentsFirst } from '../model/graph'
 import { displayName, getColor, getContrastColor, getEdgeName, getName } from '../model/metadata'
 import { joinNames, type ProjectAnalysis } from '../model/releaseAnalysis'
+import { isSoftEdge } from '../model/softDependency'
 import type { ModelEdge, ModelNode } from '../model/types'
 import type { AppFlowNode } from './types'
 
@@ -27,6 +28,8 @@ const EDGE_COLOR_DEPENDENCY = '#dc2626'
 const EDGE_COLOR_CYCLE = '#9333ea'
 const EDGE_COLOR_CYCLE_SELECTED = '#6b21a8'
 const CYCLE_DASH = '6 4'
+/** Soft (optional) edges are dotted: short dashes with round caps, spaced relative to the stroke width. */
+const softDash = (width: number) => `1 ${width * 3}`
 const NO_IDS: ReadonlySet<string> = new Set()
 
 /** Model nodes -> React Flow nodes (parents first, sizes fixed from the model); tooltips are written in the language of `t`. */
@@ -95,7 +98,8 @@ export function toFlowNodes(
 /**
  * Directed edges with an arrow at the target: blue, darker when selected, thick red when part of
  * the highlighted dependency graph. Edges in a cycle are purple and dashed; the dependency colour
- * wins over the cycle colour, the dashes stay. The accessible label is written in the language
+ * wins over the cycle colour, the dashes stay. Soft (optional) edges are dotted instead, whatever
+ * their colour. The accessible label is written in the language
  * of `t`. Connectors are the ones the edge was drawn between; edges without stored connectors
  * (older files) get the facing sides.
  */
@@ -113,6 +117,8 @@ export function toFlowEdges(
     const selected = selectedIds.has(edge.id)
     const dependency = dependencyIds.has(edge.id)
     const cyclic = cycleIds.has(edge.id)
+    const soft = isSoftEdge(edge)
+    const width = dependency ? 6 : selected || cyclic ? 3 : 2
     const color = dependency
       ? EDGE_COLOR_DEPENDENCY
       : cyclic
@@ -130,7 +136,7 @@ export function toFlowEdges(
       targetHandle: edge.targetHandle ?? facing?.targetHandle,
       selected,
       // React Flow's own default is an English sentence built from the raw ids.
-      ariaLabel: t('flow.edge.label', {
+      ariaLabel: t(soft ? 'flow.edge.label.soft' : 'flow.edge.label', {
         source: names.get(edge.source) ?? edge.source.slice(0, 8),
         target: names.get(edge.target) ?? edge.target.slice(0, 8),
       }),
@@ -143,8 +149,9 @@ export function toFlowEdges(
       zIndex: dependency ? 1000 : undefined,
       style: {
         stroke: color,
-        strokeWidth: dependency ? 6 : selected || cyclic ? 3 : 2,
-        strokeDasharray: cyclic ? CYCLE_DASH : undefined,
+        strokeWidth: width,
+        strokeDasharray: soft ? softDash(width) : cyclic ? CYCLE_DASH : undefined,
+        strokeLinecap: soft ? 'round' : undefined,
       },
       markerEnd: { type: MarkerType.ArrowClosed, color, width: dependency ? 12 : 20, height: dependency ? 12 : 20 },
     }

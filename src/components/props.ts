@@ -76,11 +76,13 @@ export interface ToolHintProps {
 
 export interface SidebarElement {
   id: string
-  /** `edge`: only the `name` entry (the caption) is shown/edited and saved (no colour, status or free-form fields). */
+  /** `edge`: only the `name` entry (the caption) is shown/edited and saved, plus the `soft` checkbox (no colour, status or free-form fields). */
   kind: ElementKind | 'edge'
   metadata: MetadataEntry[]
   /** Groups only: finished and total objects inside, shown as a read-only status summary. */
   progress?: { done: number; total: number }
+  /** Edges only: marked as a soft (optional) dependency, shown as a checkbox. */
+  soft?: boolean
 }
 
 /** The colour of all selected objects and groups, set in one go (several elements selected). */
@@ -95,6 +97,17 @@ export interface BulkColor {
   onChange: (color: string | undefined) => void
 }
 
+/** The status of all selected objects (not groups), set in one go (several elements selected). */
+export interface BulkStatus {
+  /** Number of selected objects; groups have no status. */
+  count: number
+  /** Trimmed status they share ('' = none set, i.e. `offen`); may be none of the four. Ignored when `mixed`. */
+  status: string
+  /** The selected objects have different statuses. */
+  mixed: boolean
+  onChange: (status: Status) => void
+}
+
 export interface SidebarProps {
   /** null = no single element to edit. */
   element: SidebarElement | null
@@ -102,6 +115,8 @@ export interface SidebarProps {
   selectionCount: number
   /** With several elements selected: the shared colour control; absent when none of them can have one. */
   bulkColor?: BulkColor
+  /** With several elements selected: the shared status control; absent when the selection has no object (only groups). */
+  bulkStatus?: BulkStatus
   /**
    * Live edit: called with every valid draft, already normalized (trimmed, empty keys dropped, `name`
    * first). An invalid draft (duplicate field names) is not reported; the owner keeps the last valid state.
@@ -116,6 +131,8 @@ export interface SidebarProps {
   onEditEnd: () => void
   /** Closes the sidebar and clears the selection. */
   onClose: () => void
+  /** Edges only: the soft-dependency checkbox was toggled (applied at once, one undo step). */
+  onSoftChange?: (soft: boolean) => void
   /** Hidden but kept (analysis mode): the form with its draft stays alive for when the sidebar returns. */
   hidden?: boolean
   /** Whether the open form holds an invalid draft that is not in the model; `false` again once it closes. */

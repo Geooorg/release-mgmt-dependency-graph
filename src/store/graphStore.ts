@@ -116,6 +116,8 @@ export interface GraphState {
   renameElement: (id: string, name: string) => void
   /** Sets (or with undefined removes) the colour of every selected object and group; one undo step. */
   setSelectionColor: (color: string | undefined) => void
+  /** Sets the status of all selected objects (groups have none) as one undo step. */
+  setSelectionStatus: (status: Status) => void
   /** Sets the status of an object (also in analysis mode); one undo step. */
   setStatus: (id: string, status: Status) => void
   /** Sets the reason of a blocked object (trimmed, blank removes it); no-op for other objects. Also in analysis mode. */
@@ -136,6 +138,8 @@ export interface GraphState {
   openEdgeSidebar: (id: string) => void
   /** Live sidebar edit of an edge name (the caption); one undo step per edit. */
   renameEdge: (id: string, name: string) => void
+  /** Marks an edge as a soft (optional) dependency or a normal one; one undo step. */
+  setEdgeSoft: (id: string, soft: boolean) => void
   /** Clears the selection, which closes the sidebar. Asks first (see `pendingSidebarChange`) if the draft is invalid. */
   closeSidebar: () => void
   setSidebarInvalid: (invalid: boolean) => void
@@ -372,6 +376,7 @@ export function createGraphStore(
       updateMetadata: (id, entries) => apply(graph.updateMetadata(content(), id, entries)),
       renameElement: (id, name) => apply(graph.renameElement(content(), id, name)),
       setSelectionColor: (color) => apply(graph.setColor(content(), get().selectedNodeIds, color)),
+      setSelectionStatus: (status) => apply(graph.setStatuses(content(), get().selectedNodeIds, status)),
       setStatus: (id, status) => apply(graph.setStatus(content(), id, status)),
       setBlockReason: (id, reason) => apply(graph.setBlockReason(content(), id, reason)),
 
@@ -428,6 +433,7 @@ export function createGraphStore(
         requestSelection([], [id])
       },
       renameEdge: (id, name) => apply(graph.renameEdge(content(), id, name)),
+      setEdgeSoft: (id, soft) => apply(graph.setEdgeSoft(content(), id, soft)),
       closeSidebar: () => {
         const { selectedNodeIds, selectedEdgeIds } = get()
         if (selectedNodeIds.length + selectedEdgeIds.length > 0) requestSelection([], [])

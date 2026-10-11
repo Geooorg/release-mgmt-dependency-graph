@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useEffect, useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -178,6 +178,64 @@ describe('Sidebar', () => {
       render(<Sidebar {...makeProps({ element: null, selectionCount: 2, bulkColor: bulk({ count: 1 }) })} />)
 
       expect(screen.getByLabelText('Farbe (color) für 1 Element')).toBeInTheDocument()
+    })
+  })
+
+  describe('status of several selected objects', () => {
+    const bulk = (overrides: Partial<NonNullable<SidebarProps['bulkStatus']>> = {}) => ({
+      count: 3,
+      status: 'offen',
+      mixed: false,
+      onChange: vi.fn(),
+      ...overrides,
+    })
+    const select = () => screen.getByLabelText('Status für alle 3 Objekte')
+
+    it('offers one status field for all of them next to the hint', () => {
+      render(<Sidebar {...makeProps({ element: null, selectionCount: 4, bulkStatus: bulk({ status: 'fertig' }) })} />)
+
+      expect(screen.getByText(/4 Elemente markiert/)).toBeInTheDocument()
+      expect(select()).toHaveValue('fertig')
+      expect(within(select()).getAllByRole('option').map((o) => o.textContent)).toEqual([
+        'offen',
+        'in Arbeit',
+        'blockiert',
+        'fertig',
+      ])
+    })
+
+    it('has no status field without a status control (only groups or connections selected)', () => {
+      render(<Sidebar {...makeProps({ element: null, selectionCount: 2 })} />)
+
+      expect(screen.queryByLabelText(/Status/)).not.toBeInTheDocument()
+    })
+
+    it('shows a disabled placeholder when the statuses differ', () => {
+      render(<Sidebar {...makeProps({ element: null, selectionCount: 3, bulkStatus: bulk({ status: '', mixed: true }) })} />)
+
+      expect(select()).toHaveValue('')
+      expect(screen.getByRole('option', { name: 'verschieden' })).toBeDisabled()
+    })
+
+    it('keeps an unknown shared value as an extra option', () => {
+      render(<Sidebar {...makeProps({ element: null, selectionCount: 3, bulkStatus: bulk({ status: 'erledigt' }) })} />)
+
+      expect(select()).toHaveValue('erledigt')
+      expect(screen.getByRole('option', { name: 'erledigt (unbekannt)' })).toBeInTheDocument()
+    })
+
+    it('reports the chosen status', async () => {
+      const bulkStatus = bulk({ status: '', mixed: true })
+      render(<Sidebar {...makeProps({ element: null, selectionCount: 3, bulkStatus })} />)
+
+      await userEvent.selectOptions(select(), 'in Arbeit')
+      expect(bulkStatus.onChange).toHaveBeenCalledWith('in Arbeit')
+    })
+
+    it('says "1 Objekt" for a single object', () => {
+      render(<Sidebar {...makeProps({ element: null, selectionCount: 2, bulkStatus: bulk({ count: 1 }) })} />)
+
+      expect(screen.getByLabelText('Status für 1 Objekt')).toBeInTheDocument()
     })
   })
 
@@ -1045,6 +1103,22 @@ describe('Sidebar', () => {
       await userEvent.type(screen.getByLabelText('Name'), 'y')
       rerender(<Sidebar {...props} element={null} selectionCount={0} />)
       expect(props.onEditEnd).toHaveBeenCalledTimes(2)
+    })
+
+    it('offers a checkbox to mark the connection as an optional dependency', async () => {
+      const onSoftChange = vi.fn()
+      const { rerender } = render(<Sidebar {...makeProps({ element: edgeElement(), onSoftChange })} />)
+
+      const box = screen.getByRole('checkbox', { name: 'Optionale Abhängigkeit' })
+      expect(box).not.toBeChecked()
+      await userEvent.click(box)
+      expect(onSoftChange).toHaveBeenLastCalledWith(true)
+
+      rerender(<Sidebar {...makeProps({ element: { ...edgeElement(), soft: true }, onSoftChange })} />)
+      expect(screen.getByRole('checkbox', { name: 'Optionale Abhängigkeit' })).toBeChecked()
+      await userEvent.click(screen.getByRole('checkbox', { name: 'Optionale Abhängigkeit' }))
+      expect(onSoftChange).toHaveBeenLastCalledWith(false)
+      expect(screen.getByText(/zählt nicht zum kritischen Pfad/)).toBeInTheDocument()
     })
 
     it('starts a fresh draft when another element is opened', async () => {

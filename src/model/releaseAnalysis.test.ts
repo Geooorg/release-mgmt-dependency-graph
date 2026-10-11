@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createTranslate } from '../i18n/translate'
-import { box, content, edge, group, withStatus } from '../test/fixtures'
+import { box, content, edge, group, softEdge, withStatus } from '../test/fixtures'
 import {
   analyzeProject,
   analyzeSelection,
@@ -505,6 +505,55 @@ describe('analyzeSelection', () => {
       ['m1', 'waiting'],
       ['r1', 'waiting'],
     ])
+  })
+
+  describe('soft dependencies', () => {
+    // a -soft-> b -> c, all open
+    const chain = content([open('a'), open('b', 1), open('c', 2)], [softEdge('ab', 'a', 'b'), edge('bc', 'b', 'c')])
+
+    it('leaves soft edges out of the critical path of the project', () => {
+      expect(analyzeSelection(chain, []).criticalPath).toEqual({ nodeIds: ['c', 'b'], edgeIds: ['bc'], length: 2 })
+    })
+
+    it('ends the critical path of a selection at a soft edge, but still lists what is behind it', () => {
+      const result = analyzeSelection(chain, ['a'])
+      expect(result.criticalPath).toEqual({ nodeIds: ['a'], edgeIds: [], length: 1 })
+      expect(result.unfinished.map((u) => u.id)).toEqual(['c', 'b'])
+    })
+
+    it('still counts soft edges for waiting', () => {
+      const project = analyzeProject(chain)
+      expect(sorted(project.waitingIds)).toEqual(['a', 'b'])
+      expect(project.waitingFor.get('a')).toEqual(['b'])
+    })
+
+    it('does not see a cycle that is closed by a soft edge only', () => {
+      const model = content([open('p'), open('q', 1)], [edge('pq', 'p', 'q'), softEdge('qp', 'q', 'p')])
+      const result = analyzeSelection(model, [])
+      expect(result.cycleIds).toEqual([])
+      expect(result.criticalPath).toEqual({ nodeIds: ['q', 'p'], edgeIds: ['pq'], length: 2 })
+      expect(sorted(analyzeProject(model).waitingIds)).toEqual(['p', 'q'])
+    })
+
+    it('ignores a cycle that is only reached over a soft edge', () => {
+      const model = content(
+        [open('a'), open('p', 1), open('q', 2)],
+        [softEdge('ap', 'a', 'p'), edge('pq', 'p', 'q'), edge('qp', 'q', 'p')],
+      )
+      const result = analyzeSelection(model, ['a'])
+      expect(result.cycleIds).toEqual([])
+      expect(result.criticalPath).toEqual({ nodeIds: ['a'], edgeIds: [], length: 1 })
+      expect(analyzeSelection(model, []).criticalPath).toBeNull()
+    })
+
+    it('marks only the hard edge when a soft group edge produces the same step', () => {
+      // x -> b directly, and x -soft-> g, which contains b
+      const model = content(
+        [group('g', 0, 0, 300, 200), open('x', 400), box('b', 10, 40, 'g')],
+        [softEdge('xg', 'x', 'g'), edge('xb', 'x', 'b')],
+      )
+      expect(analyzeSelection(model, ['x']).criticalPath).toEqual({ nodeIds: ['b', 'x'], edgeIds: ['xb'], length: 2 })
+    })
   })
 
   it('treats unknown ids as no selection', () => {

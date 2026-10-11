@@ -61,6 +61,25 @@ describe('graphStore', () => {
       expect(store.getState().nodes[0].metadata.find((m) => m.key === 'color')?.value).toBe('#ff0000')
     })
 
+    it('sets one status for the selected objects (not groups) as a single undo step', () => {
+      const store = createGraphStore(content([box('a', 0, 0), box('b', 300, 0), group('g', 0, 400, 300, 200)]), counterIds())
+      store.getState().applyNodeSelection([
+        { id: 'a', selected: true },
+        { id: 'b', selected: true },
+        { id: 'g', selected: true },
+      ])
+      store.getState().setSelectionStatus('in Arbeit')
+
+      const statuses = store.getState().nodes.map((n) => n.metadata.find((m) => m.key === 'status')?.value)
+      expect(statuses).toEqual(['in Arbeit', 'in Arbeit', undefined])
+      expect(store.getState().history.past).toHaveLength(1)
+
+      store.getState().setSelectionStatus('in Arbeit')
+      expect(store.getState().history.past).toHaveLength(1)
+      store.getState().undo()
+      expect(store.getState().nodes.every((n) => n.metadata.every((m) => m.key !== 'status'))).toBe(true)
+    })
+
     it('grows a group when an object is dropped into it, as part of the drop', () => {
       const store = createGraphStore(content([group('g', 0, 0, 300, 200), box('a', 200, 150)]), counterIds())
       store.getState().finishDrag(['a'])
@@ -885,6 +904,25 @@ describe('graphStore', () => {
       const store = withEdge()
       store.getState().renameEdge('e', '   ')
       expect(store.getState().history.past).toHaveLength(0)
+    })
+
+    it('marks an edge as a soft dependency and back, one undo step each, keeping the name', () => {
+      const store = withEdge()
+      const s = () => store.getState()
+      s().renameEdge('e', 'braucht')
+      s().setEdgeSoft('e', true)
+      expect(s().edges[0].metadata).toEqual([
+        { key: 'name', value: 'braucht' },
+        { key: 'optional', value: 'ja' },
+      ])
+      s().setEdgeSoft('e', true)
+      expect(s().history.past).toHaveLength(2)
+      s().renameEdge('e', 'kann')
+      expect(s().edges[0].metadata?.[1]).toEqual({ key: 'optional', value: 'ja' })
+      s().setEdgeSoft('e', false)
+      expect(s().edges[0].metadata).toEqual([{ key: 'name', value: 'kann' }])
+      s().undo()
+      expect(s().edges[0].metadata?.[1]).toEqual({ key: 'optional', value: 'ja' })
     })
 
     it('closes the edge sidebar when the edge is deleted or undone away', () => {

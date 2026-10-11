@@ -250,6 +250,7 @@ function Legend() {
         ))}
       </ul>
       <p className="analysis-hint">{t('analysis.legend.groups')}</p>
+      <p className="analysis-hint">{t('analysis.legend.soft')}</p>
     </details>
   )
 }

@@ -37,6 +37,11 @@ export function edge(id: string, source: string, target: string): ModelEdge {
   return { id, source, target }
 }
 
+/** An edge marked as a soft (optional) dependency. */
+export function softEdge(id: string, source: string, target: string): ModelEdge {
+  return { id, source, target, metadata: [{ key: 'name', value: '' }, { key: 'optional', value: 'ja' }] }
+}
+
 export function content(nodes: ModelNode[], edges: ModelEdge[] = []): GraphContent {
   return { nodes, edges }
 }

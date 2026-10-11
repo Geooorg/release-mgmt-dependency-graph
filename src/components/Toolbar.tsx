@@ -163,28 +163,97 @@ export function Toolbar({
 
       <Separator />
 
-      {mode === 'build' ? (
-        <div className="toolbar__tools">
-          <Section label={t('toolbar.section.create')}>
-            <div className="tool-switch" role="group" aria-label={t('toolbar.tool.group')}>
-              {TOOLS.map(({ value, labelKey, nameKey, titleKey, icon, shortcut }) => (
-                <Tooltip key={value} text={t(titleKey)} shortcut={shortcut}>
+      {/* Main column: first row = tools / analysis, cycles, search; second row (build mode) = editing actions. */}
+      <div className="toolbar__main">
+        <div className="toolbar__row">
+          {mode === 'build' ? (
+            <Section label={t('toolbar.section.create')}>
+              <div className="tool-switch" role="group" aria-label={t('toolbar.tool.group')}>
+                {TOOLS.map(({ value, labelKey, nameKey, titleKey, icon, shortcut }) => (
+                  <Tooltip key={value} text={t(titleKey)} shortcut={shortcut}>
+                    <button
+                      type="button"
+                      className="ui-button"
+                      aria-label={t(nameKey)}
+                      aria-pressed={tool === value}
+                      onClick={() => onToolChange(value)}
+                    >
+                      {icon}
+                      <span className="tool-switch__label">{t(labelKey)}</span>
+                    </button>
+                  </Tooltip>
+                ))}
+              </div>
+            </Section>
+          ) : (
+            <Section label={t('toolbar.section.analysis')}>
+              <Tooltip text={t('toolbar.highlight.help')}>
+                <label className="toolbar__field">
+                  <span>{t('toolbar.highlight.label')}</span>
+                  <select
+                    className="ui-input toolbar__select"
+                    value={highlight}
+                    onChange={(event) => onHighlightChange(event.target.value as Highlight)}
+                  >
+                    {HIGHLIGHTS.map(({ value, labelKey }) => (
+                      <option key={value} value={value}>
+                        {t(labelKey)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </Tooltip>
+              {dependencyHighlight && selectionEmpty && (
+                <span className="toolbar__hint" role="status">
+                  {t('toolbar.highlight.pick')}
+                </span>
+              )}
+              <Tooltip text={t('toolbar.panel.title')}>
+                <button type="button" className="ui-button" aria-pressed={panelVisible} onClick={onTogglePanel}>
+                  {t('toolbar.panel')}
+                </button>
+              </Tooltip>
+            </Section>
+          )}
+
+          {cycleCount > 0 && (
+            <>
+              <Separator />
+              <Section label={t('toolbar.section.cycles')}>
+                <Tooltip text={t('toolbar.cycles.title')}>
                   <button
                     type="button"
-                    className="ui-button"
-                    aria-label={t(nameKey)}
-                    aria-pressed={tool === value}
-                    onClick={() => onToolChange(value)}
+                    className="ui-button ui-button--cycle"
+                    aria-label={t.plural('cycle.count', cycleCount)}
+                    onClick={onFocusCycle}
                   >
-                    {icon}
-                    <span className="tool-switch__label">{t(labelKey)}</span>
+                    <CycleIcon />
+                    <span>{cycleCount}</span>
+                    <span className="cycle-button__word"> {cycleWord}</span>
                   </button>
                 </Tooltip>
-              ))}
-            </div>
-          </Section>
+              </Section>
+            </>
+          )}
 
-          {/* Second row, left-aligned with the first tool button. */}
+          <Separator />
+
+          <Section label={t('toolbar.section.search')}>
+            <Tooltip text={t('toolbar.search.title')}>
+              <button
+                type="button"
+                className="ui-button ui-button--tool"
+                aria-label={t('toolbar.search')}
+                aria-pressed={searchOpen}
+                onClick={onToggleSearch}
+              >
+                <SearchIcon />
+              </button>
+            </Tooltip>
+          </Section>
+        </div>
+
+        {mode === 'build' && (
           <div className="toolbar__edit">
             <Section label={t('toolbar.section.groups')}>
               <Tooltip text={t('toolbar.group.title')} hint={canGroup ? undefined : t('toolbar.group.hint')}>
@@ -209,6 +278,44 @@ export function Toolbar({
                   <UngroupIcon />
                 </button>
               </Tooltip>
+            </Section>
+
+            <Separator />
+
+            {/* Delete sits right next to paste (no separator), apart from undo/redo. */}
+            <div className="toolbar__cluster">
+              <Section label={t('toolbar.section.clipboard')}>
+                <Tooltip
+                  text={t('toolbar.copy.title')}
+                  shortcut={t('shortcut.copy')}
+                  hint={canCopy ? undefined : t('toolbar.copy.hint')}
+                >
+                  <button
+                    type="button"
+                    className="ui-button ui-button--tool"
+                    aria-label={t('toolbar.copy')}
+                    disabled={!canCopy}
+                    onClick={onCopy}
+                  >
+                    <CopyIcon />
+                  </button>
+                </Tooltip>
+                <Tooltip
+                  text={t('toolbar.paste.title')}
+                  shortcut={t('shortcut.paste')}
+                  hint={canPaste ? undefined : t('toolbar.paste.hint')}
+                >
+                  <button
+                    type="button"
+                    className="ui-button ui-button--tool"
+                    aria-label={t('toolbar.paste')}
+                    disabled={!canPaste}
+                    onClick={onPaste}
+                  >
+                    <PasteIcon />
+                  </button>
+                </Tooltip>
+              </Section>
               <Tooltip
                 text={t('toolbar.delete.title')}
                 shortcut={t('shortcut.delete')}
@@ -224,42 +331,7 @@ export function Toolbar({
                   <TrashIcon />
                 </button>
               </Tooltip>
-            </Section>
-
-            <Separator />
-
-            <Section label={t('toolbar.section.clipboard')}>
-              <Tooltip
-                text={t('toolbar.copy.title')}
-                shortcut={t('shortcut.copy')}
-                hint={canCopy ? undefined : t('toolbar.copy.hint')}
-              >
-                <button
-                  type="button"
-                  className="ui-button ui-button--tool"
-                  aria-label={t('toolbar.copy')}
-                  disabled={!canCopy}
-                  onClick={onCopy}
-                >
-                  <CopyIcon />
-                </button>
-              </Tooltip>
-              <Tooltip
-                text={t('toolbar.paste.title')}
-                shortcut={t('shortcut.paste')}
-                hint={canPaste ? undefined : t('toolbar.paste.hint')}
-              >
-                <button
-                  type="button"
-                  className="ui-button ui-button--tool"
-                  aria-label={t('toolbar.paste')}
-                  disabled={!canPaste}
-                  onClick={onPaste}
-                >
-                  <PasteIcon />
-                </button>
-              </Tooltip>
-            </Section>
+            </div>
 
             <Separator />
 
@@ -296,75 +368,8 @@ export function Toolbar({
               </Tooltip>
             </Section>
           </div>
-        </div>
-      ) : (
-        <Section label={t('toolbar.section.analysis')}>
-          <Tooltip text={t('toolbar.highlight.help')}>
-            <label className="toolbar__field">
-              <span>{t('toolbar.highlight.label')}</span>
-              <select
-                className="ui-input toolbar__select"
-                value={highlight}
-                onChange={(event) => onHighlightChange(event.target.value as Highlight)}
-              >
-                {HIGHLIGHTS.map(({ value, labelKey }) => (
-                  <option key={value} value={value}>
-                    {t(labelKey)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </Tooltip>
-          {dependencyHighlight && selectionEmpty && (
-            <span className="toolbar__hint" role="status">
-              {t('toolbar.highlight.pick')}
-            </span>
-          )}
-          <Tooltip text={t('toolbar.panel.title')}>
-            <button type="button" className="ui-button" aria-pressed={panelVisible} onClick={onTogglePanel}>
-              {t('toolbar.panel')}
-            </button>
-          </Tooltip>
-        </Section>
-      )}
-
-      {cycleCount > 0 && (
-        <>
-          <Separator />
-          <Section label={t('toolbar.section.cycles')}>
-            <Tooltip text={t('toolbar.cycles.title')}>
-              <button
-                type="button"
-                className="ui-button ui-button--cycle"
-                aria-label={t.plural('cycle.count', cycleCount)}
-                onClick={onFocusCycle}
-              >
-                <CycleIcon />
-                <span>{cycleCount}</span>
-                <span className="cycle-button__word"> {cycleWord}</span>
-              </button>
-            </Tooltip>
-          </Section>
-        </>
-      )}
-
-      <Separator />
-
-      <Section label={t('toolbar.section.search')}>
-        <Tooltip text={t('toolbar.search.title')}>
-          <button
-            type="button"
-            className="ui-button ui-button--tool"
-            aria-label={t('toolbar.search')}
-            aria-pressed={searchOpen}
-            onClick={onToggleSearch}
-          >
-            <SearchIcon />
-          </button>
-        </Tooltip>
-      </Section>
-
-      <span className="toolbar__spacer" />
+        )}
+      </div>
 
       {/* Sticky: stays reachable when a narrow window scrolls the toolbar sideways. */}
       <div className="toolbar__file">
@@ -386,6 +391,7 @@ export function Toolbar({
                 <BracesIcon />
               </button>
             </Tooltip>
+            <Separator />
             <Tooltip text={t('toolbar.import.title')}>
               <button type="button" className="ui-button" onClick={onImport}>
                 {t('toolbar.import')}
@@ -403,18 +409,8 @@ export function Toolbar({
             </Tooltip>
           </Section>
 
-          {/* Second row, left-aligned below Export. */}
+          {/* Second row, right-aligned: language, then help at the far right. */}
           <div className="toolbar__file-extra">
-            <Tooltip text={t('toolbar.help.title')}>
-              <button
-                type="button"
-                className="ui-button ui-button--tool"
-                aria-label={t('toolbar.help')}
-                onClick={onHelp}
-              >
-                <HelpIcon />
-              </button>
-            </Tooltip>
             <Tooltip text={t('toolbar.language.title')}>
               <select
                 className="ui-input toolbar__select toolbar__language"
@@ -428,6 +424,16 @@ export function Toolbar({
                   </option>
                 ))}
               </select>
+            </Tooltip>
+            <Tooltip text={t('toolbar.help.title')}>
+              <button
+                type="button"
+                className="ui-button ui-button--tool"
+                aria-label={t('toolbar.help')}
+                onClick={onHelp}
+              >
+                <HelpIcon />
+              </button>
             </Tooltip>
           </div>
         </div>

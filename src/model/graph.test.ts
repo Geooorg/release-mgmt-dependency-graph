@@ -10,6 +10,7 @@ import {
   findGroupAtPoint,
   setBlockReason,
   setStatus,
+  setStatuses,
   getAbsolutePosition,
   getAncestorIds,
   getSize,
@@ -21,6 +22,7 @@ import {
   sortParentsFirst,
   ungroup,
   renameEdge,
+  setEdgeSoft,
   reconnectEdge,
   checkReconnection,
   renameElement,
@@ -1123,6 +1125,40 @@ describe('findGroupAtPoint', () => {
   })
 })
 
+describe('setStatuses', () => {
+  const blocked = node('b', 300, 0, {
+    metadata: [
+      { key: 'name', value: 'B' },
+      { key: 'status', value: 'blockiert' },
+      { key: 'blockiert_grund', value: 'Freigabe fehlt' },
+    ],
+  })
+
+  it('sets the status of all listed objects in one change and skips groups', () => {
+    const c = content([node('a', 0, 0), blocked, group('g', 0, 400, 300, 200)])
+    const next = setStatuses(c, ['a', 'b', 'g'], 'fertig')
+    const status = (id: string) => find(next, id).metadata.find((m) => m.key === 'status')?.value
+    expect([status('a'), status('b'), status('g')]).toEqual(['fertig', 'fertig', undefined])
+    expect(find(next, 'b').metadata.some((m) => m.key === 'blockiert_grund')).toBe(false)
+    expect(find(next, 'g')).toBe(find(c, 'g'))
+  })
+
+  it('keeps references of objects that already have the status', () => {
+    const done = node('d', 0, 0, { metadata: [{ key: 'name', value: 'D' }, { key: 'status', value: 'fertig' }] })
+    const c = content([done, node('a', 100, 0)])
+    const next = setStatuses(c, ['d', 'a'], 'fertig')
+    expect(find(next, 'd')).toBe(done)
+    expect(find(next, 'a').metadata).toContainEqual({ key: 'status', value: 'fertig' })
+  })
+
+  it('returns the same content when nothing changes', () => {
+    const c = content([group('g', 0, 0, 100, 100), blocked])
+    expect(setStatuses(c, ['g', 'nope'], 'fertig')).toBe(c)
+    expect(setStatuses(c, ['b'], 'blockiert')).toBe(c)
+    expect(setStatuses(c, [], 'fertig')).toBe(c)
+  })
+})
+
 describe('setStatus', () => {
   it('adds a canonical status entry after name and colour', () => {
     const a = node('a', 0, 0, {
@@ -1432,6 +1468,58 @@ describe('renameEdge', () => {
     const before = JSON.stringify(base)
     renameEdge(base, 'e1', 'x')
     expect(JSON.stringify(base)).toBe(before)
+  })
+})
+
+describe('setEdgeSoft', () => {
+  const base: GraphContent = {
+    nodes: [node('a', 0, 0), node('b', 300, 0)],
+    edges: [
+      { id: 'e1', source: 'a', target: 'b', sourceHandle: 'right' },
+      { id: 'e2', source: 'b', target: 'a', metadata: [{ key: 'name', value: 'x' }, { key: 'owner', value: 'Anna' }] },
+    ],
+  }
+
+  it('marks an unnamed edge with `optional: ja` after an empty name, keeping everything else', () => {
+    const next = setEdgeSoft(base, 'e1', true)
+    expect(next.edges[0]).toEqual({
+      id: 'e1',
+      source: 'a',
+      target: 'b',
+      sourceHandle: 'right',
+      metadata: [{ key: 'name', value: '' }, { key: 'optional', value: 'ja' }],
+    })
+    expect(next.edges[1]).toBe(base.edges[1])
+  })
+
+  it('puts the entry right after the name of a named edge', () => {
+    expect(setEdgeSoft(base, 'e2', true).edges[1].metadata).toEqual([
+      { key: 'name', value: 'x' },
+      { key: 'optional', value: 'ja' },
+      { key: 'owner', value: 'Anna' },
+    ])
+  })
+
+  it('removes the entry again, and the metadata field when nothing is left', () => {
+    const soft = setEdgeSoft(base, 'e1', true)
+    expect('metadata' in setEdgeSoft(soft, 'e1', false).edges[0]).toBe(false)
+    const softNamed = setEdgeSoft(base, 'e2', true)
+    expect(setEdgeSoft(softNamed, 'e2', false).edges[1].metadata).toEqual(base.edges[1].metadata)
+  })
+
+  it('replaces an unrecognised value', () => {
+    const odd: GraphContent = { ...base, edges: [{ ...base.edges[0], metadata: [{ key: 'name', value: '' }, { key: 'Optional', value: 'nein' }] }] }
+    expect(setEdgeSoft(odd, 'e1', true).edges[0].metadata).toEqual([
+      { key: 'name', value: '' },
+      { key: 'optional', value: 'ja' },
+    ])
+  })
+
+  it('returns the same content for unknown edges or no actual change', () => {
+    expect(setEdgeSoft(base, 'nope', true)).toBe(base)
+    expect(setEdgeSoft(base, 'e1', false)).toBe(base)
+    const soft = setEdgeSoft(base, 'e1', true)
+    expect(setEdgeSoft(soft, 'e1', true)).toBe(soft)
   })
 })
 

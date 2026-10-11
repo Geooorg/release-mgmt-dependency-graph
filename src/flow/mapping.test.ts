@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createTranslate } from '../i18n/translate'
 import { analyzeProject } from '../model/releaseAnalysis'
-import { box, content, edge, group, withStatus } from '../test/fixtures'
+import { box, content, edge, group, softEdge, withStatus } from '../test/fixtures'
 import { toFlowEdges, toFlowNodes } from './mapping'
 
 const nodes = [box('a', 0, 0), box('b', 400, 0), box('c', 0, 400)]
@@ -70,6 +70,32 @@ describe('toFlowEdges cycles', () => {
   it('shows a selected cycle edge in a darker purple', () => {
     const [flow] = toFlowEdges([edge('cycsel', 'a', 'b')], new Set(['cycsel']), none, nodes, cycleIds)
     expect(flow.style).toMatchObject({ stroke: '#6b21a8', strokeDasharray: '6 4' })
+  })
+})
+
+describe('toFlowEdges soft dependencies', () => {
+  it('draws soft edges dotted with round caps, scaled to the stroke width', () => {
+    const [soft, plain] = toFlowEdges([softEdge('s', 'a', 'b'), edge('plain', 'b', 'c')], none, none, nodes)
+    expect(soft.style).toMatchObject({ stroke: '#2563eb', strokeWidth: 2, strokeDasharray: '1 6', strokeLinecap: 'round' })
+    expect(plain.style?.strokeLinecap).toBeUndefined()
+    const [highlighted] = toFlowEdges([softEdge('s', 'a', 'b')], none, new Set(['s']), nodes)
+    expect(highlighted.style).toMatchObject({ strokeWidth: 6, strokeDasharray: '1 18' })
+  })
+
+  it('keeps the dots in a cycle, in the cycle colour', () => {
+    const [flow] = toFlowEdges([softEdge('s', 'a', 'b')], none, none, nodes, new Set(['s']))
+    expect(flow.style).toMatchObject({ stroke: '#9333ea', strokeWidth: 3, strokeDasharray: '1 9' })
+  })
+
+  it('names the connection optional in its accessible label', () => {
+    const named = [
+      { ...box('a', 0, 0), metadata: [{ key: 'name', value: 'Alpha' }] },
+      { ...box('b', 400, 0), metadata: [{ key: 'name', value: 'Beta' }] },
+    ]
+    const [de] = toFlowEdges([softEdge('s', 'a', 'b')], none, none, named)
+    const [en] = toFlowEdges([softEdge('s', 'a', 'b')], none, none, named, none, createTranslate('en'))
+    expect(de.ariaLabel).toBe('Optionale Verbindung von Alpha nach Beta')
+    expect(en.ariaLabel).toBe('Optional connection from Alpha to Beta')
   })
 })
 

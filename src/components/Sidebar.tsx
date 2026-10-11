@@ -16,6 +16,7 @@ import { COLOR_KEY, DEFAULT_COLOR, NAME_KEY } from '../model/types'
 import type { MetadataEntry } from '../model/types'
 import type { SidebarElement, SidebarProps } from './props'
 import { SidebarBulkColor } from './SidebarBulkColor'
+import { SidebarBulkStatus } from './SidebarBulkStatus'
 import { SidebarEdgeForm } from './SidebarEdgeForm'
 import { useEditGesture, useReportInvalid } from './useSidebarEffects'
 import './components.css'
@@ -340,7 +341,7 @@ function SidebarForm({
   )
 }
 
-export function Sidebar({ element, selectionCount, bulkColor, hidden, ...handlers }: SidebarProps) {
+export function Sidebar({ element, selectionCount, bulkColor, bulkStatus, hidden, ...handlers }: SidebarProps) {
   const t = useT()
   if (element === null) {
     if (selectionCount < 2) return null
@@ -364,6 +365,7 @@ export function Sidebar({ element, selectionCount, bulkColor, hidden, ...handler
           {bulkColor && (
             <SidebarBulkColor {...bulkColor} onEditStart={handlers.onEditStart} onEditEnd={handlers.onEditEnd} />
           )}
+          {bulkStatus && <SidebarBulkStatus {...bulkStatus} />}
         </div>
       </aside>
     )

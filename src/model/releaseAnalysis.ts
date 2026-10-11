@@ -3,6 +3,7 @@ import { stronglyConnectedComponents } from './cycles'
 import { buildEffectiveGraph, type EffectiveGraph } from './effectiveGraph'
 import { displayName } from './metadata'
 import { DEFAULT_PROJECT_NAME } from './projectName'
+import { isSoftEdge } from './softDependency'
 import { getBlockReason, getStatusInfo, STATUS_LABEL_KEYS, type Status, type StatusInfo } from './status'
 import type { GraphContent, ModelNode } from './types'
 
@@ -25,6 +26,9 @@ import type { GraphContent, ModelNode } from './types'
  * Only objects (`kind: 'node'`) carry a status and count as work. A group without objects is a
  * vertex of the graph (its edges must not get lost) but has no work of its own, so it is
  * transparent: never unfinished, never blocked or waiting, not counted, and looked through.
+ *
+ * Soft (optional) edges count like any other edge, except for the critical path: it follows the hard
+ * edges only, so a cycle closed or reached by a soft edge does not make it undefined either.
  */
 
 export interface StatusCounts {
@@ -108,9 +112,12 @@ export interface SelectionAnalysis {
   selectedBlocked: string[]
   /** The selection itself is finished (so its prerequisites are not looked at); never true in `project` scope. */
   selectionFinished: boolean
-  /** Null when the relevant part contains a cycle of unfinished objects (the longest chain is not defined then). */
+  /**
+   * Along hard edges only (soft ones are left out). Null when the part reached that way contains a
+   * cycle of unfinished objects (the longest chain is not defined then).
+   */
   criticalPath: CriticalPath | null
-  /** Objects of the cycles that consist of unfinished objects (and empty groups) in the relevant graph; empty if there are none. */
+  /** Objects of the cycles of unfinished objects (and empty groups) that leave the critical path undefined; empty if there are none. */
   cycleIds: string[]
   /** Objects of the relevant graph (selection and its unfinished prerequisites) whose status value is unknown (they count as `offen`). */
   unknownStatus: { id: string; raw: string }[]
@@ -350,6 +357,29 @@ function openCycleMembers(p: Prepared): number[] {
 }
 
 /**
+ * Shortest distance from the starts (-1 = not reached), never expanding a finished object; `below`
+ * marks vertices reached by one or more steps.
+ */
+function reach(p: Prepared, starts: readonly number[]): { distance: number[]; below: boolean[] } {
+  const distance = new Array<number>(p.succ.length).fill(-1)
+  const below = p.succ.map(() => false)
+  const queue = [...starts]
+  starts.forEach((s) => (distance[s] = 0))
+  for (let head = 0; head < queue.length; head++) {
+    const v = queue[head]
+    if (p.done[v]) continue
+    for (const w of p.succ[v]) {
+      below[w] = true
+      if (distance[w] === -1) {
+        distance[w] = distance[v] + 1
+        queue.push(w)
+      }
+    }
+  }
+  return { distance, below }
+}
+
+/**
  * What stands between the selection and its release: unfinished transitive prerequisites and the
  * critical path (the longest chain of consecutive unfinished objects). The walk stops at finished
  * objects, also at a finished selection. A selected group starts at all its members. Nothing
@@ -367,23 +397,8 @@ export function analyzeSelection(content: GraphContent, startIds: readonly strin
   const whole = startSet.size === 0
   const starts = whole ? vertices.map((_, i) => i) : [...startSet].sort((a, b) => a - b)
 
-  // Shortest distance from the starts, never expanding a finished object; `below` marks vertices
-  // reached by one or more steps.
-  const distance = new Array<number>(vertices.length).fill(-1)
-  const below = vertices.map(() => false)
-  const queue = [...starts]
-  starts.forEach((s) => (distance[s] = 0))
-  for (let head = 0; head < queue.length; head++) {
-    const v = queue[head]
-    if (p.done[v]) continue
-    for (const w of p.succ[v]) {
-      below[w] = true
-      if (distance[w] === -1) {
-        distance[w] = distance[v] + 1
-        queue.push(w)
-      }
-    }
-  }
+  const reached = reach(p, starts)
+  const { distance } = reached
 
   const depth = chainDepths(p)
   const stateOf = (i: number): WorkState => (p.manual[i] ? 'blocked' : p.waiting[i] ? 'waiting' : 'ready')
@@ -407,15 +422,19 @@ export function analyzeSelection(content: GraphContent, startIds: readonly strin
     return index !== undefined && p.manual[index]
   })
 
-  const cycleIds = openCycleMembers(p)
-    .filter((i) => distance[i] !== -1)
+  // Same vertices in the same order as `p`, so the indices carry over.
+  const hardEdges = content.edges.filter((e) => !isSoftEdge(e))
+  const hard = hardEdges.length === content.edges.length ? p : prepare({ ...content, edges: hardEdges })
+  const hardReach = hard === p ? reached : reach(hard, starts)
+  const cycleIds = openCycleMembers(hard)
+    .filter((i) => hardReach.distance[i] !== -1)
     .map((i) => vertices[i])
 
   let criticalPath: CriticalPath | null = null
   if (cycleIds.length === 0) {
     // A start that another start depends on is covered by that start's chain.
-    const roots = starts.filter((s) => !below[s])
-    criticalPath = longestChain(p, depth, roots.length > 0 ? roots : starts)
+    const roots = starts.filter((s) => !hardReach.below[s])
+    criticalPath = longestChain(hard, hard === p ? depth : chainDepths(hard), roots.length > 0 ? roots : starts)
   }
 
   const unknownStatus = vertices.flatMap((id, i) => {

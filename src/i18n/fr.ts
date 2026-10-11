@@ -16,10 +16,10 @@ export const fr: Catalog = {
     '- « Regrouper » rassemble les objets sélectionnés d’un même niveau en un groupe (sous-graphe) ; « Dissoudre le groupe » supprime le groupe, son contenu est conservé.\n- Quand vous déposez un objet ou un groupe dans un groupe, celui-ci s’agrandit.\n- Un double-clic sur un nom renomme directement l’élément (Entrée valide, Échap annule).\n- « Supprimer » (Suppr) supprime les objets et liaisons sélectionnés ; les groupes sont seulement dissous.\n- Pour sélectionner plusieurs éléments : Ctrl/Cmd + clic, ou tracer un cadre en maintenant Maj.',
   'help.connect.title': 'Liaisons',
   'help.connect.body':
-    'Une flèche A → B signifie « A dépend de B » : B doit être terminé en premier.\n- Avec l’outil « Relier », cliquez d’abord sur la source, puis sur la cible.\n- Vous pouvez aussi faire glisser un connecteur au bord d’un objet vers un autre élément ; relâcher n’importe où sur l’objet suffit.\n- Les extrémités d’une liaison existante peuvent être déplacées vers d’autres connecteurs ou éléments (pas en mode analyse).\n- Impossible : liaison d’un élément avec lui-même, liaisons en double, liaisons entre un groupe et son propre contenu.\n- Une liaison depuis ou vers un groupe vaut pour tous ses membres (y compris imbriqués).\n- Vous pouvez sélectionner une liaison et lui donner une légende dans la barre latérale.',
+    'Une flèche A → B signifie « A dépend de B » : B doit être terminé en premier.\n- Avec l’outil « Relier », cliquez d’abord sur la source, puis sur la cible.\n- Vous pouvez aussi faire glisser un connecteur au bord d’un objet vers un autre élément ; relâcher n’importe où sur l’objet suffit.\n- Les extrémités d’une liaison existante peuvent être déplacées vers d’autres connecteurs ou éléments (pas en mode analyse).\n- Impossible : liaison d’un élément avec lui-même, liaisons en double, liaisons entre un groupe et son propre contenu.\n- Une liaison depuis ou vers un groupe vaut pour tous ses membres (y compris imbriqués).\n- Vous pouvez sélectionner une liaison et lui donner une légende dans la barre latérale.\n- La case « Dépendance facultative » de la barre latérale fait d’une liaison une dépendance facultative (soft dependency) : elle est tracée en pointillés et exclue du chemin critique. Elle compte toujours pour « en attente », les prérequis et les cycles.',
   'help.sidebar.title': 'Barre latérale et métadonnées',
   'help.sidebar.body':
-    '- La barre latérale suit la sélection et applique immédiatement chaque modification valide ; il n’y a pas d’enregistrement séparé. Chaque modification de champ est une étape pour « Annuler ».\n- Les métadonnées forment une liste ordonnée de clés et de valeurs ; la première entrée est le nom. Un nom de champ ne peut pas apparaître deux fois.\n- La couleur se définit par élément ; si plusieurs éléments sont sélectionnés, le champ de couleur l’applique à tous.\n- L’ID d’un élément est créé une seule fois et ne peut pas être modifié.',
+    '- La barre latérale suit la sélection et applique immédiatement chaque modification valide ; il n’y a pas d’enregistrement séparé. Chaque modification de champ est une étape pour « Annuler ».\n- Les métadonnées forment une liste ordonnée de clés et de valeurs ; la première entrée est le nom. Un nom de champ ne peut pas apparaître deux fois.\n- La couleur se définit par élément ; si plusieurs éléments sont sélectionnés, le champ de couleur l’applique à tous et le champ de statut définit le statut de tous les objets sélectionnés (les groupes n’ont pas de statut).\n- L’ID d’un élément est créé une seule fois et ne peut pas être modifié.',
   'help.status.title': 'Statut',
   'help.status.body':
     'Chaque objet a l’un des quatre statuts : ouvert, en cours, bloqué ou terminé. Sans statut, « ouvert » s’applique.\n- Vous définissez « bloqué » à la main (drapeau rouge), éventuellement avec un motif.\n- Le sablier « en attente » est calculé : l’objet n’est pas terminé et a un prérequis direct qui n’est pas encore terminé.\n- Les groupes déduisent leur statut de leurs membres.\n- « terminé » est définitif : ce qui se trouve derrière n’est plus analysé.\n- Une valeur inconnue est conservée, marquée d’un « ? » et compte comme ouverte.',
@@ -161,6 +161,7 @@ export const fr: Catalog = {
   'flow.node.description': 'Entrée ou Espace sélectionne l’élément ; les flèches le déplacent ensuite, Échap annule.',
   'flow.node.moved': 'Élément sélectionné déplacé. Nouvelle position : x {x}, y {y}',
   'flow.edge.label': 'Connexion de {source} vers {target}',
+  'flow.edge.label.soft': 'Connexion facultative de {source} vers {target}',
   'flow.edge.description': 'Entrée ou Espace sélectionne la connexion ; Échap annule.',
   'cycleBadge.label': 'Fait partie d’un cycle',
   'projectTitle.label': 'Nom du projet',
@@ -186,9 +187,14 @@ export const fr: Catalog = {
   'sidebar.field.uuid': 'UUID',
   'sidebar.field.readonly': 'non modifiable',
   'sidebar.field.name': 'Nom',
+  'sidebar.field.soft': 'Dépendance facultative',
+  'sidebar.soft.hint': 'Tracée en pointillés ; exclue du chemin critique. Enregistrée comme métadonnée « optional: ja ».',
   'sidebar.field.color': 'Couleur (color)',
   'sidebar.bulkColor_one': 'Couleur (color) pour {count} élément',
   'sidebar.bulkColor_other': 'Couleur (color) pour les {count} éléments',
+  'sidebar.bulkStatus_one': 'Statut pour {count} objet',
+  'sidebar.bulkStatus_other': 'Statut pour les {count} objets',
+  'sidebar.bulkStatus.mixed': 'différents',
   'sidebar.color.default': 'Par défaut',
   'sidebar.color.mixed': 'différentes',
   'sidebar.color.reset': 'Réinitialiser',
@@ -263,6 +269,7 @@ export const fr: Catalog = {
   'analysis.legend.progress': 'Demi-cercle : en cours',
   'analysis.legend.open': 'Cercle gris : ouvert (aussi sans statut défini)',
   'analysis.legend.unknown': '« ? » : statut inconnu – compte comme ouvert',
+  'analysis.legend.soft': 'Liaison en pointillés : dépendance facultative – exclue du chemin critique.',
   'analysis.legend.groups': 'Pour les groupes, le drapeau et le sablier figurent dans le titre lorsqu’un membre est concerné.',
   'analysis.md.title': 'Analyse de release : {project} – {target}',
   'analysis.md.count': '- {label} : {count}',
@@ -336,7 +343,7 @@ export const fr: Catalog = {
   'agent.model.group': 'Groupe : <c>{shape}</c>',
   'agent.edge.example': 'nécessite',
   'agent.model.edge':
-    'Liaison : <c>{shape}</c> (la flèche pointe vers target ; source/target peuvent être des groupes). <c>metadata</c> est facultatif, comme pour les objets : l’entrée <c>name</c> est la légende de la liaison, p. ex. <c>{example}</c>. Les anciens fichiers avec <c>version: 1</c> et <c>label</c> sont toujours importés.',
+    'Liaison : <c>{shape}</c> (la flèche pointe vers target ; source/target peuvent être des groupes). <c>metadata</c> est facultatif, comme pour les objets : l’entrée <c>name</c> est la légende de la liaison, p. ex. <c>{example}</c>. L’entrée <c>{"key":"optional","value":"ja"}</c> en fait une dépendance facultative (en pointillés, hors chemin critique). Les anciens fichiers avec <c>version: 1</c> et <c>label</c> sont toujours importés.',
   'agent.model.children':
     'Les enfants renvoient à leur groupe par <c>parentId</c> ; leur <c>position</c> est RELATIVE au groupe.',
   'agent.model.order': 'Les groupes doivent figurer dans le tableau AVANT leurs enfants.',

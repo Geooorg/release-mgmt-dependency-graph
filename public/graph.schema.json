@@ -107,7 +107,7 @@
         "sourceHandle": { "enum": ["top", "right", "bottom", "left"] },
         "targetHandle": { "enum": ["top", "right", "bottom", "left"] },
         "metadata": {
-          "description": "Optional, wie bei Objekten und Gruppen: der Eintrag name ist die Beschriftung der Verbindung. Ohne Beschriftung wird das Feld weggelassen.",
+          "description": "Optional, wie bei Objekten und Gruppen: der Eintrag name ist die Beschriftung der Verbindung, der Eintrag optional mit dem Wert ja macht sie zur optionalen Abhängigkeit (soft dependency, zählt nicht zum kritischen Pfad). Ohne Beschriftung und weitere Einträge wird das Feld weggelassen.",
           "type": "array",
           "items": { "$ref": "#/$defs/metadataEntry" }
         }

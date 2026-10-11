@@ -75,7 +75,7 @@ describe('Toolbar', () => {
     ]) {
       expect(screen.getByRole('button', { name: label })).toHaveAttribute('type', 'button')
     }
-    expect(screen.getAllByRole('separator')).toHaveLength(5)
+    expect(screen.getAllByRole('separator')).toHaveLength(6)
   })
 
   it('puts help and the language switch in a second row below Export', () => {
@@ -86,6 +86,27 @@ describe('Toolbar', () => {
     expect(screen.getByRole('button', { name: 'Hilfe' }).closest('.toolbar__file-body')).toBe(exportBody)
     expect(screen.getByRole('combobox', { name: 'Sprache' }).closest('.toolbar__file-body')).toBe(exportBody)
     expect(screen.getByRole('button', { name: 'Hilfe' }).closest('.toolbar__file-extra')).not.toBeNull()
+  })
+
+  it('puts the language switch left of the help button, which is last', () => {
+    render(<Toolbar {...makeProps()} />)
+
+    const extra = screen.getByRole('button', { name: 'Hilfe' }).closest('.toolbar__file-extra') as HTMLElement
+    const controls = within(extra).getAllByRole('combobox').concat(within(extra).getAllByRole('button'))
+    expect(controls.map((el) => el.getAttribute('aria-label'))).toEqual(['Sprache', 'Hilfe'])
+    expect(extra.lastElementChild).toContainElement(screen.getByRole('button', { name: 'Hilfe' }))
+  })
+
+  it('puts delete right of paste, before undo and redo', () => {
+    render(<Toolbar {...makeProps()} />)
+
+    const del = screen.getByRole('button', { name: 'Löschen' })
+    const paste = screen.getByRole('button', { name: 'Einfügen' })
+    expect(paste.compareDocumentPosition(del)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(del.compareDocumentPosition(screen.getByRole('group', { name: 'Verlauf' }))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+    expect(screen.getByRole('group', { name: 'Gruppen' })).not.toContainElement(del)
   })
 
   it('offers the languages in their own names and reports a change', async () => {
@@ -134,7 +155,7 @@ describe('Toolbar', () => {
     render(<Toolbar {...makeProps()} />)
     const tools = screen.getByRole('group', { name: 'Werkzeug' })
     const secondRow = screen.getByRole('group', { name: 'Gruppen' }).parentElement as HTMLElement
-    expect(tools.closest('.toolbar__tools')).toBe(secondRow.closest('.toolbar__tools'))
+    expect(tools.closest('.toolbar__main')).toBe(secondRow.closest('.toolbar__main'))
     for (const name of ['Gruppen', 'Zwischenablage', 'Verlauf']) {
       expect(secondRow).toContainElement(screen.getByRole('group', { name }))
     }

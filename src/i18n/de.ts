@@ -15,10 +15,10 @@ export const de = {
     '- „Gruppieren“ fasst markierte Objekte auf derselben Ebene zu einer Gruppe (Sub-Graph) zusammen; „Gruppe auflösen“ entfernt die Gruppe, ihr Inhalt bleibt erhalten.\n- Legst du ein Objekt oder eine Gruppe in eine Gruppe, wächst diese mit.\n- Ein Doppelklick auf einen Namen benennt das Element direkt um (Enter übernimmt, Esc verwirft).\n- „Löschen“ (Entf) entfernt markierte Objekte und Verbindungen; Gruppen werden nur aufgelöst.\n- Mehrere Elemente markierst du mit Strg/Cmd + Klick oder mit Umschalt + Aufziehen eines Rahmens.',
   'help.connect.title': 'Verbindungen',
   'help.connect.body':
-    'Ein Pfeil A → B bedeutet „A hängt von B ab“: B muss zuerst fertig sein.\n- Mit dem Werkzeug „Verbinden“ klickst du erst die Quelle, dann das Ziel an.\n- Alternativ ziehst du einen Konnektor am Rand eines Objekts auf ein anderes Element; Loslassen irgendwo auf dem Objekt genügt.\n- Die Enden einer vorhandenen Verbindung lassen sich auf andere Konnektoren oder Elemente ziehen (nicht im Analysemodus).\n- Nicht möglich sind Verbindungen auf sich selbst, doppelte Verbindungen und Verbindungen zwischen einer Gruppe und ihrem eigenen Inhalt.\n- Eine Verbindung von oder zu einer Gruppe gilt für alle (auch verschachtelte) Mitglieder.\n- Eine Verbindung kannst du markieren und in der Sidebar beschriften.',
+    'Ein Pfeil A → B bedeutet „A hängt von B ab“: B muss zuerst fertig sein.\n- Mit dem Werkzeug „Verbinden“ klickst du erst die Quelle, dann das Ziel an.\n- Alternativ ziehst du einen Konnektor am Rand eines Objekts auf ein anderes Element; Loslassen irgendwo auf dem Objekt genügt.\n- Die Enden einer vorhandenen Verbindung lassen sich auf andere Konnektoren oder Elemente ziehen (nicht im Analysemodus).\n- Nicht möglich sind Verbindungen auf sich selbst, doppelte Verbindungen und Verbindungen zwischen einer Gruppe und ihrem eigenen Inhalt.\n- Eine Verbindung von oder zu einer Gruppe gilt für alle (auch verschachtelte) Mitglieder.\n- Eine Verbindung kannst du markieren und in der Sidebar beschriften.\n- Mit dem Häkchen „Optionale Abhängigkeit“ in der Sidebar wird eine Verbindung zur optionalen Abhängigkeit (soft dependency): Sie wird gepunktet gezeichnet und zählt nicht zum kritischen Pfad. Für „wartet“, Voraussetzungen und Zyklen zählt sie weiter.',
   'help.sidebar.title': 'Sidebar und Metadaten',
   'help.sidebar.body':
-    '- Die Sidebar folgt der Auswahl und übernimmt jede gültige Änderung sofort; ein extra Speichern gibt es nicht. Jede Feldbearbeitung ist ein Schritt für „Rückgängig“.\n- Metadaten sind eine geordnete Liste aus Schlüssel und Wert; der erste Eintrag ist der Name. Feldnamen dürfen nicht doppelt vorkommen.\n- Die Farbe lässt sich je Element setzen; bei mehreren markierten Elementen setzt das Farbfeld die Farbe für alle.\n- Die ID eines Elements wird einmal erzeugt und ist nicht änderbar.',
+    '- Die Sidebar folgt der Auswahl und übernimmt jede gültige Änderung sofort; ein extra Speichern gibt es nicht. Jede Feldbearbeitung ist ein Schritt für „Rückgängig“.\n- Metadaten sind eine geordnete Liste aus Schlüssel und Wert; der erste Eintrag ist der Name. Feldnamen dürfen nicht doppelt vorkommen.\n- Die Farbe lässt sich je Element setzen; bei mehreren markierten Elementen setzt das Farbfeld die Farbe für alle, das Statusfeld den Status aller markierten Objekte (Gruppen haben keinen Status).\n- Die ID eines Elements wird einmal erzeugt und ist nicht änderbar.',
   'help.status.title': 'Status',
   'help.status.body':
     'Jedes Objekt hat einen von vier Status: offen, in Arbeit, blockiert oder fertig. Fehlt der Status, gilt „offen“.\n- „blockiert“ setzt du von Hand (rote Flagge), optional mit Grund.\n- Die Sanduhr „wartet“ wird berechnet: Das Objekt ist nicht fertig und hat eine direkte, noch nicht fertige Voraussetzung.\n- Gruppen leiten ihren Status aus ihren Mitgliedern ab.\n- „fertig“ ist endgültig: Dahinter wird nicht weiter gerechnet.\n- Ein unbekannter Wert bleibt erhalten, wird mit „?“ markiert und zählt als offen.',
@@ -160,6 +160,7 @@ export const de = {
   'flow.node.description': 'Enter oder Leertaste wählt das Element aus; danach verschieben es die Pfeiltasten, Esc bricht ab.',
   'flow.node.moved': 'Ausgewähltes Element verschoben. Neue Position: x {x}, y {y}',
   'flow.edge.label': 'Verbindung von {source} nach {target}',
+  'flow.edge.label.soft': 'Optionale Verbindung von {source} nach {target}',
   'flow.edge.description': 'Enter oder Leertaste wählt die Verbindung aus, Esc bricht ab.',
   'cycleBadge.label': 'Teil eines Zyklus',
   'projectTitle.label': 'Projektname',
@@ -185,9 +186,14 @@ export const de = {
   'sidebar.field.uuid': 'UUID',
   'sidebar.field.readonly': 'nicht editierbar',
   'sidebar.field.name': 'Name',
+  'sidebar.field.soft': 'Optionale Abhängigkeit',
+  'sidebar.soft.hint': 'Gepunktet gezeichnet; zählt nicht zum kritischen Pfad. Gespeichert als Metadatum „optional: ja“.',
   'sidebar.field.color': 'Farbe (color)',
   'sidebar.bulkColor_one': 'Farbe (color) für {count} Element',
   'sidebar.bulkColor_other': 'Farbe (color) für alle {count} Elemente',
+  'sidebar.bulkStatus_one': 'Status für {count} Objekt',
+  'sidebar.bulkStatus_other': 'Status für alle {count} Objekte',
+  'sidebar.bulkStatus.mixed': 'verschieden',
   'sidebar.color.default': 'Standard',
   'sidebar.color.mixed': 'verschieden',
   'sidebar.color.reset': 'Zurücksetzen',
@@ -262,6 +268,7 @@ export const de = {
   'analysis.legend.progress': 'Halbkreis: in Arbeit',
   'analysis.legend.open': 'Grauer Kreis: offen (auch ohne gesetzten Status)',
   'analysis.legend.unknown': '„?“: unbekannter Status – zählt als offen',
+  'analysis.legend.soft': 'Gepunktete Verbindung: optionale Abhängigkeit – zählt nicht zum kritischen Pfad.',
   'analysis.legend.groups': 'Bei Gruppen stehen Flagge und Sanduhr im Titel, wenn ein Mitglied betroffen ist.',
   'analysis.md.title': 'Release-Analyse: {project} – {target}',
   'analysis.md.count': '- {label}: {count}',
@@ -335,7 +342,7 @@ export const de = {
   'agent.model.group': 'Gruppe: <c>{shape}</c>',
   'agent.edge.example': 'braucht',
   'agent.model.edge':
-    'Kante: <c>{shape}</c> (Pfeil zeigt auf target; source/target dürfen Gruppen sein). Optional <c>metadata</c> wie bei Objekten: der Eintrag <c>name</c> ist die Beschriftung der Verbindung, z. B. <c>{example}</c>. Ältere Dateien mit <c>version: 1</c> und <c>label</c> werden weiter importiert.',
+    'Kante: <c>{shape}</c> (Pfeil zeigt auf target; source/target dürfen Gruppen sein). Optional <c>metadata</c> wie bei Objekten: der Eintrag <c>name</c> ist die Beschriftung der Verbindung, z. B. <c>{example}</c>. Der Eintrag <c>{"key":"optional","value":"ja"}</c> macht sie zur optionalen Abhängigkeit (gepunktet, nicht im kritischen Pfad). Ältere Dateien mit <c>version: 1</c> und <c>label</c> werden weiter importiert.',
   'agent.model.children':
     'Kinder verweisen per <c>parentId</c> auf die Gruppe; ihre <c>position</c> ist RELATIV zur Gruppe.',
   'agent.model.order': 'Gruppen müssen im Array VOR ihren Kindern stehen.',

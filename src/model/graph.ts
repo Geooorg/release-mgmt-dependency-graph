@@ -10,6 +10,7 @@ import {
   withStatusEntry,
   type Status,
 } from './status'
+import { withSoftEntry } from './softDependency'
 import {
   GROUP_DEFAULT_SIZE,
   GROUP_HEADER_HEIGHT,
@@ -559,6 +560,14 @@ export function setStatus(content: GraphContent, id: string, status: Status): Gr
 }
 
 /**
+ * Sets the status of all listed objects at once, like `setStatus` for each (groups and unknown ids
+ * are skipped, objects that already have it keep their reference). Nothing to change -> the content itself.
+ */
+export function setStatuses(content: GraphContent, ids: readonly string[], status: Status): GraphContent {
+  return ids.reduce((current, id) => setStatus(current, id, status), content)
+}
+
+/**
  * Sets the reason of a blocked object (trimmed, canonical key right after `status`; blank removes
  * it). Only objects with the status `blockiert` have a reason. No actual change / unknown id /
  * group / not blocked -> unchanged.
@@ -610,6 +619,26 @@ export function renameEdge(content: GraphContent, id: string, name: string): Gra
       : entries.map((entry, index) => (index === at ? { key: NAME_KEY, value: text } : entry))
   const { metadata: _old, ...rest } = edge
   const metadata = tidyEdgeMetadata(renamed)
+  const updated: ModelEdge = metadata === undefined ? rest : { ...rest, metadata }
+  return { ...content, edges: content.edges.map((e) => (e.id === id ? updated : e)) }
+}
+
+/**
+ * Marks an edge as a soft (optional) dependency or a normal one (`optional: ja` right after `name`, see
+ * model/softDependency.ts); removing the mark drops the `metadata` field when nothing else is left.
+ * Unknown edge or no actual change -> the same `content` reference.
+ */
+export function setEdgeSoft(content: GraphContent, id: string, soft: boolean): GraphContent {
+  const edge = content.edges.find((e) => e.id === id)
+  if (edge === undefined) return content
+  const metadata = tidyEdgeMetadata(withSoftEntry(edge.metadata ?? [], soft))
+  const same =
+    metadata === undefined
+      ? edge.metadata === undefined
+      : metadata.length === edge.metadata?.length &&
+        metadata.every((entry, i) => entry.key === edge.metadata?.[i].key && entry.value === edge.metadata[i].value)
+  if (same) return content
+  const { metadata: _old, ...rest } = edge
   const updated: ModelEdge = metadata === undefined ? rest : { ...rest, metadata }
   return { ...content, edges: content.edges.map((e) => (e.id === id ? updated : e)) }
 }

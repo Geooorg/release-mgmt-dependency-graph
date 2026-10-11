@@ -104,37 +104,54 @@
   min-height: var(--toolbar-row);
 }
 
-/* Tool switch (first row) with the editing row beneath it, left-aligned with the first tool button. */
-.toolbar__tools {
+/*
+ * Main column: first row (tool switch or analysis controls, cycles, search) with the editing row beneath it,
+ * left-aligned with the first tool button. It takes the free width, which pushes the file section to the right.
+ */
+.toolbar > .toolbar__main {
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-/* Zero width: the row never widens the column (and thus the first row); its content overflows to the right. */
+.toolbar__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.toolbar__row > * {
+  flex: none;
+  min-height: var(--toolbar-row);
+}
+
+/* `contain: inline-size` keeps the row from widening the column (and thus the first row); its content overflows to the right instead. */
 .toolbar__edit {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 0;
-  min-width: 100%;
+  gap: 16px;
+  contain: inline-size;
   min-height: var(--toolbar-row);
   white-space: nowrap;
 }
 
-.toolbar__edit > * {
+.toolbar__edit > *,
+.toolbar__cluster > * {
   flex: none;
+}
+
+/* Clipboard group with the delete button right beside it. */
+.toolbar__cluster {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .toolbar__section {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.toolbar__spacer {
-  flex: 1 1 0;
-  min-width: 0;
 }
 
 /* Segmented switches: the work modes and the build tools (icon + short text). */
@@ -200,11 +217,17 @@
   gap: 6px;
 }
 
-/* Second row below Export: help and language. */
+/* Export + JSON view | Import + JSON paste. */
+.toolbar__file-body .toolbar__section {
+  gap: 10px;
+}
+
+/* Second row below Export: language, then help at the far right. */
 .toolbar__file-extra {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: flex-end;
+  gap: 12px;
   min-height: var(--toolbar-row);
 }
 
@@ -329,6 +352,27 @@
   color: var(--gray-400);
   font-size: 11px;
   font-weight: 400;
+}
+
+.sidebar__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sidebar__check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--blue-600);
+}
+
+.sidebar__check-hint {
+  color: var(--gray-600);
+  font-size: 12px;
 }
 
 .sidebar__color {
@@ -1295,12 +1339,21 @@ ol.analysis-list > li::before {
     text-overflow: ellipsis;
   }
 
-  .toolbar {
+  .toolbar,
+  .toolbar__row {
     gap: 6px;
   }
 
   .toolbar__section {
     gap: 4px;
+  }
+
+  .toolbar__file-body .toolbar__section {
+    gap: 8px;
+  }
+
+  .toolbar__edit {
+    gap: 12px;
   }
 
   .mode-switch .ui-button {

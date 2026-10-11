@@ -15,9 +15,9 @@ const labelOf = (element: SidebarElement) =>
   element.metadata.find((entry) => entry.key === NAME_KEY)?.value ?? ''
 
 /**
- * Sidebar content for an edge: the read-only UUID and the `name` field every element has, which is the
- * caption on the edge. The name is applied (trimmed) with every keystroke; the draft keeps what was typed
- * until the name changes from outside.
+ * Sidebar content for an edge: the read-only UUID, the `name` field every element has, which is the
+ * caption on the edge, and the checkbox for a soft (optional) dependency. The name is applied (trimmed)
+ * with every keystroke; the draft keeps what was typed until the name changes from outside.
  */
 export function SidebarEdgeForm({
   element,
@@ -25,6 +25,7 @@ export function SidebarEdgeForm({
   onEditStart,
   onEditEnd,
   onClose,
+  onSoftChange,
 }: SidebarEdgeFormProps) {
   const t = useT()
   const formId = useId()
@@ -96,6 +97,21 @@ export function SidebarEdgeForm({
           onChange={(event) => edit(event.target.value)}
           onBlur={gesture.end}
         />
+      </div>
+
+      <div className="sidebar__field">
+        <label className="sidebar__check">
+          <input
+            type="checkbox"
+            checked={element.soft ?? false}
+            aria-describedby={`${formId}-soft-hint`}
+            onChange={(event) => onSoftChange?.(event.target.checked)}
+          />
+          {t('sidebar.field.soft')}
+        </label>
+        <span id={`${formId}-soft-hint`} className="sidebar__check-hint">
+          {t('sidebar.soft.hint')}
+        </span>
       </div>
     </form>
   )
