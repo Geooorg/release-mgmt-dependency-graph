@@ -31,13 +31,13 @@ export const en: Catalog = {
     'The magnifier in the toolbar opens the search field (in both modes).\n- The search matches the start of the name, case-insensitive, for objects and groups.\n- Enter jumps to the first hit, and each further Enter with unchanged text to the next one.\n- Esc closes the search field.',
   'help.clipboard.title': 'Copy, paste, undo',
   'help.clipboard.body':
-    '- Ctrl/Cmd + C copies the selected objects and groups including the content of groups, but without connections. Ctrl/Cmd + V pastes them as new elements with new IDs.\n- Ctrl/Cmd + Z undoes the last change, Ctrl/Cmd + Shift + Z restores it.\n- The buttons for these actions are only available in edit mode; pasting is locked in analysis mode.',
+    '- Ctrl/Cmd + C copies the selected objects and groups including the content of groups, but without connections. Ctrl/Cmd + V pastes them as new elements with new IDs. Both only work in edit mode; pasting is locked in analysis mode.\n- Ctrl/Cmd + Z undoes the last change, Ctrl/Cmd + Shift + Z or Ctrl/Cmd + Y restores it. These shortcuts work in both modes.\n- The buttons for these actions are only available in edit mode.',
   'help.file.title': 'Saving, export and import',
   'help.file.body':
     '- The project is saved automatically in the browser (this browser only).\n- “Export” downloads the project as a JSON file <project name>_<date>_<time>.json.\n- “Import” loads a JSON file and replaces the current project; you are asked first and warned about changes that were not exported.\n- “Show JSON” shows the export as text to copy, “Paste JSON” loads a project from pasted text.\n- The project name (top left, editable) may only contain A–Z, a–z, 0–9 and - _ .',
   'help.shortcuts.title': 'Keyboard shortcuts',
   'help.shortcuts.body':
-    '- V: Select · N: Object · C: Connect (edit mode only)\n- Del: delete the selection\n- Esc: end the tool, then close the panel, then clear the selection\n- Ctrl/Cmd + C / V: copy / paste\n- Ctrl/Cmd + Z / Ctrl/Cmd + Shift + Z: undo / redo\n- Enter in the search field: next hit',
+    '- V: Select · N: Object · C: Connect (edit mode only)\n- Del or Backspace: delete the selection (edit mode only)\n- Esc: end the tool, then close the panel, then clear the selection\n- Ctrl/Cmd + C / V: copy / paste (edit mode only)\n- Ctrl/Cmd + Z / Ctrl/Cmd + Shift + Z or Ctrl/Cmd + Y: undo / redo (both modes)\n- Enter in the search field: next hit',
   'toolbar.label': 'Tools',
   'toolbar.mode.group': 'Work mode',
   'toolbar.mode.build': 'Edit',
@@ -184,7 +184,7 @@ export const en: Catalog = {
   'sidebar.selection_one': '{count} element selected – select exactly one to edit.',
   'sidebar.selection_other': '{count} elements selected – select exactly one to edit.',
   'sidebar.field.uuid': 'UUID',
-  'sidebar.field.readonly': 'Not editable',
+  'sidebar.field.readonly': 'not editable',
   'sidebar.field.name': 'Name',
   'sidebar.field.color': 'Colour (color)',
   'sidebar.bulkColor_one': 'Colour (color) for {count} element',

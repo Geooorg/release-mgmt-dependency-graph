@@ -35,7 +35,7 @@ export function createTranslate(locale: Locale): Translate {
   const plural = (key: PluralKey, count: number, params?: Params): string => {
     const form = `${key}_${rules.select(count)}` as MessageKey
     const chosen = Object.hasOwn(catalog, form) ? form : (`${key}_other` as MessageKey)
-    return format(lookup(chosen), { count, ...params })
+    return format(lookup(chosen), { ...params, count })
   }
 
   const t: Translate = Object.assign(translate, { plural })

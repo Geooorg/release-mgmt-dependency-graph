@@ -6,4 +6,6 @@ import { setTestLocale } from './locale'
 afterEach(() => {
   cleanup()
   setTestLocale('de')
+  document.documentElement.lang = ''
+  document.title = ''
 })

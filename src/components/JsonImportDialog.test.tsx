@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import { SCHEMA_VERSION } from '../model/types'
 import { JsonImportDialog } from './JsonImportDialog'
 import type { JsonImportDialogProps } from './props'
 import { setTestLocale } from '../test/locale'
@@ -31,6 +32,11 @@ describe('JsonImportDialog', () => {
     ).toBeInTheDocument()
     expect(box()).toHaveValue('')
     expect(box()).toHaveFocus()
+  })
+
+  it('shows a placeholder with the current schema version', () => {
+    render(<JsonImportDialog {...makeProps()} />)
+    expect(box()).toHaveAttribute('placeholder', expect.stringContaining(`"version": ${SCHEMA_VERSION},`))
   })
 
   it('cannot import an empty text', async () => {

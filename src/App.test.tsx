@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { useDocumentLanguage } from './i18n/react'
 import { createDefaultContent } from './model/defaultModel'
 import { contentFingerprint } from './model/fingerprint'
 import { emptyHistory } from './model/history'
@@ -1205,5 +1206,47 @@ describe('App: texts in the chosen language', () => {
     const asking = screen.getByRole('dialog', { name: 'Discard changes' })
     expect(asking).toHaveTextContent('Discard invalid changes to “Projekt A”? (duplicate field name)')
     expect(within(asking).getByRole('button', { name: 'Discard' })).toBeInTheDocument()
+  })
+})
+
+// `Root` sets <html lang>; the same hook here keeps the test free of the lazy route.
+function AppWithLanguage() {
+  useDocumentLanguage()
+  return <App />
+}
+
+describe('App: help and language', () => {
+  it('opens the help overlay from the toolbar and closes it again', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    expect(screen.queryByRole('dialog', { name: 'Hilfe' })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Hilfe' }))
+    const help = screen.getByRole('dialog', { name: 'Hilfe' })
+    expect(within(help).getByRole('heading', { level: 3, name: 'Erste Schritte' })).toBeInTheDocument()
+
+    await user.click(within(help).getByRole('button', { name: 'Schließen' }))
+    expect(screen.queryByRole('dialog', { name: 'Hilfe' })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Hilfe' }))
+    fireEvent(screen.getByRole('dialog', { name: 'Hilfe' }), new Event('cancel', { cancelable: true }))
+    expect(screen.queryByRole('dialog', { name: 'Hilfe' })).toBeNull()
+  })
+
+  it('switches the whole interface with the language select and remembers the choice', async () => {
+    try {
+      render(<AppWithLanguage />)
+      expect(screen.getByRole('button', { name: 'Rückgängig' })).toBeInTheDocument()
+
+      await userEvent.setup().selectOptions(screen.getByRole('combobox', { name: 'Sprache' }), 'English')
+
+      expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Help' })).toBeInTheDocument()
+      expect(document.documentElement.lang).toBe('en')
+      expect(document.title).toMatch(/– Dependencies$/)
+      expect(JSON.parse(localStorage.getItem(UI_KEY)!).locale).toBe('en')
+    } finally {
+      localStorage.removeItem(UI_KEY)
+    }
   })
 })

@@ -37,7 +37,7 @@ function HelpContent({ titleId, onClose }: { titleId: string; onClose: () => voi
       <h2 className="confirm-dialog__title" id={titleId}>
         {t('help.title')}
       </h2>
-      <div className="help-dialog__body">
+      <div className="help-dialog__body" role="region" tabIndex={0} aria-labelledby={titleId}>
         <p className="help-dialog__intro">{t('help.intro')}</p>
         {HELP_SECTIONS.map((section) => (
           <section key={section} className="help-dialog__section">
@@ -47,8 +47,8 @@ function HelpContent({ titleId, onClose }: { titleId: string; onClose: () => voi
                 <p key={index}>{block.text}</p>
               ) : (
                 <ul key={index}>
-                  {block.items.map((item) => (
-                    <li key={item}>{item}</li>
+                  {block.items.map((item, itemIndex) => (
+                    <li key={itemIndex}>{item}</li>
                   ))}
                 </ul>
               ),

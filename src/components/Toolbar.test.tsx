@@ -100,6 +100,7 @@ describe('Toolbar', () => {
       'English',
       'Français',
     ])
+    expect(within(select).getAllByRole('option').map((option) => option.getAttribute('lang'))).toEqual(['de', 'en', 'fr'])
     await userEvent.setup().selectOptions(select, 'fr')
     expect(props.onLocaleChange).toHaveBeenCalledWith('fr')
   })

@@ -24,7 +24,7 @@ Abhängigkeitsrichtung: `components` (nur Props + `useT`) · `flow`/`App` → `s
 ### `src/i18n/` (Kern, rein, ohne React/DOM)
 
 - `locale.ts`: `Locale = 'de' | 'en' | 'fr'`, `LOCALES`, `LOCALE_NAMES` (Eigenbezeichnungen: „Deutsch“, „English“, „Français“), `DEFAULT_LOCALE`, `parseLocale`; `messages.ts`: `MessageKey = keyof typeof de`, `Catalog`, `MessageRef`; `translate.ts`: `Translate = (key, params?) => string` (plus `plural`).
-- `de.ts` (Referenz, `as const`-Objekt), `en.ts`, `fr.ts` (`satisfies Record<MessageKey, string>` ⇒ `tsc` meldet fehlende/überzählige Schlüssel).
+- `de.ts` (Referenz, `as const`-Objekt), `en.ts`, `fr.ts` (als `Catalog` typisiert ⇒ `tsc` meldet fehlende/überzählige Schlüssel).
 - `translate.ts`: `createTranslate(locale): Translate`. Platzhalter `{name}`; unbekannter Platzhalter bleibt stehen. Plural: Schlüssel `foo_one`/`foo_other` (ggf. `_zero`), Auswahl über `Intl.PluralRules(locale)` mit `params.count`; fehlende Form ⇒ `_other`.
 
 ### React-Anbindung (`src/i18n/react.ts`, `src/store/localeStore.ts`)
@@ -42,7 +42,7 @@ Abhängigkeitsrichtung: `components` (nur Props + `useT`) · `flow`/`App` → `s
 ### Texte außerhalb von React
 
 - **Model** bleibt pur: Funktionen mit Text bekommen `t: Translate` als Parameter (`serialize.ts`-Fehler: `parseModel`/`parseModelJson`; `releaseAnalysis.ts`: Markdown-Auswertung; `status.ts`: Anzeigenamen über Schlüssel). Der Standard ist `createTranslate('de')`, damit bestehende Aufrufer und Tests unverändert funktionieren.
-- **Store-Notices** (`graphStore`, `appStore`) speichern kein fertiges Textstück mehr, sondern `{ key, params }`; `App`/`Banner` übersetzen beim Rendern. So folgt eine sichtbare Meldung dem Sprachwechsel. (Alternative bei zu großem Umbau: Store liest das aktuelle `t` aus `appStore.locale` – in der Planung nach Aufwand entscheiden, Verhalten bleibt gleich.)
+- **Store-Notices** (`graphStore`, `appStore`) speichern kein fertiges Textstück mehr, sondern `{ key, params }`; `App`/`Banner` übersetzen beim Rendern. So folgt eine sichtbare Meldung dem Sprachwechsel. Entschieden: Die Notices tragen eine `MessageRef` (`{ key, params }`), der Store liest keine Sprache.
 - **`flow/mapping.ts`** (Knoten-Tooltips „Wartet auf …“) bekommt `t` als Parameter von `Canvas`.
 
 ## Bedienelemente
@@ -56,7 +56,7 @@ Zeile 2: [?] [Deutsch ▾]          ← linksbündig unter „Export“
 
 - Hilfe-Button: `ui-button--tool`, neues `HelpIcon` (Fragezeichen im Kreis) in `icons.tsx`, `aria-label` und Tooltip „Hilfe“ (übersetzt), Prop `onHelp`.
 - Sprachwahl: natives `<select class="ui-input toolbar__select">` mit `aria-label` „Sprache“, Optionen in Eigenbezeichnung; Props `locale`, `onLocaleChange`.
-- Sticky-Verhalten des Datei-Bereichs bleibt; zweite Zeile nutzt denselben Null-Breiten-Trick wie `toolbar__edit`, damit die erste Zeile nicht breiter wird. Bei 1024 px in beiden Modi ohne horizontales Scrollen (Mess-Vorgabe der CLAUDE.md; mit Zyklen-Button nachmessen).
+- Sticky-Verhalten des Datei-Bereichs bleibt; die zweite Zeile (`toolbar__file-extra`) hat eine feste Breite (Sprachwahl 112 px) und ist schmaler als die erste, verbreitert sie also nicht (kein Null-Breiten-Trick). Bei 1024 px in beiden Modi ohne horizontales Scrollen (Mess-Vorgabe der CLAUDE.md; mit Zyklen-Button nachmessen).
 - Beide Elemente sind in beiden Modi sichtbar.
 
 ### `HelpDialog`
@@ -79,7 +79,7 @@ Zeile 2: [?] [Deutsch ▾]          ← linksbündig unter „Export“
 
 `Toolbar`, `Sidebar` (+ `SidebarEdgeForm`, `SidebarBulkColor`), `AnalysisPanel`, `StatusMarks`, `CycleBadge`, `Banner`, `ToolHint`, `SearchBar`, `ProjectTitle`, `ImportDialog`, `JsonImportDialog`, `JsonExportDialog`, `ConfirmDialog`-Aufrufe in `App`, `AgentHelp`, `App` (Titel, Notices), `store/*` (Notices), `flow/mapping.ts`, `model/serialize.ts`, `model/releaseAnalysis.ts`, Anzeigenamen in `model/status.ts`. Code-Kommentare und Bezeichner bleiben englisch.
 
-Besonderheit **Agent-Hilfe:** Sie nennt `aria-label`s und Bedienung; diese stehen in der gewählten Sprache. Ein Hinweis sagt, dass Agenten bei Deutsch (Standard) bleiben können, und nennt den Storage-Key bzw. wie man die Sprache setzt (`release-management.ui.v1`, Feld `locale`).
+Besonderheit **Agent-Hilfe:** Sie nennt `aria-label`s und Bedienung; diese stehen in der gewählten Sprache. Die `AgentHelp` setzt ihren eigenen `document.title` (`agent.title`), unabhängig von `App`. Ein Hinweis sagt, dass Agenten bei Deutsch (Standard) bleiben können, und nennt den Storage-Key bzw. wie man die Sprache setzt (`release-management.ui.v1`, Feld `locale`).
 
 ## Fehlerbehandlung
 

@@ -1081,7 +1081,7 @@ describe('Sidebar', () => {
     })
 
     it.each([
-      ['en', 'Field name', 'Value', 'Remove field', 'Add field', 'Not editable'],
+      ['en', 'Field name', 'Value', 'Remove field', 'Add field', 'not editable'],
       ['fr', 'Nom du champ', 'Valeur', 'Supprimer le champ', 'Ajouter un champ', 'non modifiable'],
     ] as const)('labels the free fields in %s', (locale, key, value, remove, add, readonly) => {
       setTestLocale(locale)

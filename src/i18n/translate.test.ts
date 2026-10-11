@@ -29,6 +29,14 @@ describe('createTranslate', () => {
     const t = createTranslate('de')
     expect(t('cycle.count_other', { count: 3 })).toBe('3 Zyklen')
     expect(t('cycle.count_other')).toBe('{count} Zyklen')
+    // {padding} occurs three times in the measures text
+    const measures = t('agent.model.measures', { padding: '8px' })
+    expect(measures).not.toContain('{padding}')
+    expect(measures.match(/8px/g)).toHaveLength(3)
+  })
+
+  it('does not let a caller param override the count', () => {
+    expect(createTranslate('de').plural('cycle.count', 2, { count: 99 })).toBe('2 Zyklen')
   })
 
   it('picks the plural form of the locale', () => {

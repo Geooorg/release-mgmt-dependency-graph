@@ -95,8 +95,9 @@ export function toFlowNodes(
 /**
  * Directed edges with an arrow at the target: blue, darker when selected, thick red when part of
  * the highlighted dependency graph. Edges in a cycle are purple and dashed; the dependency colour
- * wins over the cycle colour, the dashes stay; the accessible label is written in the language of `t`. Connectors are the ones the edge was drawn between; edges
- * without stored connectors (older files) get the facing sides.
+ * wins over the cycle colour, the dashes stay. The accessible label is written in the language
+ * of `t`. Connectors are the ones the edge was drawn between; edges without stored connectors
+ * (older files) get the facing sides.
  */
 export function toFlowEdges(
   edges: readonly ModelEdge[],

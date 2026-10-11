@@ -30,13 +30,13 @@ export const de = {
     'Die Lupe in der Toolbar öffnet das Suchfeld (in beiden Modi).\n- Gesucht wird nach dem Anfang des Namens, ohne Beachtung der Groß-/Kleinschreibung, bei Objekten und Gruppen.\n- Enter springt zum ersten Treffer, jedes weitere Enter bei unverändertem Text zum nächsten.\n- Esc schließt das Suchfeld.',
   'help.clipboard.title': 'Kopieren, Einfügen, Rückgängig',
   'help.clipboard.body':
-    '- Strg/Cmd + C kopiert die markierten Objekte und Gruppen samt dem Inhalt der Gruppen, aber ohne Verbindungen. Strg/Cmd + V fügt sie als neue Elemente mit neuen IDs ein.\n- Strg/Cmd + Z macht die letzte Änderung rückgängig, Strg/Cmd + Umschalt + Z stellt sie wieder her.\n- Die Schaltflächen dafür stehen nur im Editiermodus zur Verfügung; im Analysemodus ist Einfügen gesperrt.',
+    '- Strg/Cmd + C kopiert die markierten Objekte und Gruppen samt dem Inhalt der Gruppen, aber ohne Verbindungen. Strg/Cmd + V fügt sie als neue Elemente mit neuen IDs ein. Beides geht nur im Editiermodus; im Analysemodus ist Einfügen gesperrt.\n- Strg/Cmd + Z macht die letzte Änderung rückgängig, Strg/Cmd + Umschalt + Z oder Strg/Cmd + Y stellt sie wieder her. Diese Kürzel gelten in beiden Modi.\n- Die Schaltflächen für diese Aktionen stehen nur im Editiermodus zur Verfügung.',
   'help.file.title': 'Speichern, Export und Import',
   'help.file.body':
     '- Das Projekt wird automatisch im Browser gespeichert (nur in diesem Browser).\n- „Export“ lädt das Projekt als JSON-Datei <Projektname>_<Datum>_<Uhrzeit>.json herunter.\n- „Import“ lädt eine JSON-Datei und ersetzt das aktuelle Projekt; vorher wird gefragt, bei nicht exportierten Änderungen zusätzlich gewarnt.\n- „JSON anzeigen“ zeigt den Export als Text zum Kopieren, „JSON einfügen“ lädt ein Projekt aus eingefügtem Text.\n- Der Projektname (oben links, änderbar) darf nur A–Z, a–z, 0–9 sowie - _ . enthalten.',
   'help.shortcuts.title': 'Tastenkürzel',
   'help.shortcuts.body':
-    '- V: Auswählen · N: Objekt · C: Verbinden (nur im Editiermodus)\n- Entf: Markiertes löschen\n- Esc: Werkzeug beenden, dann Panel schließen, dann Auswahl aufheben\n- Strg/Cmd + C / V: Kopieren / Einfügen\n- Strg/Cmd + Z / Strg/Cmd + Umschalt + Z: Rückgängig / Wiederholen\n- Enter im Suchfeld: nächster Treffer',
+    '- V: Auswählen · N: Objekt · C: Verbinden (nur im Editiermodus)\n- Entf oder Rücktaste: Markiertes löschen (nur im Editiermodus)\n- Esc: Werkzeug beenden, dann Panel schließen, dann Auswahl aufheben\n- Strg/Cmd + C / V: Kopieren / Einfügen (nur im Editiermodus)\n- Strg/Cmd + Z / Strg/Cmd + Umschalt + Z oder Strg/Cmd + Y: Rückgängig / Wiederholen (in beiden Modi)\n- Enter im Suchfeld: nächster Treffer',
   'toolbar.label': 'Werkzeuge',
   'toolbar.mode.group': 'Arbeitsmodus',
   'toolbar.mode.build': 'Editieren',
@@ -373,7 +373,7 @@ export const de = {
   'agent.ui.multi':
     'Mehrfachauswahl (Strg/Shift-Klick, Aufziehrechteck) funktioniert mit simulierten Events NICHT. Stattdessen den JSON-Weg nehmen.',
   'agent.ui.files':
-    'Datei-Import/-Export („{import}“, „{export}“) öffnen native Dateidialoge bzw. Downloads und sind für Agenten unzuverlässig. Dafür gibt es den Weg über Text (nächster Abschnitt).',
+    'Datei-Import/-Export („{import}“, „{export}“) öffnen native Dateidialoge bzw. Downloads und sind für Agenten unzuverlässig. Dafür gibt es den Weg über Text (vorheriger Abschnitt).',
   'agent.chrome.title': 'Stolpersteine bei Chrome-Steuerung (execute_javascript)',
   'agent.chrome.world':
     'Läuft in einer isolierten Welt: kein Zugriff auf React-Fiber oder page-eigene window-Objekte; DOM und Events sind geteilt.',

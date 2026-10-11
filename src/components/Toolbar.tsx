@@ -139,7 +139,7 @@ export function Toolbar({
 }: ToolbarProps) {
   const t = useT()
   const dependencyHighlight = highlight === 'outgoing' || highlight === 'incoming' || highlight === 'both'
-  const cycleWord = t(cycleCount === 1 ? 'toolbar.cycles.word_one' : 'toolbar.cycles.word_other')
+  const cycleWord = t.plural('toolbar.cycles.word', cycleCount)
 
   return (
     <header className="toolbar" role="toolbar" aria-label={t('toolbar.label')}>
@@ -423,7 +423,7 @@ export function Toolbar({
                 onChange={(event) => onLocaleChange(parseLocale(event.target.value))}
               >
                 {LOCALES.map((value) => (
-                  <option key={value} value={value}>
+                  <option key={value} value={value} lang={value}>
                     {LOCALE_NAMES[value]}
                   </option>
                 ))}

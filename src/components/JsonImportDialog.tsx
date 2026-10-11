@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { SyntheticEvent } from 'react'
+import { SCHEMA_VERSION } from '../model/types'
 import { projectSummary } from './projectSummary'
 import type { JsonImportDialogProps } from './props'
 import { useNativeDialog } from './useNativeDialog'
@@ -80,7 +81,7 @@ function ImportContent({
         className="ui-input json-dialog__text"
         wrap="off"
         spellCheck={false}
-        placeholder='{ "version": 1, "nodes": [...], "edges": [...] }'
+        placeholder={`{ "version": ${SCHEMA_VERSION}, "nodes": [...], "edges": [...] }`}
         value={text}
         onChange={(event) => setText(event.target.value)}
       />

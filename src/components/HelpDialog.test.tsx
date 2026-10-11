@@ -24,6 +24,14 @@ describe('HelpDialog', () => {
     expect(within(dialog).getAllByRole('listitem').length).toBeGreaterThan(20)
   })
 
+  it('has a labelled, keyboard-focusable scroll region', () => {
+    render(<HelpDialog open onClose={vi.fn()} />)
+
+    const region = screen.getByRole('region', { name: 'Hilfe' })
+    expect(region).toHaveAttribute('tabindex', '0')
+    expect(within(region).getByRole('heading', { level: 3, name: de['help.start.title'] })).toBeInTheDocument()
+  })
+
   it.each([
     ['en', en, 'Help'],
     ['fr', fr, 'Aide'],
