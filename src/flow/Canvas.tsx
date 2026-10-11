@@ -195,13 +195,21 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
     [screenToFlowPosition],
   )
 
+  // The note tool does the same with a sticky note.
+  const noteAt = useCallback(
+    (event: { clientX: number; clientY: number }) =>
+      graphStore.getState().addNoteAt(screenToFlowPosition({ x: event.clientX, y: event.clientY })),
+    [screenToFlowPosition],
+  )
+
   const onPaneClick = useCallback(
     (event: ReactMouseEvent) => {
       const state = graphStore.getState()
       if (state.tool === 'create') createAt(event)
+      else if (state.tool === 'note') noteAt(event)
       else state.clearConnectSource()
     },
-    [createAt],
+    [createAt, noteAt],
   )
 
   // With the create tool, the body of a group is free space inside it (a click on the title still
@@ -209,14 +217,14 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
   const onNodeClick = useCallback(
     (event: ReactMouseEvent, node: AppFlowNode) => {
       const state = graphStore.getState()
-      if (state.tool === 'create') {
+      if (state.tool === 'create' || state.tool === 'note') {
         const onTitle = event.target instanceof Element && event.target.closest('.group-node__header') !== null
-        if (node.type === 'group' && !onTitle) createAt(event)
+        if (node.type === 'group' && !onTitle) (state.tool === 'create' ? createAt : noteAt)(event)
       } else {
         state.pickForConnect(node.id)
       }
     },
-    [createAt],
+    [createAt, noteAt],
   )
 
   // Renaming by double click needs the plain select tool: the other tools use the clicks themselves.
@@ -280,7 +288,7 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
         deleteKeyCode={null}
         // The structure is locked while analysing: no connecting (connectors are hidden too).
         nodesConnectable={!analyzing}
-        className={[analyzing && 'flow--locked', tool === 'create' && 'flow--create'].filter(Boolean).join(' ') || undefined}
+        className={[analyzing && 'flow--locked', (tool === 'create' || tool === 'note') && 'flow--create'].filter(Boolean).join(' ') || undefined}
         zoomOnDoubleClick={false}
         ariaLabelConfig={ariaLabels}
         fitView

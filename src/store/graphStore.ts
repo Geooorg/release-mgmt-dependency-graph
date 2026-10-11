@@ -108,6 +108,8 @@ export interface GraphState {
 
   /** Adds an object centred on this canvas point (member of the group there, if any) and selects it. */
   addNodeAt: (center: Point) => void
+  /** Adds an empty sticky note centred on the point (as a member of the group there, if any) and selects it. */
+  addNoteAt: (center: Point) => void
   moveNode: (id: string, position: Point) => void
   resizeNode: (id: string, size: Size) => void
   /** Live sidebar edit: stores the normalized entries right away. */
@@ -202,6 +204,7 @@ const CONNECTION_MESSAGES: Record<Exclude<ConnectionCheck, { ok: true }>['reason
   self: 'notice.connection.self',
   duplicate: 'notice.connection.duplicate',
   hierarchy: 'notice.connection.hierarchy',
+  note: 'notice.connection.note',
 }
 
 /** The language of the moment, for texts that end up in the data (default names, import errors). */
@@ -371,6 +374,12 @@ export function createGraphStore(
         // Via the request: an invalid sidebar draft is still asked about before the new object takes over.
         requestSelection([nodeId], [])
       },
+      addNoteAt: (center) => {
+        if (structureLocked()) return
+        const { content: next, nodeId } = placement.addNoteAtPoint(content(), center, newId)
+        apply(next)
+        requestSelection([nodeId], [])
+      },
       moveNode: (id, position) => apply(graph.moveNode(content(), id, position)),
       resizeNode: (id, size) => apply(graph.resizeNode(content(), id, size)),
       updateMetadata: (id, entries) => apply(graph.updateMetadata(content(), id, entries)),
@@ -477,6 +486,10 @@ export function createGraphStore(
       pickForConnect: (id) => {
         const { tool, connectSourceId } = get()
         if (tool !== 'connect' || structureLocked()) return
+        if (get().nodes.find((n) => n.id === id)?.kind === 'note') {
+          set({ notice: { kind: 'info', message: { key: CONNECTION_MESSAGES.note } } })
+          return
+        }
         if (connectSourceId === null) {
           set({ connectSourceId: id })
         } else if (connectSourceId === id) {

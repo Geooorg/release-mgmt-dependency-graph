@@ -2,14 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://georgstach.de/release-management/graph.schema.json",
   "title": "Release-Management: Abhängigkeitsgraph",
-  "description": "Austauschformat der App (JSON-Export, localStorage-Schlüssel release-management.graph.v1). Beschreibt die Struktur. Nicht ausdrückbar und erst beim Import der App geprüft: eindeutige ids, existierende parentId (nur Gruppen, keine Zyklen), source/target verweisen auf vorhandene Elemente, keine Selbstschleife und kein doppeltes (source, target)-Paar, keine doppelten Metadaten-Schlüssel. Die App trimmt Schlüssel und Werte beim Import und stellt den Eintrag name an die erste Stelle. Pfeil A -> B: A hängt von B ab (B wird zuerst released). Kinder müssen im Array nach ihrer Gruppe stehen (die App sortiert beim Import selbst). Dateien der Version 1 (Verbindungen mit label statt metadata) importiert die App weiterhin und wandelt label in den Namen um; dieses Schema beschreibt nur die aktuelle Version.",
+  "description": "Austauschformat der App (JSON-Export, localStorage-Schlüssel release-management.graph.v1). Beschreibt die Struktur. Nicht ausdrückbar und erst beim Import der App geprüft: eindeutige ids, existierende parentId (nur Gruppen, keine Zyklen), source/target verweisen auf vorhandene Objekte oder Gruppen (nicht auf Notizen), keine Selbstschleife und kein doppeltes (source, target)-Paar, keine doppelten Metadaten-Schlüssel. Die App trimmt Schlüssel und Werte beim Import und stellt den Eintrag name an die erste Stelle. Pfeil A -> B: A hängt von B ab (B wird zuerst released). Kinder müssen im Array nach ihrer Gruppe stehen (die App sortiert beim Import selbst). Dateien der Version 2 (identisch, nur ohne Notizen) und der Version 1 (Verbindungen mit label statt metadata) importiert die App weiterhin und wandelt label in den Namen um; dieses Schema beschreibt nur die aktuelle Version.",
   "type": "object",
   "required": ["version", "nodes", "edges"],
   "additionalProperties": false,
   "properties": {
     "version": {
       "description": "Schema-Version dieses Formats.",
-      "const": 2
+      "const": 3
     },
     "projectName": {
       "description": "Projektname; kommt im Namen der Export-Datei vor, daher nur A-Z a-z 0-9 - _ . erlaubt. Fehlt er, gilt „Release-Management“.",
@@ -19,7 +19,7 @@
       "pattern": "^[A-Za-z0-9._-]+$"
     },
     "nodes": {
-      "description": "Objekte und Gruppen.",
+      "description": "Objekte, Gruppen und Notizen.",
       "type": "array",
       "items": { "$ref": "#/$defs/node" }
     },
@@ -59,7 +59,7 @@
       }
     },
     "node": {
-      "description": "kind \"node\" ist ein Objekt (Standardgröße 160x56), kind \"group\" ein Container und benötigt eine Größe.",
+      "description": "kind \"node\" ist ein Objekt (Standardgröße 160x56), kind \"group\" ein Container und benötigt eine Größe, kind \"note\" ein Notizzettel (Standardgröße 160x120): sein Text steht im Eintrag name, dazu ist nur der Eintrag color vorgesehen; Notizen haben keine Verbindungen.",
       "type": "object",
       "required": ["id", "kind", "position", "metadata"],
       "additionalProperties": false,
@@ -69,7 +69,7 @@
           "type": "string",
           "minLength": 1
         },
-        "kind": { "enum": ["node", "group"] },
+        "kind": { "enum": ["node", "group", "note"] },
         "parentId": {
           "description": "Id der umgebenden Gruppe; fehlt = oberste Ebene.",
           "type": "string"

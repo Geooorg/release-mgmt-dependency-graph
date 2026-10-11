@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { box, content, edge, group } from '../test/fixtures'
+import { box, content, edge, group, note } from '../test/fixtures'
 import { buildEffectiveGraph } from './effectiveGraph'
 
 describe('buildEffectiveGraph', () => {
@@ -104,5 +104,23 @@ describe('buildEffectiveGraph', () => {
     expect(graph.leavesOf('g')).toEqual(['m1', 'm2'])
     expect(graph.leavesOf('empty')).toEqual(['empty'])
     expect(graph.leavesOf('ghost')).toEqual([])
+  })
+})
+
+describe('buildEffectiveGraph and notes', () => {
+  it('leaves notes out: they are no vertices, not even inside a group', () => {
+    const graph = buildEffectiveGraph(
+      content([group('g', 0, 0, 400, 300), note('n', 10, 10, 'x', 'g'), note('free', 500, 0, 'y'), box('a', 20, 60, 'g'), box('b', 500, 200)], [edge('e', 'a', 'b')]),
+    )
+
+    expect(graph.vertices).toEqual(['a', 'b'])
+    expect(graph.leavesOf('g')).toEqual(['a'])
+    expect(graph.leavesOf('n')).toEqual([])
+  })
+
+  it('lets a group that holds only notes stand for itself', () => {
+    const graph = buildEffectiveGraph(content([group('g', 0, 0, 400, 300), note('n', 10, 40, 'x', 'g')]))
+
+    expect(graph.vertices).toEqual(['g'])
   })
 })

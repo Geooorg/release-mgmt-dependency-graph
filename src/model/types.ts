@@ -5,10 +5,13 @@
  * Positions of nodes with a `parentId` are relative to that parent group.
  */
 
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 /** Older format that is still imported: an edge had a plain `label` instead of `metadata`. */
 export const LEGACY_SCHEMA_VERSION = 1
+
+/** Version 2 had no notes; otherwise it reads exactly like the current one. */
+export const PREVIOUS_SCHEMA_VERSION = 2
 
 /** One free-form metadata field. Order is significant and preserved. */
 export interface MetadataEntry {
@@ -26,8 +29,11 @@ export interface Size {
   height: number
 }
 
-/** `node` = blue box (object), `group` = container acting as a sub-graph. */
-export type ElementKind = 'node' | 'group'
+/**
+ * `node` = blue box (object), `group` = container acting as a sub-graph, `note` = free sticky note
+ * (no connections; its text is the `name` entry, the only other entry is `color`).
+ */
+export type ElementKind = 'node' | 'group' | 'note'
 
 export interface ModelNode {
   /** UUID, generated on creation, never editable. */
@@ -37,7 +43,7 @@ export interface ModelNode {
   parentId?: string
   /** Relative to the parent group, or to the canvas origin when there is no parent. */
   position: Point
-  /** Required for groups. For plain nodes: optional, defaults to NODE_SIZE. */
+  /** Required for groups. For plain nodes and notes: optional, defaults to NODE_SIZE / NOTE_DEFAULT_SIZE. */
   size?: Size
   /** Always contains exactly one `name` entry at index 0 (see model/metadata.ts). */
   metadata: MetadataEntry[]
@@ -81,6 +87,10 @@ export const GROUP_PADDING = 24
 export const GROUP_HEADER_HEIGHT = 32
 export const GROUP_MIN_SIZE: Size = { width: 160, height: 96 }
 export const GROUP_DEFAULT_SIZE: Size = { width: 320, height: 200 }
+export const NOTE_DEFAULT_SIZE: Size = { width: 160, height: 120 }
+export const NOTE_MIN_SIZE: Size = { width: 80, height: 56 }
+/** Sticky-note yellow: the colour of a note without a `color` entry. */
+export const NOTE_DEFAULT_COLOR = '#fef08a'
 
 export const NAME_KEY = 'name'
 /** Optional metadata field holding the element colour as `#rrggbb`. */

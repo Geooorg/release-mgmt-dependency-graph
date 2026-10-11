@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { box, group } from '../test/fixtures'
+import { box, group, note } from '../test/fixtures'
 import { findByName, nextHit, normalizeQuery } from './search'
 import type { ModelNode } from './types'
 
@@ -77,5 +77,12 @@ describe('nextHit', () => {
 
   it('has nothing without hits', () => {
     expect(nextHit([], 'a')).toBeUndefined()
+  })
+})
+
+describe('findByName and notes', () => {
+  it('does not search the text of notes', () => {
+    const nodes = [box('alpha', 0, 0), note('n', 0, 100, 'alpha plan')]
+    expect(findByName(nodes, 'alp')).toEqual(['alpha'])
   })
 })

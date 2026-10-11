@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { box, content, counterIds, edge, group } from '../test/fixtures'
+import { box, content, counterIds, edge, group, note } from '../test/fixtures'
 import { copyElements, pasteElements } from './clipboard'
 import { getAbsolutePosition } from './graph'
 import type { GraphContent } from './types'
@@ -144,5 +144,18 @@ describe('pasteElements', () => {
     pasteElements(c, clip, OFFSET, counterIds())
 
     expect(JSON.stringify([c, clip])).toBe(frozen)
+  })
+})
+
+describe('notes in the clipboard', () => {
+  it('are copied and pasted with their text, a new id and the size', () => {
+    const original = { ...note('n', 40, 50, 'Plan B'), size: { width: 200, height: 90 } }
+    const copied = copyElements(content([original]), ['n'])!
+    const pasted = pasteElements(content([original]), copied, { x: 24, y: 24 }, counterIds())
+
+    const added = pasted.content.nodes.find((n) => n.id === pasted.rootIds[0])!
+    expect(added).toMatchObject({ kind: 'note', position: { x: 64, y: 74 }, size: { width: 200, height: 90 } })
+    expect(added.metadata).toEqual([{ key: 'name', value: 'Plan B' }])
+    expect(added.id).not.toBe('n')
   })
 })

@@ -10,6 +10,11 @@ export function box(id: string, x: number, y: number, parentId?: string): ModelN
   return { id, kind: 'node', parentId, position: { x, y }, metadata: [{ key: 'name', value: id }] }
 }
 
+/** A sticky note with the given text (its `name` entry). */
+export function note(id: string, x: number, y: number, text = '', parentId?: string): ModelNode {
+  return { id, kind: 'note', parentId, position: { x, y }, metadata: [{ key: 'name', value: text }] }
+}
+
 export function group(
   id: string,
   x: number,

@@ -35,4 +35,5 @@ export interface FlowNodeData extends Record<string, unknown> {
 
 export type BoxFlowNode = Node<FlowNodeData, 'box'>
 export type GroupFlowNode = Node<FlowNodeData, 'group'>
-export type AppFlowNode = BoxFlowNode | GroupFlowNode
+export type NoteFlowNode = Node<FlowNodeData, 'note'>
+export type AppFlowNode = BoxFlowNode | GroupFlowNode | NoteFlowNode

@@ -55,7 +55,7 @@ const beginSidebarEdit = () => graphStore.getState().beginGesture()
 const endSidebarEdit = () => graphStore.getState().endGesture()
 
 /** Keyboard shortcuts of the build mode tools. */
-const TOOL_KEYS: Record<string, Tool> = { v: 'select', n: 'create', c: 'connect' }
+const TOOL_KEYS: Record<string, Tool> = { v: 'select', n: 'create', s: 'note', c: 'connect' }
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -215,7 +215,7 @@ function AppShell() {
   )
   // The panel edits the status of a single selected object; for a group it shows the progress.
   const panelSelected = useMemo<AnalysisSelected | null>(() => {
-    if (!sidebarNode) return null
+    if (!sidebarNode || sidebarNode.kind === 'note') return null
     return {
       id: sidebarNode.id,
       name: displayName(sidebarNode),

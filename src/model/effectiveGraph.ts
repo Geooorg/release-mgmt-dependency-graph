@@ -32,7 +32,9 @@ function collectLeaves(content: GraphContent): Map<string, string[]> {
   }
   const leaves = new Map<string, string[]>()
   for (const node of content.nodes) {
-    leaves.set(node.id, node.kind === 'node' ? [node.id] : (inside.get(node.id) ?? [node.id]))
+    // A note has no connections and takes no part in any dependency.
+    if (node.kind === 'note') leaves.set(node.id, [])
+    else leaves.set(node.id, node.kind === 'node' ? [node.id] : (inside.get(node.id) ?? [node.id]))
   }
   return leaves
 }
@@ -40,7 +42,7 @@ function collectLeaves(content: GraphContent): Map<string, string[]> {
 export function buildEffectiveGraph(content: GraphContent): EffectiveGraph {
   const leaves = collectLeaves(content)
   const vertices = content.nodes
-    .filter((n) => n.kind === 'node' || leaves.get(n.id)?.[0] === n.id)
+    .filter((n) => n.kind === 'node' || (n.kind === 'group' && leaves.get(n.id)?.[0] === n.id))
     .map((n) => n.id)
   const order = new Map(vertices.map((id, index) => [id, index]))
 

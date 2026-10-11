@@ -13,7 +13,7 @@ export const fr: Catalog = {
     '- Choisissez l’outil « Objet » (touche N) et cliquez sur un emplacement libre du canevas pour créer un objet.\n- Choisissez « Relier » (touche C) et cliquez successivement sur deux objets : d’abord la source, puis la cible.\n- Avec « Sélectionner » (touche V), vous sélectionnez et déplacez des éléments. Échap termine l’outil actif.\n- La barre latérale à droite affiche la sélection et permet de modifier le nom, la couleur, le statut et d’autres champs.',
   'help.objects.title': 'Objets et groupes',
   'help.objects.body':
-    '- « Regrouper » rassemble les objets sélectionnés d’un même niveau en un groupe (sous-graphe) ; « Dissoudre le groupe » supprime le groupe, son contenu est conservé.\n- Quand vous déposez un objet ou un groupe dans un groupe, celui-ci s’agrandit.\n- Un double-clic sur un nom renomme directement l’élément (Entrée valide, Échap annule).\n- « Supprimer » (Suppr) supprime les objets et liaisons sélectionnés ; les groupes sont seulement dissous.\n- Pour sélectionner plusieurs éléments : Ctrl/Cmd + clic, ou tracer un cadre en maintenant Maj.',
+    '- « Regrouper » rassemble les objets sélectionnés d’un même niveau en un groupe (sous-graphe) ; « Dissoudre le groupe » supprime le groupe, son contenu est conservé.\n- Quand vous déposez un objet ou un groupe dans un groupe, celui-ci s’agrandit.\n- Un double-clic sur un nom renomme directement l’élément (Entrée valide, Échap annule).\n- « Supprimer » (Suppr) supprime les objets et liaisons sélectionnés ; les groupes sont seulement dissous.\n- Pour sélectionner plusieurs éléments : Ctrl/Cmd + clic, ou tracer un cadre en maintenant Maj.\n- L’outil « Note » (touche S) place un pense-bête : positionnable librement, sans connexions, avec une couleur. Un double-clic modifie le texte, le cadre permet de redimensionner ; un texte trop long est abrégé par « … ».',
   'help.connect.title': 'Liaisons',
   'help.connect.body':
     'Une flèche A → B signifie « A dépend de B » : B doit être terminé en premier.\n- Avec l’outil « Relier », cliquez d’abord sur la source, puis sur la cible.\n- Vous pouvez aussi faire glisser un connecteur au bord d’un objet vers un autre élément ; relâcher n’importe où sur l’objet suffit.\n- Les extrémités d’une liaison existante peuvent être déplacées vers d’autres connecteurs ou éléments (pas en mode analyse).\n- Impossible : liaison d’un élément avec lui-même, liaisons en double, liaisons entre un groupe et son propre contenu.\n- Une liaison depuis ou vers un groupe vaut pour tous ses membres (y compris imbriqués).\n- Vous pouvez sélectionner une liaison et lui donner une légende dans la barre latérale.\n- La case « Dépendance facultative » de la barre latérale fait d’une liaison une dépendance facultative (soft dependency) : elle est tracée en pointillés et exclue du chemin critique. Elle compte toujours pour « en attente », les prérequis et les cycles.',
@@ -55,6 +55,10 @@ export const fr: Catalog = {
   'toolbar.tool.create.name': 'Créer un objet',
   'toolbar.tool.create.title':
     'Cliquer sur un emplacement libre du canevas pour y créer un objet (dans un groupe : comme membre). L’outil reste actif ; Échap le termine.',
+  'toolbar.tool.note.label': 'Note',
+  'toolbar.tool.note.name': 'Créer une note',
+  'toolbar.tool.note.title':
+    'Cliquez sur un endroit libre de la zone pour y placer un pense-bête. Double-cliquez sur la note pour modifier son texte, tirez son cadre pour la redimensionner. L’outil reste actif ; Échap le termine.',
   'toolbar.tool.connect.label': 'Relier',
   'toolbar.tool.connect.name': 'Relier',
   'toolbar.tool.connect.title':
@@ -155,6 +159,7 @@ export const fr: Catalog = {
   'search.hit': 'Résultat {position} sur {count}',
   'search.close': 'Fermer la recherche',
   'toolHint.create': 'Cliquez sur un emplacement libre pour créer un objet …',
+  'toolHint.note': 'Cliquez sur un endroit libre pour placer une note …',
   'toolHint.connect.source': 'Cliquez sur la source …',
   'toolHint.connect.target': 'Cliquez sur la cible …',
   'flow.controls': 'Commandes d’affichage',
@@ -175,6 +180,10 @@ export const fr: Catalog = {
   'projectTitle.empty': 'Le nom ne doit pas être vide.',
   'projectTitle.removedChar': 'Caractère non autorisé supprimé.',
   'node.name': 'Nom',
+  'note.text': 'Texte de la note',
+  'note.placeholder': 'Double-clic pour écrire',
+  'note.edit.hint':
+    'Entrée = nouvelle ligne, Ctrl/Cmd + Entrée ou quitter le champ valide, Échap annule.',
   'status.unknown': 'Statut « {value} » inconnu – compte comme ouvert',
   'summary.objects_one': '{count} objet',
   'summary.objects_other': '{count} objets',
@@ -185,6 +194,7 @@ export const fr: Catalog = {
   'sidebar.label': 'Métadonnées',
   'sidebar.title.node': 'Objet',
   'sidebar.title.group': 'Groupe',
+  'sidebar.title.note': 'Note',
   'sidebar.title.edge': 'Liaison',
   'sidebar.title.selection': 'Sélection',
   'sidebar.selection_one': '{count} élément sélectionné – n’en choisissez qu’un seul pour le modifier.',
@@ -204,6 +214,7 @@ export const fr: Catalog = {
   'sidebar.color.mixed': 'différentes',
   'sidebar.color.reset': 'Réinitialiser',
   'sidebar.field.status': 'Statut',
+  'sidebar.field.text': 'Texte',
   'sidebar.status.unknown': '{value} (inconnu)',
   'sidebar.field.reason': 'Motif',
   'sidebar.reason.placeholder': 'Pourquoi l’objet est-il bloqué ? (facultatif)',
@@ -294,6 +305,7 @@ export const fr: Catalog = {
   'notice.connection.self': 'Un élément ne peut pas être relié à lui-même.',
   'notice.connection.duplicate': 'Cette connexion existe déjà.',
   'notice.connection.hierarchy': 'Un groupe ne peut pas être relié à son propre contenu.',
+  'notice.connection.note': 'Une note ne peut pas avoir de connexions.',
   'notice.copied_one': '{count} élément copié.',
   'notice.copied_other': '{count} éléments copiés.',
   'notice.dropRefused': 'Élément non ajouté au groupe : les deux sont reliés.',
@@ -338,6 +350,8 @@ export const fr: Catalog = {
   'parse.edge.sourceMissing': 'source {id} ne renvoie à aucun nœud existant.',
   'parse.edge.targetMissing': 'target {id} ne renvoie à aucun nœud existant.',
   'parse.edge.selfLoop': 'source et target sont identiques.',
+  'parse.edge.note':
+    'source ou target désigne une note ; les notes n’ont pas de connexions.',
   'parse.edge.duplicate': 'Il existe déjà une arête de {source} vers {target} (arête {index}).',
   'parse.edge.handle': '{field} doit valoir {sides}.',
   'parse.edge.labelType': 'label doit être un texte.',

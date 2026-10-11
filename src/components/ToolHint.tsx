@@ -6,6 +6,7 @@ import './components.css'
 /** What the active tool expects next; nothing for the select tool. */
 function hintText({ tool, sourcePicked }: ToolHintProps, t: Translate): string | null {
   if (tool === 'create') return t('toolHint.create')
+  if (tool === 'note') return t('toolHint.note')
   if (tool === 'connect') return t(sourcePicked ? 'toolHint.connect.target' : 'toolHint.connect.source')
   return null
 }

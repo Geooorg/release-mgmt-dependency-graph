@@ -13,7 +13,7 @@ type Json = Record<string, unknown>
 /** A valid untrusted input (plain JSON shape) that individual tests then break on purpose. */
 function validInput(): { version: unknown; nodes: Json[]; edges: Json[] } {
   return {
-    version: 2,
+    version: 3,
     nodes: [
       {
         id: 'g1',
@@ -74,7 +74,7 @@ function allErrors(input: unknown): string {
 }
 
 const sampleModel: GraphModel = {
-  version: 2,
+  version: 3,
   nodes: [
     {
       id: 'g1',
@@ -122,7 +122,7 @@ describe('toModel', () => {
 
   it('adds the schema version and orders the nodes parents first', () => {
     const model = toModel(content)
-    expect(model.version).toBe(2)
+    expect(model.version).toBe(3)
     expect(model.nodes.map((n) => n.id)).toEqual(['g', 'c'])
     expect(model.edges).toEqual(content.edges)
   })
@@ -145,8 +145,8 @@ describe('toModel', () => {
 
 describe('parseModel: success', () => {
   it('accepts an empty graph', () => {
-    expect(modelOf(parseModel({ version: 2, nodes: [], edges: [] }))).toEqual({
-      version: 2,
+    expect(modelOf(parseModel({ version: 3, nodes: [], edges: [] }))).toEqual({
+      version: 3,
       nodes: [],
       edges: [],
     })
@@ -154,7 +154,7 @@ describe('parseModel: success', () => {
 
   it('accepts a valid graph with groups, nested nodes and edges', () => {
     const model = modelOf(parseModel(validInput()))
-    expect(model.version).toBe(2)
+    expect(model.version).toBe(3)
     expect(model.nodes.map((n) => n.id)).toEqual(['g1', 'n1', 'n2'])
     expect(model.nodes[1]).toEqual({
       id: 'n1',
@@ -285,7 +285,7 @@ describe('parseModel: top level', () => {
     expect(allErrors(input)).toMatch(/Version.*fehlt/)
   })
 
-  it.each([3, 0, '2', null, 1.5, {}])('reports unsupported version %j', (version) => {
+  it.each([4, 0, '3', null, 1.5, {}])('reports unsupported version %j', (version) => {
     const input = validInput()
     input.version = version
     expect(allErrors(input)).toMatch(/Nicht unterstützte Version/)
@@ -572,7 +572,7 @@ describe('parseModel: edges', () => {
 describe('parseModel: error collection', () => {
   it('collects problems from all areas in one run', () => {
     const input = validInput()
-    input.version = 3
+    input.version = 4
     delete input.nodes[0].size // group without size
     input.nodes[1].parentId = 'missing'
     input.nodes[2].id = 'g1' // duplicate id
@@ -627,7 +627,7 @@ describe('parseModelJson', () => {
   it('passes valid JSON with the wrong shape on to the model validation', () => {
     expect(errorsOf(parseModelJson('null'))[0]).toMatch(/Graph/)
     expect(errorsOf(parseModelJson('{"version":1}'))).toHaveLength(2)
-    expect(allErrors(JSON.parse('{"version":3,"nodes":[],"edges":[]}'))).toMatch(/Version/)
+    expect(allErrors(JSON.parse('{"version":4,"nodes":[],"edges":[]}'))).toMatch(/Version/)
   })
 })
 
@@ -637,8 +637,8 @@ describe('parseModelJson', () => {
 
 describe('serializeModel', () => {
   it('writes pretty-printed JSON with two spaces and a trailing newline', () => {
-    const text = serializeModel({ version: 2, nodes: [], edges: [] })
-    expect(text).toBe('{\n  "version": 2,\n  "nodes": [],\n  "edges": []\n}\n')
+    const text = serializeModel({ version: 3, nodes: [], edges: [] })
+    expect(text).toBe('{\n  "version": 3,\n  "nodes": [],\n  "edges": []\n}\n')
   })
 
   it('uses the stable key order version, nodes, edges and a canonical order inside the elements', () => {
@@ -655,7 +655,7 @@ describe('serializeModel', () => {
           id: 'n',
         },
       ],
-      version: 2,
+      version: 3,
     } as unknown as GraphModel
     const parsed = JSON.parse(serializeModel(scrambled)) as GraphModel
     expect(Object.keys(parsed)).toEqual(['version', 'nodes', 'edges'])
@@ -668,7 +668,7 @@ describe('serializeModel', () => {
 
   it('omits undefined optional properties', () => {
     const text = serializeModel({
-      version: 2,
+      version: 3,
       nodes: [
         { id: 'a', kind: 'node', parentId: undefined, size: undefined, position: { x: 0, y: 0 }, metadata: [] },
       ],
@@ -784,7 +784,7 @@ describe('project name in the model', () => {
   })
 
   it('is exported right after the version and survives a round trip', () => {
-    const model: GraphModel = { version: 2, projectName: 'Alpha', nodes: [], edges: [] }
+    const model: GraphModel = { version: 3, projectName: 'Alpha', nodes: [], edges: [] }
     const text = serializeModel(model)
     expect(text.indexOf('"projectName"')).toBeGreaterThan(text.indexOf('"version"'))
     expect(text.indexOf('"projectName"')).toBeLessThan(text.indexOf('"nodes"'))
@@ -829,7 +829,7 @@ describe('edge connectors', () => {
 
   it('serializes connectors in a stable key order and round-trips them', () => {
     const model: GraphModel = {
-      version: 2,
+      version: 3,
       nodes: [
         { id: 'a', kind: 'node', position: { x: 0, y: 0 }, metadata: [{ key: 'name', value: 'A' }] },
         { id: 'b', kind: 'node', position: { x: 9, y: 0 }, metadata: [{ key: 'name', value: 'B' }] },
@@ -887,7 +887,7 @@ describe('edge names', () => {
 
   it('serializes the metadata after the connectors and round-trips it', () => {
     const model: GraphModel = {
-      version: 2,
+      version: 3,
       nodes: [
         { id: 'a', kind: 'node', position: { x: 0, y: 0 }, metadata: [{ key: 'name', value: 'A' }] },
         { id: 'b', kind: 'node', position: { x: 9, y: 0 }, metadata: [{ key: 'name', value: 'B' }] },
@@ -924,7 +924,7 @@ describe('edge names', () => {
     it('is imported as the current version', () => {
       const result = parseModel(edgeInput({ label: 'x' }, 1))
 
-      expect(result.ok && result.model.version).toBe(2)
+      expect(result.ok && result.model.version).toBe(3)
     })
   })
 
@@ -948,7 +948,7 @@ describe('parse messages in the chosen language', () => {
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.errors).toEqual([
-      'La version (version) est absente. La version attendue est 2.',
+      'La version (version) est absente. La version attendue est 3.',
       'Le champ "nodes" doit être une liste.',
       'Le champ "edges" doit être une liste.',
     ])
@@ -981,5 +981,59 @@ describe('parse messages in the chosen language', () => {
   it('keeps German by default', () => {
     const result = parseModel(null)
     expect(result).toEqual({ ok: false, errors: ['Die Datei enthält kein gültiges Graph-Objekt.'] })
+  })
+})
+
+describe('notes in the file format', () => {
+  const noteNode = (extra: Record<string, unknown> = {}) => ({
+    id: 'sticky',
+    kind: 'note',
+    position: { x: 10, y: 20 },
+    size: { width: 200, height: 100 },
+    metadata: [
+      { key: 'name', value: 'Zeile 1\nZeile 2' },
+      { key: 'color', value: '#fda4af' },
+    ],
+    ...extra,
+  })
+
+  it('round-trips a note with text, colour and size', () => {
+    const result = parseModelJson(serializeModel({ version: 3, nodes: [noteNode() as never], edges: [] }))
+
+    expect(result.ok && result.model.nodes[0]).toMatchObject({
+      kind: 'note',
+      size: { width: 200, height: 100 },
+      metadata: [
+        { key: 'name', value: 'Zeile 1\nZeile 2' },
+        { key: 'color', value: '#fda4af' },
+      ],
+    })
+  })
+
+  it('does not need a size', () => {
+    const { size: _size, ...bare } = noteNode()
+    expect(parseModel({ version: 3, nodes: [bare], edges: [] }).ok).toBe(true)
+  })
+
+  it('refuses a connection to or from a note', () => {
+    const plain = { id: 'a', kind: 'node', position: { x: 0, y: 0 }, metadata: [{ key: 'name', value: 'A' }] }
+    for (const edge of [
+      { id: 'e', source: 'a', target: 'sticky' },
+      { id: 'e', source: 'sticky', target: 'a' },
+    ]) {
+      const result = parseModel({ version: 3, nodes: [plain, noteNode()], edges: [edge] })
+      expect(result.ok).toBe(false)
+      expect(!result.ok && result.errors.join(' ')).toMatch(/Notiz/)
+    }
+  })
+
+  it('may sit in a group', () => {
+    const grp = { id: 'g', kind: 'group', position: { x: 0, y: 0 }, size: { width: 300, height: 200 }, metadata: [] }
+    expect(parseModel({ version: 3, nodes: [grp, noteNode({ parentId: 'g' })], edges: [] }).ok).toBe(true)
+  })
+
+  it('still reads files of version 2 (without notes) and writes them as version 3', () => {
+    const result = parseModel({ version: 2, nodes: [], edges: [] })
+    expect(result.ok && result.model.version).toBe(3)
   })
 })

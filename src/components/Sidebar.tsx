@@ -12,7 +12,7 @@ import {
   STATUS_VALUES,
 } from '../model/status'
 import { useT } from '../i18n/react'
-import { COLOR_KEY, DEFAULT_COLOR, NAME_KEY } from '../model/types'
+import { COLOR_KEY, DEFAULT_COLOR, NAME_KEY, NOTE_DEFAULT_COLOR } from '../model/types'
 import type { MetadataEntry } from '../model/types'
 import type { SidebarElement, SidebarProps } from './props'
 import { SidebarBulkColor } from './SidebarBulkColor'
@@ -100,7 +100,7 @@ function entriesOf(draft: Draft, withStatus: boolean): MetadataEntry[] {
 }
 
 type SidebarFormProps = Omit<SidebarProps, 'element' | 'selectionCount' | 'hidden'> & {
-  element: SidebarElement & { kind: 'node' | 'group' }
+  element: SidebarElement & { kind: 'node' | 'group' | 'note' }
 }
 
 /**
@@ -119,6 +119,8 @@ function SidebarForm({
   const t = useT()
   const formId = useId()
   const withStatus = element.kind === 'node'
+  // A note has only its text and a colour: no status, no free fields.
+  const isNote = element.kind === 'note'
   const [received, setReceived] = useState(element.metadata)
   const [applied, setApplied] = useState(() => entriesOf(toDraft(element.metadata, withStatus), withStatus))
   const [draft, setDraft] = useState(() => toDraft(element.metadata, withStatus))
@@ -176,7 +178,7 @@ function SidebarForm({
     event.preventDefault()
   }
 
-  const title = element.kind === 'group' ? t('sidebar.title.group') : t('sidebar.title.node')
+  const title = t(element.kind === 'group' ? 'sidebar.title.group' : isNote ? 'sidebar.title.note' : 'sidebar.title.node')
 
   return (
     <form className="sidebar__form" onSubmit={handleSubmit}>
@@ -208,15 +210,26 @@ function SidebarForm({
 
       <div className="sidebar__field">
         <label className="sidebar__label" htmlFor={`${formId}-name`}>
-          {t('sidebar.field.name')}
+          {t(isNote ? 'sidebar.field.text' : 'sidebar.field.name')}
         </label>
-        <input
-          id={`${formId}-name`}
-          className="ui-input"
-          value={draft.name}
-          onChange={(event) => edit({ ...draft, name: event.target.value })}
-          onBlur={gesture.end}
-        />
+        {isNote ? (
+          <textarea
+            id={`${formId}-name`}
+            className="ui-input sidebar__note-text"
+            rows={5}
+            value={draft.name}
+            onChange={(event) => edit({ ...draft, name: event.target.value })}
+            onBlur={gesture.end}
+          />
+        ) : (
+          <input
+            id={`${formId}-name`}
+            className="ui-input"
+            value={draft.name}
+            onChange={(event) => edit({ ...draft, name: event.target.value })}
+            onBlur={gesture.end}
+          />
+        )}
       </div>
 
       <div className="sidebar__field">
@@ -228,7 +241,7 @@ function SidebarForm({
             id={`${formId}-color`}
             type="color"
             className="sidebar__color-input"
-            value={shown.color || DEFAULT_COLOR}
+            value={shown.color || (isNote ? NOTE_DEFAULT_COLOR : DEFAULT_COLOR)}
             onChange={(event) => edit({ ...draft, color: event.target.value.toLowerCase() })}
             onBlur={gesture.end}
           />
@@ -291,7 +304,7 @@ function SidebarForm({
         </p>
       )}
 
-      {draft.rows.length > 0 && (
+      {!isNote && draft.rows.length > 0 && (
         <ul className="sidebar__rows">
           {draft.rows.map((row) => (
             <li key={row.rid} className="sidebar__row">
@@ -325,9 +338,11 @@ function SidebarForm({
         </ul>
       )}
 
-      <button type="button" className="ui-button ui-button--secondary sidebar__add" onClick={addRow}>
-        {t('sidebar.field.add')}
-      </button>
+      {!isNote && (
+        <button type="button" className="ui-button ui-button--secondary sidebar__add" onClick={addRow}>
+          {t('sidebar.field.add')}
+        </button>
+      )}
 
       {duplicates.length > 0 && (
         <div className="sidebar__footer">

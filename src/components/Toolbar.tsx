@@ -12,6 +12,7 @@ import {
   CycleIcon,
   GraphIcon,
   GroupIcon,
+  NoteIcon,
   HelpIcon,
   PasteIcon,
   SearchIcon,
@@ -67,6 +68,14 @@ const TOOLS: readonly {
     titleKey: 'toolbar.tool.create.title',
     icon: <AddObjectIcon size={ICON_SIZE} />,
     shortcut: 'N',
+  },
+  {
+    value: 'note',
+    labelKey: 'toolbar.tool.note.label',
+    nameKey: 'toolbar.tool.note.name',
+    titleKey: 'toolbar.tool.note.title',
+    icon: <NoteIcon size={ICON_SIZE} />,
+    shortcut: 'S',
   },
   {
     value: 'connect',

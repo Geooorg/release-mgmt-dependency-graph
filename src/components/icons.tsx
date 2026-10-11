@@ -106,6 +106,16 @@ export function AddObjectIcon({ size }: { size?: number }) {
   )
 }
 
+/** Sticky note with a folded corner (note tool). */
+export function NoteIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M5 3h14a2 2 0 0 1 2 2v9l-7 7H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+      <path d="M21 14h-5a2 2 0 0 0-2 2v5" />
+    </Icon>
+  )
+}
+
 /** Two connectors joined by a line (connect tool). */
 export function ConnectIcon({ size }: { size?: number }) {
   return (

@@ -4,6 +4,7 @@ import { getSize, pickSides, sortParentsFirst } from '../model/graph'
 import { displayName, getColor, getContrastColor, getEdgeName, getName } from '../model/metadata'
 import { joinNames, type ProjectAnalysis } from '../model/releaseAnalysis'
 import { isSoftEdge } from '../model/softDependency'
+import { NOTE_DEFAULT_COLOR } from '../model/types'
 import type { ModelEdge, ModelNode } from '../model/types'
 import type { AppFlowNode } from './types'
 
@@ -66,10 +67,11 @@ export function toFlowNodes(
 
   return sortParentsFirst(nodes).map((node) => {
     const { width, height } = getSize(node)
-    const color = getColor(node.metadata)
+    // A note without a colour entry is sticky-note yellow; the others fall back to blue in the styles.
+    const color = getColor(node.metadata) ?? (node.kind === 'note' ? NOTE_DEFAULT_COLOR : undefined)
     return {
       id: node.id,
-      type: node.kind === 'group' ? 'group' : 'box',
+      type: node.kind === 'group' ? 'group' : node.kind === 'note' ? 'note' : 'box',
       position: node.position,
       parentId: node.parentId,
       width,

@@ -347,6 +347,13 @@
   font-size: 12px;
 }
 
+.sidebar .ui-input.sidebar__note-text {
+  min-height: 96px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
 .sidebar__readonly {
   margin-left: 6px;
   color: var(--gray-400);
@@ -744,6 +751,67 @@
 .flow--locked .node-handle {
   opacity: 0;
   pointer-events: none;
+}
+
+/* ---------- Sticky note ---------- */
+
+.note-node {
+  --note-fill: var(--note-color, #fef08a);
+
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 10px;
+  overflow: hidden;
+  border-radius: 2px 2px 14px 2px;
+  background:
+    linear-gradient(rgb(0 0 0 / 0.07), transparent 22px),
+    var(--note-fill);
+  color: var(--note-text, #111827);
+  box-shadow: 0 3px 8px rgb(17 24 39 / 0.28);
+  font-family: inherit;
+}
+
+.note-node--selected {
+  outline: 3px solid var(--blue-900);
+  outline-offset: 2px;
+}
+
+/* The text never makes the note grow: as many lines as fit (--note-lines), then "…". */
+.note-node__text {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--note-lines, 4);
+  line-clamp: var(--note-lines, 4);
+}
+
+.note-node__text--empty {
+  opacity: 0.55;
+  font-style: italic;
+}
+
+.note-node__input {
+  display: block;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 /* ---------- Tooltip ---------- */

@@ -8,12 +8,14 @@ export function normalizeQuery(query: string): string {
 
 /**
  * Ids of the objects and groups whose `name` starts with `query` (case-insensitive), in model order.
- * An empty query finds nothing.
+ * Notes are not searched. An empty query finds nothing.
  */
 export function findByName(nodes: readonly ModelNode[], query: string): string[] {
   const wanted = normalizeQuery(query)
   if (wanted === '') return []
-  return nodes.filter((node) => getName(node.metadata).trim().toLowerCase().startsWith(wanted)).map((node) => node.id)
+  return nodes
+    .filter((node) => node.kind !== 'note' && getName(node.metadata).trim().toLowerCase().startsWith(wanted))
+    .map((node) => node.id)
 }
 
 /**

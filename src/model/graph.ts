@@ -18,6 +18,8 @@ import {
   GROUP_PADDING,
   NAME_KEY,
   NODE_SIZE,
+  NOTE_DEFAULT_SIZE,
+  NOTE_MIN_SIZE,
 } from './types'
 import type {
   GraphContent,
@@ -40,7 +42,7 @@ export interface EdgeHandles {
 
 export type ConnectionCheck =
   | { ok: true }
-  | { ok: false; reason: 'unknown-node' | 'self' | 'duplicate' | 'hierarchy' }
+  | { ok: false; reason: 'unknown-node' | 'self' | 'duplicate' | 'hierarchy' | 'note' }
 
 type NodeIndex = ReadonlyMap<string, ModelNode>
 
@@ -122,10 +124,24 @@ export function createNode(
   }
 }
 
-/** Effective size: `node.size` if set, otherwise NODE_SIZE (plain nodes) / GROUP_DEFAULT_SIZE (groups). */
+/** Creates an empty sticky note: kind 'note', the text is the `name` entry, no explicit size. */
+export function createNote(
+  position: Point,
+  newId: IdGenerator = defaultIdGenerator,
+  text = '',
+): ModelNode {
+  return {
+    id: newId(),
+    kind: 'note',
+    position: { x: position.x, y: position.y },
+    metadata: normalizeMetadata([{ key: NAME_KEY, value: text }]),
+  }
+}
+
+/** Effective size: `node.size` if set, otherwise NODE_SIZE (plain nodes) / GROUP_DEFAULT_SIZE (groups) / NOTE_DEFAULT_SIZE (notes). */
 export function getSize(node: ModelNode): Size {
   if (node.size !== undefined) return node.size
-  return { ...(node.kind === 'group' ? GROUP_DEFAULT_SIZE : NODE_SIZE) }
+  return { ...(node.kind === 'group' ? GROUP_DEFAULT_SIZE : node.kind === 'note' ? NOTE_DEFAULT_SIZE : NODE_SIZE) }
 }
 
 /** Ids of all ancestors, nearest parent first. Unknown id -> []. Must be robust against parent cycles. */
@@ -363,7 +379,7 @@ export function findDropTargetGroup(nodes: readonly ModelNode[], id: string): st
 }
 
 /**
- * Deletes the given edges and elements. Deleting a plain node removes it and all attached edges.
+ * Deletes the given edges and elements. Deleting a plain node (or a note) removes it and all attached edges.
  * Deleting a GROUP dissolves it (see `ungroup`): its children survive and move up one level;
  * only the group and its attached edges are removed. If a group and some of its children are both
  * listed, the listed children are deleted and the remaining ones survive.
@@ -375,7 +391,7 @@ export function deleteElements(
   const selectedNodes = new Set(selection.nodeIds)
   const selectedEdges = new Set(selection.edgeIds)
   const removedPlain = new Set(
-    content.nodes.filter((n) => n.kind === 'node' && selectedNodes.has(n.id)).map((n) => n.id),
+    content.nodes.filter((n) => n.kind !== 'group' && selectedNodes.has(n.id)).map((n) => n.id),
   )
   const groupIds = content.nodes.filter((n) => n.kind === 'group' && selectedNodes.has(n.id)).map((n) => n.id)
 
@@ -401,6 +417,7 @@ export function deleteElements(
  *  - 'self': source === target
  *  - 'duplicate': an edge with the same source AND target exists (reverse direction is allowed)
  *  - 'hierarchy': one of them is an ancestor of the other (group -> own member)
+ *  - 'note': a note has no connections
  */
 export function checkConnection(
   content: GraphContent,
@@ -409,6 +426,7 @@ export function checkConnection(
 ): ConnectionCheck {
   const byId = indexById(content.nodes)
   if (!byId.has(source) || !byId.has(target)) return { ok: false, reason: 'unknown-node' }
+  if (byId.get(source)?.kind === 'note' || byId.get(target)?.kind === 'note') return { ok: false, reason: 'note' }
   if (source === target) return { ok: false, reason: 'self' }
   if (content.edges.some((edge) => edge.source === source && edge.target === target)) {
     return { ok: false, reason: 'duplicate' }
@@ -589,7 +607,7 @@ export function moveNode(content: GraphContent, id: string, position: Point): Gr
 /** Sets the size of one element (clamped to at least GROUP_MIN_SIZE for groups, 1x1 otherwise). Unknown id -> unchanged. */
 export function resizeNode(content: GraphContent, id: string, size: Size): GraphContent {
   return updateNode(content, id, (node) => {
-    const min = node.kind === 'group' ? GROUP_MIN_SIZE : { width: 1, height: 1 }
+    const min = node.kind === 'group' ? GROUP_MIN_SIZE : node.kind === 'note' ? NOTE_MIN_SIZE : { width: 1, height: 1 }
     return {
       ...node,
       size: { width: clampAtLeast(size.width, min.width), height: clampAtLeast(size.height, min.height) },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { getAbsolutePosition, getSize } from './graph'
-import { addNodeAtPoint, findFreePosition, placeNewNode } from './placement'
+import { addNodeAtPoint, addNoteAtPoint, findFreePosition, placeNewNode } from './placement'
 import { box, content, counterIds, group } from '../test/fixtures'
 import { NODE_SIZE } from './types'
 import type { ModelNode, Point, Size } from './types'
@@ -199,5 +199,27 @@ describe('addNodeAtPoint', () => {
     const result = addNodeAtPoint(input, { x: 1000, y: 1000 }, counterIds())
     expect(result.content.edges).toBe(input.edges)
     expect(JSON.stringify(input)).toBe(frozen)
+  })
+})
+
+describe('addNoteAtPoint', () => {
+  it('adds an empty note centred exactly on the point, even over another element', () => {
+    const result = addNoteAtPoint(content([box('a', 0, 0)]), { x: 80, y: 28 }, counterIds())
+
+    const added = result.content.nodes.find((n) => n.id === result.nodeId)!
+    expect(added.kind).toBe('note')
+    expect(added.metadata).toEqual([{ key: 'name', value: '' }])
+    expect(added.position).toEqual({ x: 0, y: -32 })
+    expect(added.parentId).toBeUndefined()
+  })
+
+  it('joins the group at the point, which grows when the note does not fit', () => {
+    const result = addNoteAtPoint(content([group('g', 0, 0, 200, 150)]), { x: 190, y: 140 }, counterIds())
+
+    const added = result.content.nodes.find((n) => n.id === result.nodeId)!
+    const g = result.content.nodes.find((n) => n.id === 'g')!
+    expect(added.parentId).toBe('g')
+    expect(g.size!.width).toBeGreaterThanOrEqual(added.position.x + 160 + 24)
+    expect(g.size!.height).toBeGreaterThanOrEqual(added.position.y + 120 + 24)
   })
 })

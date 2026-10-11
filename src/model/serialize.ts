@@ -2,7 +2,7 @@ import { createTranslate, type Translate } from '../i18n/translate'
 import { sortParentsFirst } from './graph'
 import { findDuplicateKeys, normalizeMetadata, tidyEdgeMetadata } from './metadata'
 import { DEFAULT_PROJECT_NAME, isValidProjectName } from './projectName'
-import { HANDLE_SIDES, LEGACY_SCHEMA_VERSION, NAME_KEY, SCHEMA_VERSION } from './types'
+import { HANDLE_SIDES, LEGACY_SCHEMA_VERSION, NAME_KEY, PREVIOUS_SCHEMA_VERSION, SCHEMA_VERSION } from './types'
 import type {
   ElementKind,
   GraphContent,
@@ -110,15 +110,16 @@ export function parseModelJson(text: string, t: Translate = createTranslate('de'
  * Collects ALL problems as human-readable messages in the language of `t` (German by default, max 20)
  * instead of stopping at the first.
  * Rules:
- *  - top-level object with `version === 2`, or the older `version === 1` whose edge `label` becomes the
- *    `name` metadata entry (else error mentioning the unsupported/missing version)
+ *  - top-level object with `version === 3`, or the older `version === 2` (the same without notes) or
+ *    `version === 1` whose edge `label` becomes the `name` metadata entry (else error mentioning the
+ *    unsupported/missing version)
  *  - `nodes` and `edges` arrays
- *  - node: non-empty string `id` (unique), `kind` 'node'|'group', `position` with finite x/y,
+ *  - node: non-empty string `id` (unique), `kind` 'node'|'group'|'note', `position` with finite x/y,
  *    `size` (optional for nodes, required for groups) with finite width/height > 0,
  *    `metadata` array of `{key: string, value: string}` (missing metadata is tolerated -> []),
  *    optional `parentId` that references an existing node of kind 'group', no parent cycles
  *  - metadata is normalized with `normalizeMetadata`; duplicate keys (after trim) are an error
- *  - edge: unique non-empty string `id`, `source`/`target` reference existing nodes, source !== target,
+ *  - edge: unique non-empty string `id`, `source`/`target` reference existing nodes (not notes), source !== target,
  *    no duplicate (source,target) pair, optional `metadata` like an element's (duplicate keys are an error)
  *  - unknown extra properties are ignored
  * On success the model has nodes ordered parents first.
@@ -146,17 +147,19 @@ export function parseModel(input: unknown, t: Translate = createTranslate('de'))
 
   let nodes: ModelNode[] = []
   let nodeIds = new Set<string>()
+  let noteIds = new Set<string>()
   if (Array.isArray(input.nodes)) {
     const parsed = parseNodes(input.nodes, report, t)
     nodes = parsed.nodes
     nodeIds = parsed.ids
+    noteIds = parsed.noteIds
   } else {
     report(t('parse.nodesNotList'))
   }
 
   let edges: ModelEdge[] = []
   if (Array.isArray(input.edges)) {
-    edges = parseEdges(input.edges, nodeIds, report, input.version === LEGACY_SCHEMA_VERSION, t)
+    edges = parseEdges(input.edges, nodeIds, noteIds, report, input.version === LEGACY_SCHEMA_VERSION, t)
   } else {
     report(t('parse.edgesNotList'))
   }
@@ -174,7 +177,7 @@ export function parseModel(input: unknown, t: Translate = createTranslate('de'))
 }
 
 function checkVersion(version: unknown, report: Report, t: Translate): void {
-  if (version === SCHEMA_VERSION || version === LEGACY_SCHEMA_VERSION) return
+  if (version === SCHEMA_VERSION || version === PREVIOUS_SCHEMA_VERSION || version === LEGACY_SCHEMA_VERSION) return
   if (version === undefined) {
     report(t('parse.version.missing', { expected: SCHEMA_VERSION }))
   } else {
@@ -189,6 +192,8 @@ interface ParsedNodes {
   nodes: ModelNode[]
   /** Every distinct valid id seen, including those of nodes that have other problems. */
   ids: Set<string>
+  /** Ids of the notes among the valid nodes. */
+  noteIds: Set<string>
 }
 
 function parseNodes(raw: readonly unknown[], report: Report, t: Translate): ParsedNodes {
@@ -200,7 +205,7 @@ function parseNodes(raw: readonly unknown[], report: Report, t: Translate): Pars
   })
 
   checkParents(nodes, firstIndexById, report, t)
-  return { nodes, ids: new Set(firstIndexById.keys()) }
+  return { nodes, ids: new Set(firstIndexById.keys()), noteIds: new Set(nodes.filter((n) => n.kind === 'note').map((n) => n.id)) }
 }
 
 function parseNode(
@@ -272,7 +277,7 @@ function parseNode(
 }
 
 function parseKind(value: unknown): ElementKind | undefined {
-  return value === 'node' || value === 'group' ? value : undefined
+  return value === 'node' || value === 'group' || value === 'note' ? value : undefined
 }
 
 function parsePoint(value: unknown): Point | undefined {
@@ -364,6 +369,7 @@ function findCycles(nodes: readonly ModelNode[], parentOf: ReadonlyMap<string, s
 function parseEdges(
   raw: readonly unknown[],
   nodeIds: ReadonlySet<string>,
+  noteIds: ReadonlySet<string>,
   report: Report,
   legacy: boolean,
   t: Translate,
@@ -400,6 +406,7 @@ function parseEdges(
     } else {
       if (!nodeIds.has(source)) fail(t('parse.edge.sourceMissing', { id: quote(source) }))
       if (!nodeIds.has(target)) fail(t('parse.edge.targetMissing', { id: quote(target) }))
+      if (noteIds.has(source) || noteIds.has(target)) fail(t('parse.edge.note'))
       if (source === target) {
         fail(t('parse.edge.selfLoop'))
       } else {

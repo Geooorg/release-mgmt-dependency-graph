@@ -1,7 +1,7 @@
 import Ajv2020 from 'ajv/dist/2020.js'
 import { describe, expect, it } from 'vitest'
 import schema from '../../public/graph.schema.json'
-import { box, counterIds, group } from '../test/fixtures'
+import { box, counterIds, group, note } from '../test/fixtures'
 import { createDefaultContent } from './defaultModel'
 import { addEdge } from './graph'
 import { parseModel, serializeModel, toModel } from './serialize'
@@ -12,7 +12,7 @@ const validate = ajv.compile(schema)
 
 const entry = (key: string, value: string) => ({ key, value })
 const base = () => ({
-  version: 2,
+  version: 3,
   nodes: [
     { id: 'g', kind: 'group', position: { x: 0, y: 0 }, size: { width: 300, height: 200 }, metadata: [entry('name', 'G')] },
     { id: 'a', kind: 'node', parentId: 'g', position: { x: 24, y: 56 }, metadata: [entry('name', 'A')] },
@@ -36,6 +36,7 @@ describe('graph.schema.json', () => {
       serializeModel(toModel({ ...createDefaultContent(counterIds()), projectName: 'Mein-Projekt_1.0' })),
       serializeModel(toModel(content)),
       serializeModel(toModel({ nodes: [], edges: [] })),
+      serializeModel(toModel({ nodes: [note('n', 0, 0, 'Plan'), { ...note('m', 50, 50), size: { width: 90, height: 60 } }], edges: [] })),
     ]) {
       expect(validate(JSON.parse(exported)), JSON.stringify(validate.errors)).toBe(true)
     }
@@ -45,7 +46,8 @@ describe('graph.schema.json', () => {
     const cases: [string, (doc: ReturnType<typeof base>) => unknown][] = [
       ['valid', (d) => d],
       ['missing version', ({ version: _version, ...rest }) => rest],
-      ['unknown version', (d) => ({ ...d, version: 3 })],
+      ['unknown version', (d) => ({ ...d, version: 4 })],
+      ['a note', (d) => ({ ...d, nodes: [...d.nodes, { id: 'n', kind: 'note', position: { x: 0, y: 0 }, metadata: [entry('name', 'Text')] }] })],
       ['nodes not a list', (d) => ({ ...d, nodes: {} })],
       ['edges missing', ({ edges: _edges, ...rest }) => rest],
       ['unknown kind', (d) => ({ ...d, nodes: [{ ...d.nodes[2], kind: 'box' }] })],

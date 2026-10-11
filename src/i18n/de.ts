@@ -12,7 +12,7 @@ export const de = {
     '- Wähle das Werkzeug „Objekt“ (Taste N) und klicke auf eine freie Stelle der Fläche, um ein Objekt anzulegen.\n- Wähle „Verbinden“ (Taste C) und klicke nacheinander auf zwei Objekte: erst die Quelle, dann das Ziel.\n- Mit „Auswählen“ (Taste V) markierst und verschiebst du Elemente. Esc beendet das aktive Werkzeug.\n- Die Sidebar rechts zeigt die Auswahl und lässt dich Name, Farbe, Status und weitere Felder bearbeiten.',
   'help.objects.title': 'Objekte und Gruppen',
   'help.objects.body':
-    '- „Gruppieren“ fasst markierte Objekte auf derselben Ebene zu einer Gruppe (Sub-Graph) zusammen; „Gruppe auflösen“ entfernt die Gruppe, ihr Inhalt bleibt erhalten.\n- Legst du ein Objekt oder eine Gruppe in eine Gruppe, wächst diese mit.\n- Ein Doppelklick auf einen Namen benennt das Element direkt um (Enter übernimmt, Esc verwirft).\n- „Löschen“ (Entf) entfernt markierte Objekte und Verbindungen; Gruppen werden nur aufgelöst.\n- Mehrere Elemente markierst du mit Strg/Cmd + Klick oder mit Umschalt + Aufziehen eines Rahmens.',
+    '- „Gruppieren“ fasst markierte Objekte auf derselben Ebene zu einer Gruppe (Sub-Graph) zusammen; „Gruppe auflösen“ entfernt die Gruppe, ihr Inhalt bleibt erhalten.\n- Legst du ein Objekt oder eine Gruppe in eine Gruppe, wächst diese mit.\n- Ein Doppelklick auf einen Namen benennt das Element direkt um (Enter übernimmt, Esc verwirft).\n- „Löschen“ (Entf) entfernt markierte Objekte und Verbindungen; Gruppen werden nur aufgelöst.\n- Mehrere Elemente markierst du mit Strg/Cmd + Klick oder mit Umschalt + Aufziehen eines Rahmens.\n- Mit dem Werkzeug „Notiz“ (Taste S) legst du einen Notizzettel an: frei platzierbar, ohne Verbindungen, mit Farbe. Doppelklick bearbeitet den Text, am Rahmen änderst du die Größe; ist der Text zu lang, wird er mit „…“ abgekürzt.',
   'help.connect.title': 'Verbindungen',
   'help.connect.body':
     'Ein Pfeil A → B bedeutet „A hängt von B ab“: B muss zuerst fertig sein.\n- Mit dem Werkzeug „Verbinden“ klickst du erst die Quelle, dann das Ziel an.\n- Alternativ ziehst du einen Konnektor am Rand eines Objekts auf ein anderes Element; Loslassen irgendwo auf dem Objekt genügt.\n- Die Enden einer vorhandenen Verbindung lassen sich auf andere Konnektoren oder Elemente ziehen (nicht im Analysemodus).\n- Nicht möglich sind Verbindungen auf sich selbst, doppelte Verbindungen und Verbindungen zwischen einer Gruppe und ihrem eigenen Inhalt.\n- Eine Verbindung von oder zu einer Gruppe gilt für alle (auch verschachtelte) Mitglieder.\n- Eine Verbindung kannst du markieren und in der Sidebar beschriften.\n- Mit dem Häkchen „Optionale Abhängigkeit“ in der Sidebar wird eine Verbindung zur optionalen Abhängigkeit (soft dependency): Sie wird gepunktet gezeichnet und zählt nicht zum kritischen Pfad. Für „wartet“, Voraussetzungen und Zyklen zählt sie weiter.',
@@ -54,6 +54,10 @@ export const de = {
   'toolbar.tool.create.name': 'Objekt anlegen',
   'toolbar.tool.create.title':
     'Auf eine freie Stelle der Fläche klicken, um dort ein Objekt anzulegen (in einer Gruppe: als Mitglied). Das Werkzeug bleibt aktiv; Esc beendet es.',
+  'toolbar.tool.note.label': 'Notiz',
+  'toolbar.tool.note.name': 'Notiz anlegen',
+  'toolbar.tool.note.title':
+    'Auf eine freie Stelle der Fläche klicken, um dort einen Notizzettel zu platzieren. Doppelklick auf die Notiz bearbeitet den Text, am Rahmen lässt sich die Größe ändern. Das Werkzeug bleibt aktiv; Esc beendet es.',
   'toolbar.tool.connect.label': 'Verbinden',
   'toolbar.tool.connect.name': 'Verbinden',
   'toolbar.tool.connect.title':
@@ -154,6 +158,8 @@ export const de = {
   'search.hit': 'Treffer {position} von {count}',
   'search.close': 'Suche schließen',
   'toolHint.create': 'Auf eine freie Stelle klicken, um ein Objekt anzulegen …',
+  'toolHint.note':
+    'Auf eine freie Stelle klicken, um eine Notiz zu platzieren …',
   'toolHint.connect.source': 'Quelle anklicken …',
   'toolHint.connect.target': 'Ziel anklicken …',
   'flow.controls': 'Ansichtssteuerung',
@@ -174,6 +180,10 @@ export const de = {
   'projectTitle.empty': 'Der Name darf nicht leer sein.',
   'projectTitle.removedChar': 'Nicht erlaubtes Zeichen entfernt.',
   'node.name': 'Name',
+  'note.text': 'Notiztext',
+  'note.placeholder': 'Doppelklick zum Schreiben',
+  'note.edit.hint':
+    'Enter = neue Zeile, Strg/Cmd + Enter oder Verlassen übernimmt, Esc verwirft.',
   'status.unknown': 'Status „{value}“ unbekannt – zählt als offen',
   'summary.objects_one': '{count} Objekt',
   'summary.objects_other': '{count} Objekte',
@@ -184,6 +194,7 @@ export const de = {
   'sidebar.label': 'Metadaten',
   'sidebar.title.node': 'Objekt',
   'sidebar.title.group': 'Gruppe',
+  'sidebar.title.note': 'Notiz',
   'sidebar.title.edge': 'Verbindung',
   'sidebar.title.selection': 'Auswahl',
   'sidebar.selection_one': '{count} Element markiert – zum Bearbeiten genau eines auswählen.',
@@ -203,6 +214,7 @@ export const de = {
   'sidebar.color.mixed': 'verschieden',
   'sidebar.color.reset': 'Zurücksetzen',
   'sidebar.field.status': 'Status',
+  'sidebar.field.text': 'Text',
   'sidebar.status.unknown': '{value} (unbekannt)',
   'sidebar.field.reason': 'Grund',
   'sidebar.reason.placeholder': 'Warum ist das Objekt blockiert? (optional)',
@@ -293,6 +305,7 @@ export const de = {
   'notice.connection.self': 'Ein Element kann nicht mit sich selbst verbunden werden.',
   'notice.connection.duplicate': 'Diese Verbindung existiert bereits.',
   'notice.connection.hierarchy': 'Eine Gruppe kann nicht mit ihrem eigenen Inhalt verbunden werden.',
+  'notice.connection.note': 'An einer Notiz lassen sich keine Verbindungen anlegen.',
   'notice.copied_one': '{count} Element kopiert.',
   'notice.copied_other': '{count} Elemente kopiert.',
   'notice.dropRefused': 'Element nicht in die Gruppe aufgenommen: Es besteht eine Verbindung zwischen beiden.',
@@ -337,6 +350,8 @@ export const de = {
   'parse.edge.sourceMissing': 'source {id} verweist auf keinen vorhandenen Knoten.',
   'parse.edge.targetMissing': 'target {id} verweist auf keinen vorhandenen Knoten.',
   'parse.edge.selfLoop': 'source und target sind identisch.',
+  'parse.edge.note':
+    'source oder target verweist auf eine Notiz; Notizen haben keine Verbindungen.',
   'parse.edge.duplicate': 'Es gibt bereits eine Kante von {source} nach {target} (Kante {index}).',
   'parse.edge.handle': '{field} muss {sides} sein.',
   'parse.edge.labelType': 'label muss ein Text sein.',

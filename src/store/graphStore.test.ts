@@ -3,7 +3,7 @@ import { contentFingerprint } from '../model/fingerprint'
 import { getAbsolutePosition } from '../model/graph'
 import { serializeModel, toModel } from '../model/serialize'
 import { setTestLocale } from '../test/locale'
-import { box, content, counterIds, edge, group } from '../test/fixtures'
+import { box, content, counterIds, edge, group, note } from '../test/fixtures'
 import { createGraphStore, selectSidebarTarget, type GraphStore } from './graphStore'
 
 const twoNodes = () => content([box('a', 0, 0), box('b', 300, 0)])
@@ -1014,7 +1014,7 @@ describe('graphStore', () => {
 
     it('reports a successful import as a message key', () => {
       const store = createGraphStore(twoNodes())
-      store.getState().importText(JSON.stringify({ version: 2, nodes: [], edges: [] }))
+      store.getState().importText(JSON.stringify({ version: 3, nodes: [], edges: [] }))
       expect(store.getState().notice).toEqual({ kind: 'success', message: { key: 'notice.import.done' } })
     })
   })
@@ -1173,12 +1173,14 @@ describe('graphStore', () => {
   })
 
   describe('tools', () => {
-    it('starts with the select tool and switches between the three exclusively', () => {
+    it('starts with the select tool and switches between the four exclusively', () => {
       const store = createGraphStore(twoNodes())
       const s = () => store.getState()
       expect(s().tool).toBe('select')
       s().setTool('create')
       expect(s().tool).toBe('create')
+      s().setTool('note')
+      expect(s().tool).toBe('note')
       s().setTool('connect')
       expect(s().tool).toBe('connect')
       s().setTool('select')
@@ -1195,6 +1197,80 @@ describe('graphStore', () => {
       s().pickForConnect('b')
       expect(s().connectSourceId).toBeNull()
       expect(s().history.past).toHaveLength(0)
+    })
+
+    describe('sticky notes', () => {
+      it('adds an empty note centred on the point, selects it and records one step', () => {
+        const store = createGraphStore(content([]), counterIds())
+        store.getState().setTool('note')
+        store.getState().addNoteAt({ x: 300, y: 200 })
+
+        const added = store.getState().nodes[0]
+        expect(added).toMatchObject({ id: 'id-1', kind: 'note', position: { x: 220, y: 140 } })
+        expect(added.metadata).toEqual([{ key: 'name', value: '' }])
+        expect(store.getState().selectedNodeIds).toEqual(['id-1'])
+        expect(store.getState().history.past).toHaveLength(1)
+        expect(store.getState().tool).toBe('note')
+      })
+
+      it('joins the group at the point', () => {
+        const store = createGraphStore(content([group('g', 100, 200, 600, 400)]), counterIds())
+        store.getState().addNoteAt({ x: 400, y: 400 })
+
+        expect(store.getState().nodes.find((n) => n.id === 'id-1')!.parentId).toBe('g')
+      })
+
+      it('is not possible while analysing, and the tool cannot be chosen there', () => {
+        const store = createGraphStore(content([]), counterIds(), null, { mode: 'analyze' })
+        store.getState().addNoteAt({ x: 0, y: 0 })
+        store.getState().setTool('note')
+
+        expect(store.getState().nodes).toHaveLength(0)
+        expect(store.getState().tool).toBe('select')
+      })
+
+      it('changes text and colour like an object (name entry, one undo step each)', () => {
+        const store = createGraphStore(content([note('n', 0, 0, 'alt')]), counterIds())
+        store.getState().renameElement('n', 'neu\nzeile')
+        store.getState().setSelectionColor('#fda4af')
+        store.getState().applyNodeSelection([{ id: 'n', selected: true }])
+        store.getState().setSelectionColor('#fda4af')
+
+        expect(store.getState().nodes[0].metadata).toEqual([
+          { key: 'name', value: 'neu\nzeile' },
+          { key: 'color', value: '#fda4af' },
+        ])
+        store.getState().undo()
+        expect(store.getState().nodes[0].metadata).toEqual([{ key: 'name', value: 'neu\nzeile' }])
+      })
+
+      it('cannot be the source or target of the connect tool; it says so and picks nothing', () => {
+        const store = createGraphStore(content([note('n', 0, 0, 'x'), box('a', 400, 0)]), counterIds())
+        store.getState().setTool('connect')
+        store.getState().pickForConnect('n')
+
+        expect(store.getState().connectSourceId).toBeNull()
+        expect(store.getState().notice?.kind).toBe('info')
+        store.getState().pickForConnect('a')
+        store.getState().pickForConnect('n')
+        expect(store.getState().edges).toHaveLength(0)
+      })
+
+      it('refuses a connection made by dropping on it', () => {
+        const store = createGraphStore(content([note('n', 0, 0, 'x'), box('a', 400, 0)]), counterIds())
+        store.getState().connectToNode('a', 'n')
+
+        expect(store.getState().edges).toHaveLength(0)
+        expect(store.getState().notice?.message.key).toBe('notice.connection.note')
+      })
+
+      it('is resized as one undo step and not below the minimum', () => {
+        const store = createGraphStore(content([note('n', 0, 0, 'x')]), counterIds())
+        store.getState().resizeNode('n', { width: 300, height: 200 })
+        store.getState().resizeNode('n', { width: 5, height: 5 })
+
+        expect(store.getState().nodes[0].size).toEqual({ width: 80, height: 56 })
+      })
     })
 
     it('keeps the selection free with the create tool', () => {

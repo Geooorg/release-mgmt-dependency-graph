@@ -1,5 +1,6 @@
 import {
   createNode,
+  createNote,
   defaultIdGenerator,
   findGroupAtPoint,
   getAbsolutePosition,
@@ -8,7 +9,7 @@ import {
   reparent,
 } from './graph'
 import { growGroupsToFit } from './groupGrowth'
-import { GROUP_HEADER_HEIGHT, NODE_SIZE } from './types'
+import { GROUP_HEADER_HEIGHT, NODE_SIZE, NOTE_DEFAULT_SIZE } from './types'
 import type { GraphContent, IdGenerator, ModelNode, Point, Size } from './types'
 
 const GRID_STEP = 24
@@ -142,4 +143,21 @@ export function addNodeAtPoint(
   // `reparent` keeps the on-screen position and turns it into one relative to the group.
   if (parentId === undefined) return { content: added, nodeId: node.id }
   return { content: growGroupsToFit(reparent(added, node.id, parentId), node.id), nodeId: node.id }
+}
+
+/**
+ * Adds an empty sticky note centred exactly at `center` (notes may overlap anything, so there is no
+ * search for a free spot), as a member of the deepest group there if any; that group grows to hold it.
+ */
+export function addNoteAtPoint(
+  content: GraphContent,
+  center: Point,
+  newId: IdGenerator = defaultIdGenerator,
+): { content: GraphContent; nodeId: string } {
+  const position = { x: center.x - NOTE_DEFAULT_SIZE.width / 2, y: center.y - NOTE_DEFAULT_SIZE.height / 2 }
+  const note = createNote(position, newId)
+  const added = { ...content, nodes: [...content.nodes, note] }
+  const parentId = findGroupAtPoint(content.nodes, center)
+  if (parentId === undefined) return { content: added, nodeId: note.id }
+  return { content: growGroupsToFit(reparent(added, note.id, parentId), note.id), nodeId: note.id }
 }

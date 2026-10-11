@@ -4,6 +4,7 @@ import {
   canGroup,
   checkConnection,
   createNode,
+  createNote,
   defaultIdGenerator,
   deleteElements,
   findDropTargetGroup,
@@ -1571,5 +1572,55 @@ describe('setBlockReason', () => {
     const g = content([group('g', 0, 0, 100, 100)])
     expect(setBlockReason(g, 'g', 'x')).toBe(g)
     expect(setBlockReason(g, 'nope', 'x')).toBe(g)
+  })
+})
+
+describe('notes', () => {
+  const stick = (id: string, x = 0, y = 0, extra: Partial<ModelNode> = {}): ModelNode => ({
+    id,
+    kind: 'note',
+    position: { x, y },
+    metadata: [{ key: 'name', value: 'Text' }],
+    ...extra,
+  })
+
+  it('createNote makes an empty note with the text in the name entry and no size', () => {
+    const made = createNote({ x: 5, y: 6 }, () => 'n1')
+    expect(made).toEqual({ id: 'n1', kind: 'note', position: { x: 5, y: 6 }, metadata: [{ key: 'name', value: '' }] })
+    expect(createNote({ x: 0, y: 0 }, () => 'n2', ' Hallo ').metadata).toEqual([{ key: 'name', value: 'Hallo' }])
+  })
+
+  it('has its own default size, kept when set', () => {
+    expect(getSize(stick('a'))).toEqual({ width: 160, height: 120 })
+    expect(getSize(stick('a', 0, 0, { size: { width: 200, height: 90 } }))).toEqual({ width: 200, height: 90 })
+  })
+
+  it('cannot become smaller than the minimum size', () => {
+    const resized = resizeNode(content([stick('a')]), 'a', { width: 10, height: 10 })
+    expect(find(resized, 'a').size).toEqual({ width: 80, height: 56 })
+  })
+
+  it('is deleted like an object', () => {
+    const c = content([stick('a'), node('b', 0, 0)])
+    expect(deleteElements(c, { nodeIds: ['a'], edgeIds: [] }).nodes.map((n) => n.id)).toEqual(['b'])
+  })
+
+  it('takes no connection, in either direction', () => {
+    const c = content([stick('a'), node('b', 400, 0)])
+    expect(checkConnection(c, 'a', 'b')).toEqual({ ok: false, reason: 'note' })
+    expect(checkConnection(c, 'b', 'a')).toEqual({ ok: false, reason: 'note' })
+    expect(addEdge(c, 'a', 'b')).toBe(c)
+  })
+
+  it('can be wrapped in a group with the objects', () => {
+    const c = content([stick('a', 10, 10), node('b', 300, 10)])
+    const { content: grouped, groupId } = groupElements(c, ['a', 'b'], () => 'g1')
+    expect(find(grouped, 'a').parentId).toBe(groupId)
+    expect(getSize(find(grouped, 'g1')).width).toBeGreaterThan(300 + 160 - 10)
+  })
+
+  it('is no object for status changes', () => {
+    const c = content([stick('a')])
+    expect(setStatus(c, 'a', 'fertig')).toBe(c)
   })
 })

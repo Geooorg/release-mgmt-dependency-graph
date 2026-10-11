@@ -13,7 +13,7 @@ export const en: Catalog = {
     '- Choose the “Object” tool (key N) and click an empty spot on the canvas to create an object.\n- Choose “Connect” (key C) and click two objects one after the other: the source first, then the target.\n- With “Select” (key V) you select and move elements. Esc ends the active tool.\n- The sidebar on the right shows the selection and lets you edit name, colour, status and further fields.',
   'help.objects.title': 'Objects and groups',
   'help.objects.body':
-    '- “Group” combines selected objects on the same level into a group (sub-graph); “Ungroup” removes the group, its content is kept.\n- When you drop an object or group into a group, the group grows with it.\n- Double-click a name to rename the element directly (Enter confirms, Esc discards).\n- “Delete” (Del) removes selected objects and connections; groups are only dissolved.\n- Select several elements with Ctrl/Cmd + click or by dragging a frame with Shift held.',
+    '- “Group” combines selected objects on the same level into a group (sub-graph); “Ungroup” removes the group, its content is kept.\n- When you drop an object or group into a group, the group grows with it.\n- Double-click a name to rename the element directly (Enter confirms, Esc discards).\n- “Delete” (Del) removes selected objects and connections; groups are only dissolved.\n- Select several elements with Ctrl/Cmd + click or by dragging a frame with Shift held.\n- The “Note” tool (key S) places a sticky note: freely positioned, without connections, with a colour. Double-click edits the text, drag the frame to resize it; text that is too long is shortened with “…”.',
   'help.connect.title': 'Connections',
   'help.connect.body':
     'An arrow A → B means “A depends on B”: B has to be finished first.\n- With the “Connect” tool, click the source first, then the target.\n- Alternatively, drag a connector on the edge of an object onto another element; releasing anywhere on the object is enough.\n- The ends of an existing connection can be dragged to other connectors or elements (not in analysis mode).\n- Not possible: connections to itself, duplicate connections, and connections between a group and its own content.\n- A connection from or to a group applies to all of its members (including nested ones).\n- You can select a connection and give it a caption in the sidebar.\n- The “Optional dependency” checkbox in the sidebar turns a connection into an optional (soft) dependency: it is drawn dotted and left out of the critical path. It still counts for “waiting”, prerequisites and cycles.',
@@ -55,6 +55,10 @@ export const en: Catalog = {
   'toolbar.tool.create.name': 'Create object',
   'toolbar.tool.create.title':
     'Click an empty spot on the canvas to create an object there (inside a group: as a member). The tool stays active; Esc ends it.',
+  'toolbar.tool.note.label': 'Note',
+  'toolbar.tool.note.name': 'Create note',
+  'toolbar.tool.note.title':
+    'Click a free spot on the canvas to place a sticky note there. Double-click the note to edit its text, drag its frame to resize it. The tool stays active; Esc ends it.',
   'toolbar.tool.connect.label': 'Connect',
   'toolbar.tool.connect.name': 'Connect',
   'toolbar.tool.connect.title':
@@ -155,6 +159,7 @@ export const en: Catalog = {
   'search.hit': 'Match {position} of {count}',
   'search.close': 'Close search',
   'toolHint.create': 'Click an empty spot to create an object …',
+  'toolHint.note': 'Click a free spot to place a note …',
   'toolHint.connect.source': 'Click the source …',
   'toolHint.connect.target': 'Click the target …',
   'flow.controls': 'View controls',
@@ -175,6 +180,10 @@ export const en: Catalog = {
   'projectTitle.empty': 'The name must not be empty.',
   'projectTitle.removedChar': 'Disallowed character removed.',
   'node.name': 'Name',
+  'note.text': 'Note text',
+  'note.placeholder': 'Double-click to write',
+  'note.edit.hint':
+    'Enter = new line, Ctrl/Cmd + Enter or leaving the field confirms, Esc discards.',
   'status.unknown': 'Status “{value}” unknown – counts as open',
   'summary.objects_one': '{count} object',
   'summary.objects_other': '{count} objects',
@@ -185,6 +194,7 @@ export const en: Catalog = {
   'sidebar.label': 'Metadata',
   'sidebar.title.node': 'Object',
   'sidebar.title.group': 'Group',
+  'sidebar.title.note': 'Note',
   'sidebar.title.edge': 'Connection',
   'sidebar.title.selection': 'Selection',
   'sidebar.selection_one': '{count} element selected – select exactly one to edit.',
@@ -204,6 +214,7 @@ export const en: Catalog = {
   'sidebar.color.mixed': 'mixed',
   'sidebar.color.reset': 'Reset',
   'sidebar.field.status': 'Status',
+  'sidebar.field.text': 'Text',
   'sidebar.status.unknown': '{value} (unknown)',
   'sidebar.field.reason': 'Reason',
   'sidebar.reason.placeholder': 'Why is the object blocked? (optional)',
@@ -294,6 +305,7 @@ export const en: Catalog = {
   'notice.connection.self': 'An element cannot be connected to itself.',
   'notice.connection.duplicate': 'This connection already exists.',
   'notice.connection.hierarchy': 'A group cannot be connected to its own content.',
+  'notice.connection.note': 'A note cannot have connections.',
   'notice.copied_one': '{count} element copied.',
   'notice.copied_other': '{count} elements copied.',
   'notice.dropRefused': 'Element not added to the group: the two are connected.',
@@ -338,6 +350,8 @@ export const en: Catalog = {
   'parse.edge.sourceMissing': 'source {id} does not refer to an existing node.',
   'parse.edge.targetMissing': 'target {id} does not refer to an existing node.',
   'parse.edge.selfLoop': 'source and target are identical.',
+  'parse.edge.note':
+    'source or target refers to a note; notes have no connections.',
   'parse.edge.duplicate': 'There is already an edge from {source} to {target} (edge {index}).',
   'parse.edge.handle': '{field} must be {sides}.',
   'parse.edge.labelType': 'label must be a text.',
