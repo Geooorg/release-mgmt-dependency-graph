@@ -4,7 +4,7 @@ import { displayName, getColor, getContrastColor, getEdgeName, getName } from '.
 import { DEFAULT_PROJECT_NAME } from '../model/projectName'
 import { analyzeProject } from '../model/releaseAnalysis'
 import { isSoftEdge } from '../model/softDependency'
-import { DEFAULT_COLOR, GROUP_HEADER_HEIGHT } from '../model/types'
+import { DEFAULT_COLOR, GROUP_HEADER_HEIGHT, NOTE_DEFAULT_COLOR } from '../model/types'
 import type { GraphContent, HandleSide, ModelNode, Point } from '../model/types'
 
 /*
@@ -30,6 +30,8 @@ const CHAR_WIDTH = 7.4
 const LABEL_CHAR_WIDTH = 7
 const BOX_PADDING = 14
 const GROUP_PADDING_X = 12
+const NOTE_PADDING = 10
+const NOTE_LINE_HEIGHT = 20
 
 const SIDE_POSITION: Record<HandleSide, Position> = {
   top: Position.Top,
@@ -75,6 +77,41 @@ function fit(text: string, width: number, charWidth: number): string {
 function darken(color: string): string {
   const channels = [1, 3, 5].map((i) => Math.round(parseInt(color.slice(i, i + 2), 16) * 0.7))
   return `#${channels.map((c) => c.toString(16).padStart(2, '0')).join('')}`
+}
+
+/**
+ * The text of a note as lines for a box of `columns` characters and `maxLines` lines: line breaks are
+ * kept, long lines wrap at spaces (a word longer than a line is cut), and what does not fit ends in "…".
+ */
+function wrapNote(text: string, columns: number, maxLines: number): string[] {
+  const lines: string[] = []
+  for (const paragraph of text.replace(/\r\n?/g, '\n').split('\n')) {
+    let line = ''
+    for (const word of paragraph.split(' ')) {
+      let rest = Array.from(word)
+      // A word that is longer than a line is cut where the line ends.
+      while (rest.length > columns) {
+        if (line !== '') {
+          lines.push(line)
+          line = ''
+        }
+        lines.push(rest.slice(0, columns).join(''))
+        rest = rest.slice(columns)
+      }
+      const piece = rest.join('')
+      if (line === '') line = piece
+      else if (Array.from(line).length + 1 + rest.length <= columns) line = `${line} ${piece}`
+      else {
+        lines.push(line)
+        line = piece
+      }
+    }
+    lines.push(line)
+  }
+  if (lines.length <= maxLines) return lines
+  const shown = lines.slice(0, maxLines)
+  shown[maxLines - 1] = fit(`${shown[maxLines - 1]}…`, columns * CHAR_WIDTH, CHAR_WIDTH).replace(/…?$/, '…')
+  return shown
 }
 
 function absoluteRects(nodes: readonly ModelNode[]): Map<string, Rect> {
@@ -190,6 +227,25 @@ export function buildSvg(content: GraphContent): string {
           (blocked ? badge(rect.x + GROUP_PADDING_X + MARK_RADIUS, cy, DANGER, flag(rect.x + GROUP_PADDING_X + MARK_RADIUS, cy)) : '') +
           (waiting ? badge(rect.x + GROUP_PADDING_X + MARK_RADIUS, cy, WAITING, hourglass(rect.x + GROUP_PADDING_X + MARK_RADIUS, cy)) : '') +
           `<text x="${num(rect.x + GROUP_PADDING_X + offset)}" y="${num(cy)}" dy="0.35em" font-size="14" font-weight="700" fill="${darken(color)}"${name ? '' : ' font-style="italic"'}>${escapeXml(title)}</text>` +
+          `</g>`,
+      )
+      continue
+    }
+
+    if (node.kind === 'note') {
+      const fill = getColor(node.metadata) ?? NOTE_DEFAULT_COLOR
+      const text = getName(node.metadata).trim()
+      const lines = text === '' ? [] : wrapNote(text, Math.max(1, Math.floor((rect.width - 2 * NOTE_PADDING) / CHAR_WIDTH)), Math.max(1, Math.floor((rect.height - 2 * NOTE_PADDING) / NOTE_LINE_HEIGHT)))
+      const { x, y, width, height } = rect
+      boxes.push(
+        `<g data-id="${escapeXml(node.id)}" data-kind="note">` +
+          `<path d="M${num(x)} ${num(y)}H${num(x + width)}V${num(y + height - 14)}a14 14 0 0 1-14 14H${num(x)}z" fill="${fill}" stroke="#000000" stroke-opacity="0.12"/>` +
+          lines
+            .map(
+              (line, index) =>
+                `<text x="${num(x + NOTE_PADDING)}" y="${num(y + NOTE_PADDING + NOTE_LINE_HEIGHT * index + NOTE_LINE_HEIGHT / 2)}" dy="0.35em" xml:space="preserve" font-size="14" fill="${getContrastColor(fill)}">${escapeXml(line)}</text>`,
+            )
+            .join('') +
           `</g>`,
       )
       continue

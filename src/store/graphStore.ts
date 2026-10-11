@@ -108,7 +108,7 @@ export interface GraphState {
 
   /** Adds an object centred on this canvas point (member of the group there, if any) and selects it. */
   addNodeAt: (center: Point) => void
-  /** Adds an empty sticky note centred on the point (as a member of the group there, if any) and selects it. */
+  /** Adds an empty sticky note centred on the point (as a member of the group there, if any), selects it and returns to the select tool. */
   addNoteAt: (center: Point) => void
   moveNode: (id: string, position: Point) => void
   resizeNode: (id: string, size: Size) => void
@@ -378,6 +378,8 @@ export function createGraphStore(
         if (structureLocked()) return
         const { content: next, nodeId } = placement.addNoteAtPoint(content(), center, newId)
         apply(next)
+        // One note per click: back to selecting, so its text can be edited by double click right away.
+        set({ tool: 'select', connectSourceId: null })
         requestSelection([nodeId], [])
       },
       moveNode: (id, position) => apply(graph.moveNode(content(), id, position)),

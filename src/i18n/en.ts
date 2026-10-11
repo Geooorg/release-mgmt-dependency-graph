@@ -58,7 +58,7 @@ export const en: Catalog = {
   'toolbar.tool.note.label': 'Note',
   'toolbar.tool.note.name': 'Create note',
   'toolbar.tool.note.title':
-    'Click a free spot on the canvas to place a sticky note there. Double-click the note to edit its text, drag its frame to resize it. The tool stays active; Esc ends it.',
+    'Click a free spot on the canvas to place a sticky note there. Double-click the note to edit its text, drag its frame to resize it. After placing one, “Select” is active again; Esc cancels.',
   'toolbar.tool.connect.label': 'Connect',
   'toolbar.tool.connect.name': 'Connect',
   'toolbar.tool.connect.title':
@@ -360,6 +360,8 @@ export const en: Catalog = {
   'agent.model.storage': 'The graph is stored in <c>localStorage</c> under <c>{key}</c> (JSON):',
   'agent.model.node': 'Object: <c>{shape}</c>',
   'agent.model.group': 'Group: <c>{shape}</c>',
+  'agent.model.note':
+    'Note: <c>{shape}</c> (sticky note: text in the <c>name</c> entry, may have several lines, plus an optional <c>color</c>; default size 160x120; no connections, not part of the analysis). Create: button <c>aria-label="{note}"</c>, then click <c>.react-flow__pane</c>; afterwards “Select” is active again. Text via the sidebar textarea (label “Text”) or JSON.',
   'agent.edge.example': 'needs',
   'agent.model.edge':
     'Edge: <c>{shape}</c> (the arrow points to target; source/target may be groups). Optional <c>metadata</c> as for objects: the entry <c>name</c> is the caption of the connection, e.g. <c>{example}</c>. The entry <c>{"key":"optional","value":"ja"}</c> makes it an optional dependency (dotted, not on the critical path). Older files with <c>version: 1</c> and <c>label</c> are still imported.',

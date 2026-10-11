@@ -57,7 +57,7 @@ export const de = {
   'toolbar.tool.note.label': 'Notiz',
   'toolbar.tool.note.name': 'Notiz anlegen',
   'toolbar.tool.note.title':
-    'Auf eine freie Stelle der Fläche klicken, um dort einen Notizzettel zu platzieren. Doppelklick auf die Notiz bearbeitet den Text, am Rahmen lässt sich die Größe ändern. Das Werkzeug bleibt aktiv; Esc beendet es.',
+    'Auf eine freie Stelle der Fläche klicken, um dort einen Notizzettel zu platzieren. Doppelklick auf die Notiz bearbeitet den Text, am Rahmen lässt sich die Größe ändern. Nach dem Anlegen ist wieder „Auswählen“ aktiv; Esc bricht ab.',
   'toolbar.tool.connect.label': 'Verbinden',
   'toolbar.tool.connect.name': 'Verbinden',
   'toolbar.tool.connect.title':
@@ -360,6 +360,8 @@ export const de = {
   'agent.model.storage': 'Der Graph liegt in <c>localStorage</c> unter <c>{key}</c> (JSON):',
   'agent.model.node': 'Objekt: <c>{shape}</c>',
   'agent.model.group': 'Gruppe: <c>{shape}</c>',
+  'agent.model.note':
+    'Notiz: <c>{shape}</c> (Haftnotiz: Text im Eintrag <c>name</c>, mehrzeilig möglich, dazu optional <c>color</c>; Standardgröße 160x120; keine Verbindungen, nicht Teil der Analyse). Anlegen: Button <c>aria-label="{note}"</c>, Klick auf <c>.react-flow__pane</c>; danach ist wieder „Auswählen“ aktiv. Text per Sidebar-Textarea (Label „Text“) oder JSON.',
   'agent.edge.example': 'braucht',
   'agent.model.edge':
     'Kante: <c>{shape}</c> (Pfeil zeigt auf target; source/target dürfen Gruppen sein). Optional <c>metadata</c> wie bei Objekten: der Eintrag <c>name</c> ist die Beschriftung der Verbindung, z. B. <c>{example}</c>. Der Eintrag <c>{"key":"optional","value":"ja"}</c> macht sie zur optionalen Abhängigkeit (gepunktet, nicht im kritischen Pfad). Ältere Dateien mit <c>version: 1</c> und <c>label</c> werden weiter importiert.',

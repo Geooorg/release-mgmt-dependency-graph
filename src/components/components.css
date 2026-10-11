@@ -94,7 +94,7 @@
   gap: 8px;
   min-height: var(--toolbar-height);
   overflow-x: auto;
-  padding: 10px 16px;
+  padding: 10px 16px 6px;
   background: #fff;
   border-bottom: 1px solid var(--gray-200);
 }
@@ -113,6 +113,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  /* No separator after the mode switch any more: a little more air instead. */
+  margin-left: 8px;
 }
 
 .toolbar__row {
@@ -139,6 +141,36 @@
 .toolbar__edit > *,
 .toolbar__cluster > * {
   flex: none;
+}
+
+/* The groups of the second row (group, clipboard + delete, history) are framed like the segmented switches. */
+.toolbar__edit .toolbar__section,
+.toolbar__edit .toolbar__cluster {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--blue-600);
+  border-radius: 8px;
+}
+
+/* Delete shares the clipboard frame: the inner group needs none of its own. */
+.toolbar__edit .toolbar__cluster > .toolbar__section {
+  border: none;
+  border-radius: 0;
+}
+
+.toolbar__edit .ui-button--tool {
+  border-radius: 0;
+}
+
+/* A thin divider between the buttons of a frame. */
+.toolbar__edit .tooltip-host + .tooltip-host,
+.toolbar__edit .toolbar__cluster > .tooltip-host {
+  border-left: 1px solid var(--gray-300);
+}
+
+/* The frame clips its children, so the focus ring has to sit inside. */
+.toolbar__edit button:focus-visible {
+  outline-offset: -3px;
 }
 
 /* Clipboard group with the delete button right beside it. */
@@ -207,7 +239,7 @@
   align-items: flex-start;
   gap: 8px;
   margin-right: -16px;
-  padding: 0 16px 0 8px;
+  padding: 0 16px 0 16px;
   background: #fff;
 }
 
@@ -273,10 +305,11 @@
 
 .toolbar__separator {
   align-self: stretch;
-  width: 1px;
+  width: 2px;
   min-height: var(--toolbar-row);
   margin: 4px 0;
-  background: var(--gray-200);
+  border-radius: 1px;
+  background: var(--gray-400);
 }
 
 .toolbar__hint {

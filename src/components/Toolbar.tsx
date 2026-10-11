@@ -70,20 +70,20 @@ const TOOLS: readonly {
     shortcut: 'N',
   },
   {
-    value: 'note',
-    labelKey: 'toolbar.tool.note.label',
-    nameKey: 'toolbar.tool.note.name',
-    titleKey: 'toolbar.tool.note.title',
-    icon: <NoteIcon size={ICON_SIZE} />,
-    shortcut: 'S',
-  },
-  {
     value: 'connect',
     labelKey: 'toolbar.tool.connect.label',
     nameKey: 'toolbar.tool.connect.name',
     titleKey: 'toolbar.tool.connect.title',
     icon: <ConnectIcon size={ICON_SIZE} />,
     shortcut: 'C',
+  },
+  {
+    value: 'note',
+    labelKey: 'toolbar.tool.note.label',
+    nameKey: 'toolbar.tool.note.name',
+    titleKey: 'toolbar.tool.note.title',
+    icon: <NoteIcon size={ICON_SIZE} />,
+    shortcut: 'S',
   },
 ]
 
@@ -168,8 +168,6 @@ export function Toolbar({
         ))}
       </div>
 
-      <Separator />
-
       {/* Main column: first row = tools / analysis, cycles, search; second row (build mode) = editing actions. */}
       <div className="toolbar__main">
         <div className="toolbar__row">
@@ -243,8 +241,6 @@ export function Toolbar({
             </>
           )}
 
-          <Separator />
-
           <Section label={t('toolbar.section.search')}>
             <Tooltip text={t('toolbar.search.title')}>
               <button
@@ -287,9 +283,7 @@ export function Toolbar({
               </Tooltip>
             </Section>
 
-            <Separator />
-
-            {/* Delete sits right next to paste (no separator), apart from undo/redo. */}
+            {/* Delete sits right next to paste in the same frame, apart from undo/redo. */}
             <div className="toolbar__cluster">
               <Section label={t('toolbar.section.clipboard')}>
                 <Tooltip
@@ -340,8 +334,6 @@ export function Toolbar({
               </Tooltip>
             </div>
 
-            <Separator />
-
             <Section label={t('toolbar.section.history')}>
               <Tooltip
                 text={t('toolbar.undo.title')}
@@ -380,7 +372,6 @@ export function Toolbar({
 
       {/* Sticky: stays reachable when a narrow window scrolls the toolbar sideways. */}
       <div className="toolbar__file">
-        <Separator />
         <div className="toolbar__file-body">
           <Section label={t('toolbar.section.file')}>
             <Tooltip text={t('toolbar.export.title')}>
@@ -388,7 +379,6 @@ export function Toolbar({
                 {t('toolbar.export')}
               </button>
             </Tooltip>
-            <Separator />
             <Tooltip text={t('toolbar.import.title')}>
               <button type="button" className="ui-button" onClick={onImport}>
                 {t('toolbar.import')}

@@ -34,6 +34,14 @@ describe('AgentHelp', () => {
     expect(text).toContain('24 + n*160 + (n-1)*24 + 24')
   })
 
+  it('describes the note element with its shape and the button that creates it', () => {
+    const { container } = render(<AgentHelp />)
+    const text = container.textContent ?? ''
+
+    expect(text).toContain('kind: "note"')
+    expect(text).toContain('aria-label="Notiz anlegen"')
+  })
+
   it('names the controls of the JSON text dialogs as the app labels them', () => {
     const { container } = render(<AgentHelp />)
     const text = container.textContent ?? ''

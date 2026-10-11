@@ -73,7 +73,8 @@ describe('Toolbar', () => {
     ]) {
       expect(screen.getByRole('button', { name: label })).toHaveAttribute('type', 'button')
     }
-    expect(screen.getAllByRole('separator')).toHaveLength(6)
+    // Frames, not separators, tell the groups apart; only the cycle button gets one.
+    expect(screen.queryAllByRole('separator')).toHaveLength(0)
   })
 
   it('puts help and the language switch in a second row below Export', () => {
@@ -237,7 +238,7 @@ describe('Toolbar', () => {
   })
 
   describe('tool switch', () => {
-    it('is a labelled group of three buttons with a pressed state, the select tool by default', () => {
+    it('is a labelled group of four buttons with a pressed state, the select tool by default', () => {
       render(<Toolbar {...makeProps()} />)
 
       const group = screen.getByRole('group', { name: 'Werkzeug' })
@@ -245,6 +246,7 @@ describe('Toolbar', () => {
         'Auswählen',
         'Objekt anlegen',
         'Verbinden',
+        'Notiz anlegen',
       ])
       expect(screen.getByRole('button', { name: 'Auswählen' })).toHaveAttribute('aria-pressed', 'true')
       expect(screen.getByRole('button', { name: 'Objekt anlegen' })).toHaveAttribute('aria-pressed', 'false')
@@ -259,6 +261,7 @@ describe('Toolbar', () => {
         'Auswählen',
         'Objekt',
         'Verbinden',
+        'Notiz',
       ])
       for (const button of within(group).getAllByRole('button')) {
         expect(button.querySelector('svg[aria-hidden="true"]')).not.toBeNull()

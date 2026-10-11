@@ -58,7 +58,7 @@ export const fr: Catalog = {
   'toolbar.tool.note.label': 'Note',
   'toolbar.tool.note.name': 'Créer une note',
   'toolbar.tool.note.title':
-    'Cliquez sur un endroit libre de la zone pour y placer un pense-bête. Double-cliquez sur la note pour modifier son texte, tirez son cadre pour la redimensionner. L’outil reste actif ; Échap le termine.',
+    'Cliquez sur un endroit libre de la zone pour y placer un pense-bête. Double-cliquez sur la note pour modifier son texte, tirez son cadre pour la redimensionner. Après la pose, « Sélectionner » est de nouveau actif ; Échap annule.',
   'toolbar.tool.connect.label': 'Relier',
   'toolbar.tool.connect.name': 'Relier',
   'toolbar.tool.connect.title':
@@ -360,6 +360,8 @@ export const fr: Catalog = {
   'agent.model.storage': 'Le graphe est stocké dans <c>localStorage</c> sous <c>{key}</c> (JSON) :',
   'agent.model.node': 'Objet : <c>{shape}</c>',
   'agent.model.group': 'Groupe : <c>{shape}</c>',
+  'agent.model.note':
+    'Note : <c>{shape}</c> (pense-bête : texte dans l’entrée <c>name</c>, plusieurs lignes possibles, plus un <c>color</c> optionnel ; taille par défaut 160x120 ; pas de connexions, ne fait pas partie de l’analyse). Créer : bouton <c>aria-label="{note}"</c>, puis clic sur <c>.react-flow__pane</c> ; ensuite « Sélectionner » est de nouveau actif. Texte via le textarea de la barre latérale (libellé « Texte ») ou JSON.',
   'agent.edge.example': 'nécessite',
   'agent.model.edge':
     'Liaison : <c>{shape}</c> (la flèche pointe vers target ; source/target peuvent être des groupes). <c>metadata</c> est facultatif, comme pour les objets : l’entrée <c>name</c> est la légende de la liaison, p. ex. <c>{example}</c>. L’entrée <c>{"key":"optional","value":"ja"}</c> en fait une dépendance facultative (en pointillés, hors chemin critique). Les anciens fichiers avec <c>version: 1</c> et <c>label</c> sont toujours importés.',

@@ -62,8 +62,8 @@ function group(overrides: Partial<AppFlowNode> & { data?: FlowNodeData } = {}): 
 }
 
 describe('node components', () => {
-  it('registers box and group in nodeTypes', () => {
-    expect(Object.keys(nodeTypes).sort()).toEqual(['box', 'group'])
+  it('registers box, group and note in nodeTypes', () => {
+    expect(Object.keys(nodeTypes).sort()).toEqual(['box', 'group', 'note'])
   })
 
   it('renders a box node with name and fixed size', () => {

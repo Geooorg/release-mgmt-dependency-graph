@@ -1210,7 +1210,8 @@ describe('graphStore', () => {
         expect(added.metadata).toEqual([{ key: 'name', value: '' }])
         expect(store.getState().selectedNodeIds).toEqual(['id-1'])
         expect(store.getState().history.past).toHaveLength(1)
-        expect(store.getState().tool).toBe('note')
+        // One note per click: back to the select tool, so the text can be edited right away.
+        expect(store.getState().tool).toBe('select')
       })
 
       it('joins the group at the point', () => {

@@ -17,6 +17,7 @@ const SINGLE_GROUP = { width: W + 2 * GROUP_PADDING, height: H + 2 * GROUP_PADDI
 // Technical snippets are identical in every language, so they are passed in instead of being translated.
 const NODE_SHAPE = '{ id, kind: "node", position:{x,y}, metadata:[{key:"name",value}], parentId? }'
 const GROUP_SHAPE = '{ id, kind: "group", position:{x,y}, size:{width,height}, metadata:[...] }'
+const NOTE_SHAPE = '{ id, kind: "note", position:{x,y}, size?:{width,height}, metadata:[{key:"name",value:text},{key:"color",value}?] }'
 const EDGE_SHAPE = '{ id, source, target, metadata? }'
 const AGENT_HELP_ROUTE = '#/agent-hilfe'
 const PAIR = '{ source, target }'
@@ -43,6 +44,7 @@ export function AgentHelp() {
     undo: t('toolbar.undo'),
     create: t('toolbar.tool.create.name'),
     group: t('toolbar.group'),
+    note: t('toolbar.tool.note.name'),
     import: t('toolbar.import'),
     export: t('toolbar.export'),
   }
@@ -62,6 +64,9 @@ export function AgentHelp() {
         </li>
         <li>
           <RichText text={t('agent.model.group', { shape: GROUP_SHAPE })} />
+        </li>
+        <li>
+          <RichText text={t('agent.model.note', { shape: NOTE_SHAPE, note: names.note })} />
         </li>
         <li>
           <RichText

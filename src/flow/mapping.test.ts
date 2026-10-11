@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createTranslate } from '../i18n/translate'
 import { analyzeProject } from '../model/releaseAnalysis'
-import { box, content, edge, group, softEdge, withStatus } from '../test/fixtures'
+import { box, content, edge, group, note, softEdge, withStatus } from '../test/fixtures'
 import { toFlowEdges, toFlowNodes } from './mapping'
 
 const nodes = [box('a', 0, 0), box('b', 400, 0), box('c', 0, 400)]
@@ -335,5 +335,41 @@ describe('toFlowNodes tooltips in the chosen language', () => {
       'Bloqué (aucun motif indiqué) – attend aussi : c',
     )
     expect(flows.find((n) => n.id === 'g')?.data.blockedTitle).toBe('Contient des objets bloqués : m')
+  })
+})
+
+describe('toFlowNodes and notes', () => {
+  const ui = {
+    selectedIds: new Set<string>(),
+    connectSourceId: null,
+    dropTargetId: null,
+    dependencyNodeIds: new Set<string>(),
+    dependencyEdgeIds: new Set<string>(),
+    cycleNodeIds: new Set<string>(),
+  }
+
+  it('maps a note to the note type with its text, the default yellow and a readable text colour', () => {
+    const [flow] = toFlowNodes([note('n', 10, 20, 'Plan B')], ui)
+
+    expect(flow).toMatchObject({ id: 'n', type: 'note', width: 160, height: 120 })
+    expect(flow.data).toMatchObject({ name: 'Plan B', color: '#fef08a', textColor: '#111827' })
+  })
+
+  it('keeps the colour of the note, and its stored size', () => {
+    const coloured = {
+      ...note('n', 0, 0, 'x'),
+      size: { width: 220, height: 90 },
+      metadata: [{ key: 'name', value: 'x' }, { key: 'color', value: '#1e3a8a' }],
+    }
+    const [flow] = toFlowNodes([coloured], ui)
+
+    expect(flow).toMatchObject({ width: 220, height: 90 })
+    expect(flow.data).toMatchObject({ color: '#1e3a8a', textColor: '#ffffff' })
+  })
+
+  it('leaves the colour of objects unset (default blue comes from the styles)', () => {
+    const [flow] = toFlowNodes([box('a', 0, 0)], ui)
+
+    expect(flow.data.color).toBeUndefined()
   })
 })

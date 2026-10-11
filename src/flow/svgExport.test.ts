@@ -23,6 +23,59 @@ function parse(svg: string): Document {
   return new DOMParser().parseFromString(svg, 'image/svg+xml')
 }
 
+describe('buildSvg: notes', () => {
+  const sticky = (id: string, text: string, extra: Partial<ModelNode> = {}): ModelNode =>
+    node(id, text, 0, 0, { kind: 'note', ...extra })
+  const lines = (doc: Document, id: string) => [...doc.querySelectorAll(`[data-id="${id}"] text`)].map((t) => t.textContent)
+
+  it('draws a note in its colour with the text line by line, no connectors, above groups', () => {
+    const doc = parse(
+      buildSvg({
+        nodes: [group('g', 'G', 0, 0, 400, 300), sticky('n', 'Erste Zeile\nZweite Zeile', { position: { x: 20, y: 60 }, parentId: 'g', metadata: [{ key: 'name', value: 'Erste Zeile\nZweite Zeile' }, { key: 'color', value: '#fda4af' }] })],
+        edges: [],
+      }),
+    )
+
+    expect(doc.querySelector('parsererror')).toBeNull()
+    expect(doc.querySelector('[data-id="n"] path')?.getAttribute('fill')).toBe('#fda4af')
+    expect(lines(doc, 'n')).toEqual(['Erste Zeile', 'Zweite Zeile'])
+    const order = [...doc.querySelectorAll('[data-kind]')].map((el) => el.getAttribute('data-id'))
+    expect(order).toEqual(['g', 'n'])
+  })
+
+  it('uses sticky-note yellow without a colour and draws an empty note without text', () => {
+    const doc = parse(buildSvg({ nodes: [sticky('n', '')], edges: [] }))
+
+    expect(doc.querySelector('[data-id="n"] path')?.getAttribute('fill')).toBe('#fef08a')
+    expect(lines(doc, 'n')).toEqual([])
+  })
+
+  it('wraps long lines at spaces and cuts the text off with an ellipsis when the note is full', () => {
+    const text = 'eins zwei drei vier fünf sechs sieben acht neun zehn elf zwölf dreizehn vierzehn fünfzehn sechzehn'
+    const doc = parse(buildSvg({ nodes: [sticky('n', text, { size: { width: 160, height: 76 } })], edges: [] }))
+    const shown = lines(doc, 'n')
+
+    // (76 - 20) / 20 = 2 lines of about 18 characters
+    expect(shown).toHaveLength(2)
+    expect(shown[1]).toMatch(/…$/)
+    expect(shown.join(' ')).not.toContain('sechzehn')
+  })
+
+  it('cuts a word that is longer than a line, and keeps its size without text overflow', () => {
+    const doc = parse(buildSvg({ nodes: [sticky('n', 'x'.repeat(60), { size: { width: 160, height: 120 } })], edges: [] }))
+
+    expect(lines(doc, 'n').length).toBeLessThanOrEqual(5)
+    expect(lines(doc, 'n').every((line) => line!.length <= 19)).toBe(true)
+  })
+
+  it('does not draw connections for a note and escapes its text', () => {
+    const doc = parse(buildSvg({ nodes: [sticky('n', '<b> & "x"')], edges: [] }))
+
+    expect(doc.querySelector('parsererror')).toBeNull()
+    expect(lines(doc, 'n')).toEqual(['<b> & "x"'])
+  })
+})
+
 describe('buildSvg', () => {
   it('is well-formed XML with a size, a title and a white background', () => {
     const svg = buildSvg({ nodes: [node('a', 'A', 0, 0), node('b', 'B', 300, 0)], edges: [edge('e', 'a', 'b')], projectName: 'Mein-Projekt' })
