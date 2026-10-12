@@ -1121,6 +1121,31 @@ describe('Sidebar', () => {
       expect(screen.getByText(/zählt nicht zum kritischen Pfad/)).toBeInTheDocument()
     })
 
+    it('shows the direction and turns the connection around', async () => {
+      const onReverse = vi.fn()
+      render(
+        <Sidebar
+          {...makeProps({ element: { ...edgeElement(), ends: { source: 'Build', target: 'Release' }, canReverse: true }, onReverse })}
+        />,
+      )
+
+      expect(screen.getByText('„Build“ kommt zuerst; „Release“ hängt davon ab.')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Richtung umkehren' }))
+      expect(onReverse).toHaveBeenCalledTimes(1)
+    })
+
+    it('disables reversing when the opposite connection already exists', () => {
+      render(
+        <Sidebar
+          {...makeProps({ element: { ...edgeElement(), ends: { source: 'Build', target: 'Release' }, canReverse: false }, onReverse: vi.fn() })}
+        />,
+      )
+
+      const button = screen.getByRole('button', { name: 'Richtung umkehren' })
+      expect(button).toBeDisabled()
+      expect(button).toHaveAccessibleDescription(/Gegenrichtung gibt es schon/)
+    })
+
     it('starts a fresh draft when another element is opened', async () => {
       const { rerender } = render(<Sidebar {...makeProps({ element: edgeElement() })} />)
       await userEvent.type(screen.getByLabelText('Name'), 'entwurf')

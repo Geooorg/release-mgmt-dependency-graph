@@ -168,7 +168,7 @@ describe('toFlowNodes status, waiting and blocked', () => {
   it('carries the status and what an object waits for', () => {
     const model = content(
       [withStatus(box('a', 0, 0), 'fertig'), box('b', 1, 0), withStatus(box('c', 2, 0), 'in Arbeit')],
-      [edge('ab', 'a', 'b'), edge('bc', 'b', 'c')],
+      [edge('ab', 'b', 'a'), edge('bc', 'c', 'b')],
     )
     const [a, b, c] = toFlowNodes(model.nodes, ui(analyzeProject(model)))
     expect([a.data.status, b.data.status, c.data.status]).toEqual(['fertig', 'offen', 'in Arbeit'])
@@ -193,10 +193,10 @@ describe('toFlowNodes status, waiting and blocked', () => {
     expect([done.data.status, done.data.statusRaw, done.data.statusKnown]).toEqual(['fertig', 'fertig', true])
   })
 
-  it('gives no object behind a finished one a hourglass: App -> Lib (fertig) -> Core', () => {
+  it('gives no object behind a finished one a hourglass: App <- Lib (fertig) <- Core', () => {
     const model = content(
       [box('app', 0, 0), withStatus(box('lib', 1, 0), 'fertig'), box('core', 2, 0)],
-      [edge('al', 'app', 'lib'), edge('lc', 'lib', 'core')],
+      [edge('al', 'lib', 'app'), edge('lc', 'core', 'lib')],
     )
     const flows = toFlowNodes(model.nodes, ui(analyzeProject(model)))
     expect(flows.map((n) => [n.data.waitingTitle, n.data.blockedTitle])).toEqual([
@@ -216,7 +216,7 @@ describe('toFlowNodes status, waiting and blocked', () => {
         group('h', 0, 400, 300, 200),
         withStatus(box('o', 1, 401, 'h'), 'fertig'),
       ],
-      [edge('my', 'm', 'y'), edge('ny', 'n', 'y'), edge('oy', 'o', 'y')],
+      [edge('my', 'y', 'm'), edge('ny', 'y', 'n'), edge('oy', 'y', 'o')],
     )
     const flows = toFlowNodes(model.nodes, ui(analyzeProject(model)))
     const g = flows.find((n) => n.id === 'g')!
@@ -231,7 +231,7 @@ describe('toFlowNodes status, waiting and blocked', () => {
     const blockers = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map((id, i) => box(id, i + 1, 0))
     const model = content(
       [box('a', 0, 0), ...blockers],
-      blockers.map((b) => edge(`e-${b.id}`, 'a', b.id)),
+      blockers.map((b) => edge(`e-${b.id}`, b.id, 'a')),
     )
     const [a] = toFlowNodes(model.nodes, ui(analyzeProject(model)))
     expect(a.data.waitingTitle).toBe('Wartet auf: p1, p2, p3, p4, p5, …')
@@ -240,7 +240,7 @@ describe('toFlowNodes status, waiting and blocked', () => {
   it('names the waiting members on a group and gives it no status', () => {
     const model = content(
       [group('g', 0, 0, 300, 200), box('m', 1, 1, 'g'), box('y', 5, 5)],
-      [edge('my', 'm', 'y')],
+      [edge('my', 'y', 'm')],
     )
     const flows = toFlowNodes(model.nodes, ui(analyzeProject(model)))
     const g = flows.find((n) => n.id === 'g')!
@@ -278,7 +278,7 @@ describe('toFlowNodes status, waiting and blocked', () => {
     it('lets the flag win over the hourglass but names what the object also waits for', () => {
       const model = content(
         [blocked('a', 0, 'Freigabe fehlt'), blocked('b', 1), box('p', 2, 0), box('q', 3, 0)],
-        [edge('ap', 'a', 'p'), edge('bq', 'b', 'q')],
+        [edge('ap', 'p', 'a'), edge('bq', 'q', 'b')],
       )
       const [a, b] = toFlowNodes(model.nodes, ui(analyzeProject(model)))
       expect(a.data.blockedTitle).toBe('Blockiert: Freigabe fehlt – wartet außerdem auf: p')
@@ -287,7 +287,7 @@ describe('toFlowNodes status, waiting and blocked', () => {
     })
 
     it('makes the dependents wait for the blocked object', () => {
-      const model = content([box('a', 0, 0), blocked('b', 1)], [edge('ab', 'a', 'b')])
+      const model = content([box('a', 0, 0), blocked('b', 1)], [edge('ab', 'b', 'a')])
       const [a] = toFlowNodes(model.nodes, ui(analyzeProject(model)))
       expect(a.data.waitingTitle).toBe('Wartet auf: b')
     })
@@ -320,7 +320,7 @@ describe('toFlowNodes tooltips in the chosen language', () => {
       group('g', 0, 100, 300, 200),
       withStatus(box('m', 24, 156, 'g'), 'blockiert'),
     ],
-    [edge('ac', 'a', 'c'), edge('dc', 'd', 'c')],
+    [edge('ac', 'c', 'a'), edge('dc', 'c', 'd')],
   )
 
   it('says what an object waits for in English', () => {

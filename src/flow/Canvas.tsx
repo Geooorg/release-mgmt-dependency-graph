@@ -19,7 +19,6 @@ import { NodeNameEditContext } from '../components/nodeNameEdit'
 import { nodeTypes } from '../components/nodeTypes'
 import { useT } from '../i18n/react'
 import type { CycleResult } from '../model/cycles'
-import { findDependencies } from '../model/dependency'
 import { checkConnection, checkReconnection } from '../model/graph'
 import type { ProjectAnalysis } from '../model/releaseAnalysis'
 import { HANDLE_SIDES, type HandleSide } from '../model/types'
@@ -49,11 +48,13 @@ interface CanvasProps {
   cycles: CycleResult
   /** Status and blockers of the project (status marks, red flags). */
   analysis: ProjectAnalysis
-  /** Critical path drawn in red while it is the chosen highlight of the analysis mode; null = none. */
-  critical: { nodeIds: ReadonlySet<string>; edgeIds: ReadonlySet<string> } | null
+  /** The chosen highlight of the analysis mode drawn in red (critical path or dependencies); null = none. */
+  highlighted: { nodeIds: ReadonlySet<string>; edgeIds: ReadonlySet<string> } | null
 }
 
-export function Canvas({ cycles, analysis, critical }: CanvasProps) {
+const NO_HIGHLIGHT = { nodeIds: NO_IDS, edgeIds: NO_IDS }
+
+export function Canvas({ cycles, analysis, highlighted }: CanvasProps) {
   const t = useT()
   const ariaLabels = useMemo(() => flowAriaLabels(t), [t])
   const nodes = useGraph((s) => s.nodes)
@@ -64,7 +65,6 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
   const dropTargetId = useGraph((s) => s.dropTargetId)
   const analyzing = useGraph((s) => s.mode === 'analyze')
   const tool = useGraph((s) => s.tool)
-  const highlightChoice = useGraph((s) => s.highlight)
   const contentRevision = useGraph((s) => s.contentRevision)
   const focusRequest = useGraph((s) => s.focusRequest)
   const revealedId = useGraph((s) => s.revealedId)
@@ -74,17 +74,7 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
   const paneHeight = useStore((s) => s.height)
   const singleSelectedId = selectedNodeIds.length === 1 ? selectedNodeIds[0] : null
 
-  // A dependency highlight follows the selection; it only exists in the analysis mode.
-  const dependencies = useMemo(
-    () =>
-      !analyzing || highlightChoice === 'off' || highlightChoice === 'critical' || selectedNodeIds.length === 0
-        ? { nodeIds: NO_IDS, edgeIds: NO_IDS }
-        : findDependencies({ nodes, edges }, selectedNodeIds, highlightChoice),
-    [nodes, edges, selectedNodeIds, analyzing, highlightChoice],
-  )
-
-  // One highlight at a time: the critical path, a dependency direction, or none (also in build mode).
-  const highlight = analyzing && highlightChoice === 'critical' && critical ? critical : dependencies
+  const highlight = highlighted ?? NO_HIGHLIGHT
 
   const flowNodes = useMemo(
     () =>

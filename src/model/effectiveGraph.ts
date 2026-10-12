@@ -1,16 +1,17 @@
 import type { GraphContent } from './types'
 
 /**
- * The explicit edge list resolved to object level. An arrow `A -> B` means "A depends on B";
- * an arrow to or from a group applies to every (nested) object inside that group.
+ * The explicit edge list resolved to object level, as a dependency graph. An arrow `A -> B` means
+ * "A comes before B" (B depends on A), so the graph runs against the arrows: from a dependent to its
+ * prerequisites. An arrow to or from a group applies to every (nested) object inside that group.
  */
 export interface EffectiveGraph {
   /** Objects, plus groups without any object inside (they stand for themselves), in node order. */
   vertices: string[]
-  /** Every vertex maps to its direct successors (along the arrows), in vertex order. */
-  successors: ReadonlyMap<string, readonly string[]>
-  /** Ids of the explicit edges that produce `from -> to`; empty if there is none. */
-  edgeIdsOf: (from: string, to: string) => readonly string[]
+  /** Every vertex maps to its direct prerequisites (the sources of the arrows into it), in vertex order. */
+  prerequisites: ReadonlyMap<string, readonly string[]>
+  /** Ids of the explicit edges that make `dependent` depend on `prerequisite`; empty if there is none. */
+  edgeIdsOf: (dependent: string, prerequisite: string) => readonly string[]
   /** Vertices an element stands for: itself, or all nested objects of a group (the group itself if empty). */
   leavesOf: (id: string) => readonly string[]
 }
@@ -48,29 +49,29 @@ export function buildEffectiveGraph(content: GraphContent): EffectiveGraph {
 
   const pairs = new Map<string, Map<string, string[]>>(vertices.map((id) => [id, new Map()]))
   for (const edge of content.edges) {
-    for (const from of leaves.get(edge.source) ?? []) {
-      for (const to of leaves.get(edge.target) ?? []) {
-        if (from === to) continue
-        const targets = pairs.get(from)
-        if (!targets) continue
-        const ids = targets.get(to)
+    for (const dependent of leaves.get(edge.target) ?? []) {
+      for (const prerequisite of leaves.get(edge.source) ?? []) {
+        if (dependent === prerequisite) continue
+        const found = pairs.get(dependent)
+        if (!found) continue
+        const ids = found.get(prerequisite)
         if (ids) ids.push(edge.id)
-        else targets.set(to, [edge.id])
+        else found.set(prerequisite, [edge.id])
       }
     }
   }
 
-  const successors = new Map<string, string[]>()
-  for (const [from, targets] of pairs) {
-    successors.set(
-      from,
-      [...targets.keys()].sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0)),
+  const prerequisites = new Map<string, string[]>()
+  for (const [dependent, found] of pairs) {
+    prerequisites.set(
+      dependent,
+      [...found.keys()].sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0)),
     )
   }
   return {
     vertices,
-    successors,
-    edgeIdsOf: (from, to) => pairs.get(from)?.get(to) ?? [],
+    prerequisites,
+    edgeIdsOf: (dependent, prerequisite) => pairs.get(dependent)?.get(prerequisite) ?? [],
     leavesOf: (id) => leaves.get(id) ?? [],
   }
 }

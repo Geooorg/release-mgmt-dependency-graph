@@ -6,7 +6,7 @@ export const de = {
   'common.close': 'Schließen',
   'help.title': 'Hilfe',
   'help.intro':
-    'Der Editor zeichnet die Abhängigkeiten eines Releases als Graph. Ein Pfeil A → B bedeutet: A hängt von B ab (B kommt zuerst). Alles wird automatisch im Browser gespeichert; für den Austausch gibt es Export und Import. Eine Beschreibung für Automatisierungs-Agenten steht unter #/agent-hilfe.',
+    'Der Editor zeichnet die Abhängigkeiten eines Releases als Graph. Ein Pfeil A → B bedeutet: A kommt vor B (B hängt von A ab). Alles wird automatisch im Browser gespeichert; für den Austausch gibt es Export und Import. Eine Beschreibung für Automatisierungs-Agenten steht unter #/agent-hilfe.',
   'help.start.title': 'Erste Schritte',
   'help.start.body':
     '- Wähle das Werkzeug „Objekt“ (Taste N) und klicke auf eine freie Stelle der Fläche, um ein Objekt anzulegen.\n- Wähle „Verbinden“ (Taste C) und klicke nacheinander auf zwei Objekte: erst die Quelle, dann das Ziel.\n- Mit „Auswählen“ (Taste V) markierst und verschiebst du Elemente. Esc beendet das aktive Werkzeug.\n- Die Sidebar rechts zeigt die Auswahl und lässt dich Name, Farbe, Status und weitere Felder bearbeiten.',
@@ -15,7 +15,7 @@ export const de = {
     '- „Gruppieren“ fasst markierte Objekte auf derselben Ebene zu einer Gruppe (Sub-Graph) zusammen; „Gruppe auflösen“ entfernt die Gruppe, ihr Inhalt bleibt erhalten.\n- Legst du ein Objekt oder eine Gruppe in eine Gruppe, wächst diese mit.\n- Ein Doppelklick auf einen Namen benennt das Element direkt um (Enter übernimmt, Esc verwirft).\n- „Löschen“ (Entf) entfernt markierte Objekte und Verbindungen; Gruppen werden nur aufgelöst.\n- Mehrere Elemente markierst du mit Strg/Cmd + Klick oder mit Umschalt + Aufziehen eines Rahmens.\n- Mit dem Werkzeug „Notiz“ (Taste S) legst du einen Notizzettel an: frei platzierbar, ohne Verbindungen, mit Farbe. Doppelklick bearbeitet den Text, am Rahmen änderst du die Größe; ist der Text zu lang, wird er mit „…“ abgekürzt.',
   'help.connect.title': 'Verbindungen',
   'help.connect.body':
-    'Ein Pfeil A → B bedeutet „A hängt von B ab“: B muss zuerst fertig sein.\n- Mit dem Werkzeug „Verbinden“ klickst du erst die Quelle, dann das Ziel an.\n- Alternativ ziehst du einen Konnektor am Rand eines Objekts auf ein anderes Element; Loslassen irgendwo auf dem Objekt genügt.\n- Die Enden einer vorhandenen Verbindung lassen sich auf andere Konnektoren oder Elemente ziehen (nicht im Analysemodus).\n- Nicht möglich sind Verbindungen auf sich selbst, doppelte Verbindungen und Verbindungen zwischen einer Gruppe und ihrem eigenen Inhalt.\n- Eine Verbindung von oder zu einer Gruppe gilt für alle (auch verschachtelte) Mitglieder.\n- Eine Verbindung kannst du markieren und in der Sidebar beschriften.\n- Mit dem Häkchen „Optionale Abhängigkeit“ in der Sidebar wird eine Verbindung zur optionalen Abhängigkeit (soft dependency): Sie wird gepunktet gezeichnet und zählt nicht zum kritischen Pfad. Für „wartet“, Voraussetzungen und Zyklen zählt sie weiter.',
+    'Ein Pfeil A → B bedeutet „A kommt vor B“: B hängt von A ab, A muss zuerst fertig sein. Die Pfeile zeigen also in Ablaufrichtung.\n- Mit dem Werkzeug „Verbinden“ klickst du erst die Quelle, dann das Ziel an.\n- Alternativ ziehst du einen Konnektor am Rand eines Objekts auf ein anderes Element; Loslassen irgendwo auf dem Objekt genügt.\n- Die Enden einer vorhandenen Verbindung lassen sich auf andere Konnektoren oder Elemente ziehen (nicht im Analysemodus).\n- Nicht möglich sind Verbindungen auf sich selbst, doppelte Verbindungen und Verbindungen zwischen einer Gruppe und ihrem eigenen Inhalt.\n- Eine Verbindung von oder zu einer Gruppe gilt für alle (auch verschachtelte) Mitglieder.\n- Eine Verbindung kannst du markieren und in der Sidebar beschriften; „Richtung umkehren“ dreht den Pfeil um (nicht im Analysemodus).\n- Mit dem Häkchen „Optionale Abhängigkeit“ in der Sidebar wird eine Verbindung zur optionalen Abhängigkeit (soft dependency): Sie wird gepunktet gezeichnet und zählt nicht zum kritischen Pfad. Für „wartet“, Voraussetzungen und Zyklen zählt sie weiter.',
   'help.sidebar.title': 'Sidebar und Metadaten',
   'help.sidebar.body':
     '- Die Sidebar folgt der Auswahl und übernimmt jede gültige Änderung sofort; ein extra Speichern gibt es nicht. Jede Feldbearbeitung ist ein Schritt für „Rückgängig“.\n- Metadaten sind eine geordnete Liste aus Schlüssel und Wert; der erste Eintrag ist der Name. Feldnamen dürfen nicht doppelt vorkommen.\n- Die Farbe lässt sich je Element setzen; bei mehreren markierten Elementen setzt das Farbfeld die Farbe für alle, das Statusfeld den Status aller markierten Objekte (Gruppen haben keinen Status).\n- Die ID eines Elements wird einmal erzeugt und ist nicht änderbar.',
@@ -24,7 +24,7 @@ export const de = {
     'Jedes Objekt hat einen von vier Status: offen, in Arbeit, blockiert oder fertig. Fehlt der Status, gilt „offen“.\n- „blockiert“ setzt du von Hand (rote Flagge), optional mit Grund.\n- Die Sanduhr „wartet“ wird berechnet: Das Objekt ist nicht fertig und hat eine direkte, noch nicht fertige Voraussetzung.\n- Gruppen leiten ihren Status aus ihren Mitgliedern ab.\n- „fertig“ ist endgültig: Dahinter wird nicht weiter gerechnet.\n- Ein unbekannter Wert bleibt erhalten, wird mit „?“ markiert und zählt als offen.',
   'help.analysis.title': 'Analysemodus',
   'help.analysis.body':
-    'Mit dem Umschalter „Analysieren“ wechselst du vom Editieren zur Auswertung. Die Struktur ist dort gesperrt; Status und Metadaten bleiben bearbeitbar.\n- Die Hervorhebung zeichnet dick rot: den kritischen Pfad, die Voraussetzungen der Auswahl, die davon Betroffenen oder beides.\n- Das Panel zeigt Status-Zähler, „Zu klären“, den kritischen Pfad und die offenen Voraussetzungen; die Auswertung lässt sich als Markdown kopieren.\n- Der Zyklen-Button erscheint, wenn Abhängigkeiten im Kreis laufen; ein Klick wählt den nächsten Zyklus.',
+    'Mit dem Umschalter „Analysieren“ wechselst du vom Editieren zur Auswertung. Die Struktur ist dort gesperrt; Status und Metadaten bleiben bearbeitbar.\n- Die Hervorhebung zeichnet dick rot: den kritischen Pfad, die Voraussetzungen der Auswahl, die davon Betroffenen oder die transitive Hülle (beides zusammen); das Panel listet sie dann auf.\n- Das Panel zeigt Status-Zähler, „Zu klären“, den kritischen Pfad und die offenen Voraussetzungen; die Auswertung lässt sich als Markdown kopieren.\n- Der Zyklen-Button erscheint, wenn Abhängigkeiten im Kreis laufen; ein Klick wählt den nächsten Zyklus.',
   'help.search.title': 'Suche',
   'help.search.body':
     'Die Lupe in der Toolbar öffnet das Suchfeld (in beiden Modi).\n- Gesucht wird nach dem Anfang des Namens, ohne Beachtung der Groß-/Kleinschreibung, bei Objekten und Gruppen.\n- Enter springt zum ersten Treffer, jedes weitere Enter bei unverändertem Text zum nächsten.\n- Esc schließt das Suchfeld.',
@@ -71,12 +71,12 @@ export const de = {
     'Zwei Objekte nacheinander anklicken (erst Quelle, dann Ziel), um sie zu verbinden. Esc beendet das Werkzeug.',
   'toolbar.highlight.label': 'Hervorhebung',
   'toolbar.highlight.critical': 'Kritischer Pfad',
-  'toolbar.highlight.outgoing': '→ Voraussetzungen',
-  'toolbar.highlight.incoming': '← Betroffene',
-  'toolbar.highlight.both': '↔ Beide',
+  'toolbar.highlight.prerequisites': '← Voraussetzungen',
+  'toolbar.highlight.dependents': '→ Betroffene',
+  'toolbar.highlight.closure': '↔ Trans. Hülle',
   'toolbar.highlight.off': 'Keine',
   'toolbar.highlight.help':
-    'Was im Graph dick rot gezeichnet wird. Kritischer Pfad: die längste Kette offener Voraussetzungen der Auswahl bzw. des Projekts. → Voraussetzungen: wovon die markierte Auswahl (direkt oder indirekt) abhängt. ← Betroffene: was von ihr abhängt. ↔ Beide: der gesamte verbundene Teilgraph.',
+    'Was im Graph dick rot gezeichnet wird. Kritischer Pfad: die längste Kette offener Voraussetzungen der Auswahl bzw. des Projekts. ← Voraussetzungen: wovon die markierte Auswahl (direkt oder indirekt) abhängt, also gegen die Pfeile. → Betroffene: was von ihr abhängt, also entlang der Pfeile. ↔ Trans. Hülle: die transitive Hülle, also alle Voraussetzungen und alle Betroffenen zusammen (ohne Nachbarzweige, die nur in dieselben Objekte münden); das Panel listet sie auf.',
   'toolbar.highlight.pick': 'Objekt markieren …',
   'toolbar.panel': 'Panel',
   'toolbar.panel.title':
@@ -228,6 +228,10 @@ export const de = {
   'sidebar.field.name': 'Name',
   'sidebar.field.soft': 'Optionale Abhängigkeit',
   'sidebar.soft.hint': 'Gepunktet gezeichnet; zählt nicht zum kritischen Pfad. Gespeichert als Metadatum „optional: ja“.',
+  'sidebar.field.direction': 'Richtung',
+  'sidebar.direction.hint': '„{source}“ kommt zuerst; „{target}“ hängt davon ab.',
+  'sidebar.reverse': 'Richtung umkehren',
+  'sidebar.reverse.blocked': 'Die Verbindung in Gegenrichtung gibt es schon.',
   'sidebar.field.color': 'Farbe (color)',
   'sidebar.bulkColor_one': 'Farbe (color) für {count} Element',
   'sidebar.bulkColor_other': 'Farbe (color) für alle {count} Elemente',
@@ -290,6 +294,12 @@ export const de = {
   'analysis.empty.prerequisites': 'Keine offenen Voraussetzungen – kann released werden.',
   'analysis.finishedHint': 'Fertig – Voraussetzungen werden nicht mehr betrachtet.',
   'analysis.nothing': 'Nichts.',
+  'analysis.closure.title': 'Transitive Hülle ({count})',
+  'analysis.closure.allPrerequisites': 'Alle Voraussetzungen ({count})',
+  'analysis.closure.allDependents': 'Alle Betroffenen ({count})',
+  'analysis.closure.prerequisites': 'Voraussetzungen ({count})',
+  'analysis.closure.dependents': 'Betroffene ({count})',
+  'analysis.closure.hint': 'Direkt und indirekt, auch fertige; das Nächste zuerst. Im Graph rot markiert.',
   'analysis.clarify.title': 'Zu klären',
   'analysis.unknownStatus.title': 'Unbekannter Status ({count})',
   'analysis.unknownStatus.item': '{name} – „{raw}“ (zählt als offen)',
@@ -435,5 +445,5 @@ export const de = {
   'agent.chrome.apple': '„JavaScript von Apple Events zulassen“ muss in Chrome aktiv sein.',
   'agent.direction.title': 'Kantenrichtung',
   'agent.direction.body':
-    'Pfeil <c>A -> B</c> heißt „A hängt von B ab“ (B wird vor A released). Konvention für <c>{pair}</c>: source = abhängige Einheit, target = Einheit, von der sie abhängt.',
+    'Pfeil <c>A -> B</c> heißt „A kommt vor B“ (B hängt von A ab, A wird vor B released). Konvention für <c>{pair}</c>: source = Voraussetzung (kommt zuerst), target = abhängige Einheit.',
 } as const

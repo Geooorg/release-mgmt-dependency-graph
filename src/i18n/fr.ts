@@ -7,7 +7,7 @@ export const fr: Catalog = {
   'common.close': 'Fermer',
   'help.title': 'Aide',
   'help.intro':
-    'L’éditeur représente les dépendances d’une release sous forme de graphe. Une flèche A → B signifie : A dépend de B (B vient en premier). Tout est enregistré automatiquement dans le navigateur ; l’export et l’import permettent d’échanger des projets. Une description pour les agents d’automatisation se trouve sous #/agent-hilfe.',
+    'L’éditeur représente les dépendances d’une release sous forme de graphe. Une flèche A → B signifie : A vient avant B (B dépend de A). Tout est enregistré automatiquement dans le navigateur ; l’export et l’import permettent d’échanger des projets. Une description pour les agents d’automatisation se trouve sous #/agent-hilfe.',
   'help.start.title': 'Premiers pas',
   'help.start.body':
     '- Choisissez l’outil « Objet » (touche N) et cliquez sur un emplacement libre du canevas pour créer un objet.\n- Choisissez « Relier » (touche C) et cliquez successivement sur deux objets : d’abord la source, puis la cible.\n- Avec « Sélectionner » (touche V), vous sélectionnez et déplacez des éléments. Échap termine l’outil actif.\n- La barre latérale à droite affiche la sélection et permet de modifier le nom, la couleur, le statut et d’autres champs.',
@@ -16,7 +16,7 @@ export const fr: Catalog = {
     '- « Regrouper » rassemble les objets sélectionnés d’un même niveau en un groupe (sous-graphe) ; « Dissoudre le groupe » supprime le groupe, son contenu est conservé.\n- Quand vous déposez un objet ou un groupe dans un groupe, celui-ci s’agrandit.\n- Un double-clic sur un nom renomme directement l’élément (Entrée valide, Échap annule).\n- « Supprimer » (Suppr) supprime les objets et liaisons sélectionnés ; les groupes sont seulement dissous.\n- Pour sélectionner plusieurs éléments : Ctrl/Cmd + clic, ou tracer un cadre en maintenant Maj.\n- L’outil « Note » (touche S) place un pense-bête : positionnable librement, sans connexions, avec une couleur. Un double-clic modifie le texte, le cadre permet de redimensionner ; un texte trop long est abrégé par « … ».',
   'help.connect.title': 'Liaisons',
   'help.connect.body':
-    'Une flèche A → B signifie « A dépend de B » : B doit être terminé en premier.\n- Avec l’outil « Relier », cliquez d’abord sur la source, puis sur la cible.\n- Vous pouvez aussi faire glisser un connecteur au bord d’un objet vers un autre élément ; relâcher n’importe où sur l’objet suffit.\n- Les extrémités d’une liaison existante peuvent être déplacées vers d’autres connecteurs ou éléments (pas en mode analyse).\n- Impossible : liaison d’un élément avec lui-même, liaisons en double, liaisons entre un groupe et son propre contenu.\n- Une liaison depuis ou vers un groupe vaut pour tous ses membres (y compris imbriqués).\n- Vous pouvez sélectionner une liaison et lui donner une légende dans la barre latérale.\n- La case « Dépendance facultative » de la barre latérale fait d’une liaison une dépendance facultative (soft dependency) : elle est tracée en pointillés et exclue du chemin critique. Elle compte toujours pour « en attente », les prérequis et les cycles.',
+    'Une flèche A → B signifie « A vient avant B » : B dépend de A, A doit donc être terminé en premier. Les flèches suivent le sens du déroulement.\n- Avec l’outil « Relier », cliquez d’abord sur la source, puis sur la cible.\n- Vous pouvez aussi faire glisser un connecteur au bord d’un objet vers un autre élément ; relâcher n’importe où sur l’objet suffit.\n- Les extrémités d’une liaison existante peuvent être déplacées vers d’autres connecteurs ou éléments (pas en mode analyse).\n- Impossible : liaison d’un élément avec lui-même, liaisons en double, liaisons entre un groupe et son propre contenu.\n- Une liaison depuis ou vers un groupe vaut pour tous ses membres (y compris imbriqués).\n- Vous pouvez sélectionner une liaison et lui donner une légende dans la barre latérale ; « Inverser le sens » retourne la flèche (pas en mode analyse).\n- La case « Dépendance facultative » de la barre latérale fait d’une liaison une dépendance facultative (soft dependency) : elle est tracée en pointillés et exclue du chemin critique. Elle compte toujours pour « en attente », les prérequis et les cycles.',
   'help.sidebar.title': 'Barre latérale et métadonnées',
   'help.sidebar.body':
     '- La barre latérale suit la sélection et applique immédiatement chaque modification valide ; il n’y a pas d’enregistrement séparé. Chaque modification de champ est une étape pour « Annuler ».\n- Les métadonnées forment une liste ordonnée de clés et de valeurs ; la première entrée est le nom. Un nom de champ ne peut pas apparaître deux fois.\n- La couleur se définit par élément ; si plusieurs éléments sont sélectionnés, le champ de couleur l’applique à tous et le champ de statut définit le statut de tous les objets sélectionnés (les groupes n’ont pas de statut).\n- L’ID d’un élément est créé une seule fois et ne peut pas être modifié.',
@@ -25,7 +25,7 @@ export const fr: Catalog = {
     'Chaque objet a l’un des quatre statuts : ouvert, en cours, bloqué ou terminé. Sans statut, « ouvert » s’applique.\n- Vous définissez « bloqué » à la main (drapeau rouge), éventuellement avec un motif.\n- Le sablier « en attente » est calculé : l’objet n’est pas terminé et a un prérequis direct qui n’est pas encore terminé.\n- Les groupes déduisent leur statut de leurs membres.\n- « terminé » est définitif : ce qui se trouve derrière n’est plus analysé.\n- Une valeur inconnue est conservée, marquée d’un « ? » et compte comme ouverte.',
   'help.analysis.title': 'Mode analyse',
   'help.analysis.body':
-    'Le commutateur « Analyser » fait passer de l’édition à l’évaluation. La structure y est verrouillée ; le statut et les métadonnées restent modifiables.\n- La mise en évidence trace en rouge épais : le chemin critique, les prérequis de la sélection, ce qui en est affecté, ou les deux.\n- Le panneau affiche les compteurs de statut, « À clarifier », le chemin critique et les prérequis ouverts ; l’évaluation peut être copiée en Markdown.\n- Le bouton des cycles apparaît lorsque des dépendances forment une boucle ; un clic sélectionne le cycle suivant.',
+    'Le commutateur « Analyser » fait passer de l’édition à l’évaluation. La structure y est verrouillée ; le statut et les métadonnées restent modifiables.\n- La mise en évidence trace en rouge épais : le chemin critique, les prérequis de la sélection, ce qui en est affecté, ou la fermeture transitive (les deux ensemble) ; le panneau les liste alors.\n- Le panneau affiche les compteurs de statut, « À clarifier », le chemin critique et les prérequis ouverts ; l’évaluation peut être copiée en Markdown.\n- Le bouton des cycles apparaît lorsque des dépendances forment une boucle ; un clic sélectionne le cycle suivant.',
   'help.search.title': 'Recherche',
   'help.search.body':
     'La loupe de la barre d’outils ouvre le champ de recherche (dans les deux modes).\n- La recherche porte sur le début du nom, sans tenir compte de la casse, pour les objets et les groupes.\n- Entrée saute au premier résultat, puis chaque nouvelle pression, avec un texte inchangé, au suivant.\n- Échap ferme le champ de recherche.',
@@ -72,12 +72,12 @@ export const fr: Catalog = {
     'Cliquer successivement sur deux objets (d’abord la source, puis la cible) pour les relier. Échap termine l’outil.',
   'toolbar.highlight.label': 'Mise en évidence',
   'toolbar.highlight.critical': 'Chemin critique',
-  'toolbar.highlight.outgoing': '→ Prérequis',
-  'toolbar.highlight.incoming': '← Concernés',
-  'toolbar.highlight.both': '↔ Les deux',
+  'toolbar.highlight.prerequisites': '← Prérequis',
+  'toolbar.highlight.dependents': '→ Concernés',
+  'toolbar.highlight.closure': '↔ Ferm. trans.',
   'toolbar.highlight.off': 'Aucune',
   'toolbar.highlight.help':
-    'Ce qui est tracé en rouge épais dans le graphe. Chemin critique : la plus longue chaîne de prérequis ouverts de la sélection ou du projet. → Prérequis : ce dont la sélection dépend (directement ou indirectement). ← Concernés : ce qui en dépend. ↔ Les deux : tout le sous-graphe connecté.',
+    'Ce qui est tracé en rouge épais dans le graphe. Chemin critique : la plus longue chaîne de prérequis ouverts de la sélection ou du projet. ← Prérequis : ce dont la sélection dépend (directement ou indirectement), donc à contre-sens des flèches. → Concernés : ce qui en dépend, donc dans le sens des flèches. ↔ Ferm. trans. : la fermeture transitive, c’est-à-dire tous les prérequis et tous les concernés ensemble (sans les branches voisines qui aboutissent seulement aux mêmes objets) ; le panneau les liste.',
   'toolbar.highlight.pick': 'Sélectionner un objet …',
   'toolbar.panel': 'Panneau',
   'toolbar.panel.title':
@@ -228,6 +228,10 @@ export const fr: Catalog = {
   'sidebar.field.name': 'Nom',
   'sidebar.field.soft': 'Dépendance facultative',
   'sidebar.soft.hint': 'Tracée en pointillés ; exclue du chemin critique. Enregistrée comme métadonnée « optional: ja ».',
+  'sidebar.field.direction': 'Sens',
+  'sidebar.direction.hint': '« {source} » vient en premier ; « {target} » en dépend.',
+  'sidebar.reverse': 'Inverser le sens',
+  'sidebar.reverse.blocked': 'La liaison en sens inverse existe déjà.',
   'sidebar.field.color': 'Couleur (color)',
   'sidebar.bulkColor_one': 'Couleur (color) pour {count} élément',
   'sidebar.bulkColor_other': 'Couleur (color) pour les {count} éléments',
@@ -290,6 +294,12 @@ export const fr: Catalog = {
   'analysis.empty.prerequisites': 'Aucun prérequis ouvert – peut être livré.',
   'analysis.finishedHint': 'Terminé – les prérequis ne sont plus examinés.',
   'analysis.nothing': 'Rien.',
+  'analysis.closure.title': 'Fermeture transitive ({count})',
+  'analysis.closure.allPrerequisites': 'Tous les prérequis ({count})',
+  'analysis.closure.allDependents': 'Tous les concernés ({count})',
+  'analysis.closure.prerequisites': 'Prérequis ({count})',
+  'analysis.closure.dependents': 'Concernés ({count})',
+  'analysis.closure.hint': 'Directs et indirects, y compris les terminés ; les plus proches d’abord. Marqués en rouge dans le graphe.',
   'analysis.clarify.title': 'À clarifier',
   'analysis.unknownStatus.title': 'Statut inconnu ({count})',
   'analysis.unknownStatus.item': '{name} – « {raw} » (compte comme ouvert)',
@@ -435,5 +445,5 @@ export const fr: Catalog = {
   'agent.chrome.apple': '« Autoriser JavaScript depuis les Apple Events » doit être activé dans Chrome.',
   'agent.direction.title': 'Sens des liaisons',
   'agent.direction.body':
-    'La flèche <c>A -> B</c> signifie « A dépend de B » (B est livré avant A). Convention pour <c>{pair}</c> : source = l’unité dépendante, target = l’unité dont elle dépend.',
+    'La flèche <c>A -> B</c> signifie « A vient avant B » (B dépend de A, A est livré avant B). Convention pour <c>{pair}</c> : source = le prérequis (vient en premier), target = l’unité dépendante.',
 }

@@ -152,6 +152,8 @@ export interface GraphState {
 
   /** An existing connection was dragged to another connector or element (it keeps its id and name); one undo step. */
   reconnectEdge: (edgeId: string, ends: { source: string; target: string } & graph.EdgeHandles) => void
+  /** Turns a connection around (ends and connectors swapped, id and metadata kept); one undo step. */
+  reverseEdge: (edgeId: string) => void
   /** A dragged connection was dropped on the body of `targetId`: connects with the connector it was dragged from (if any) and the facing one there. */
   connectToNode: (sourceId: string, targetId: string, sourceHandle?: HandleSide) => void
   connect: (
@@ -471,6 +473,18 @@ export function createGraphStore(
           return
         }
         apply(graph.reconnectEdge(content(), edgeId, ends))
+      },
+      reverseEdge: (edgeId) => {
+        if (structureLocked()) return
+        const current = content()
+        const edge = current.edges.find((e) => e.id === edgeId)
+        if (edge === undefined) return
+        const check = graph.checkReconnection(current, edgeId, edge.target, edge.source)
+        if (!check.ok) {
+          set({ notice: { kind: 'info', message: { key: CONNECTION_MESSAGES[check.reason] } } })
+          return
+        }
+        apply(graph.reverseEdge(current, edgeId))
       },
       connectToNode: (sourceId, targetId, sourceHandle) => {
         if (structureLocked() || sourceId === targetId) return

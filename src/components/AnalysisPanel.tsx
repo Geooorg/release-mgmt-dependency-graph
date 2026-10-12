@@ -72,18 +72,21 @@ function EntryList({
   entries,
   onReveal,
   numbered = false,
+  compact = numbered,
 }: {
   entries: readonly AnalysisEntry[]
   onReveal: (id: string) => void
-  /** The critical path: numbered, compact (flags only, no second line). */
+  /** The critical path: numbered and compact. */
   numbered?: boolean
+  /** Flags only, no second line with the reason or what an entry waits for. */
+  compact?: boolean
 }) {
   const Tag = numbered ? 'ol' : 'ul'
   return (
     <Tag className="analysis-list">
       {entries.map((entry) => (
         <li key={entry.id}>
-          <Entry entry={entry} onReveal={onReveal} note={!numbered} />
+          <Entry entry={entry} onReveal={onReveal} note={!compact} />
         </li>
       ))}
     </Tag>
@@ -108,6 +111,45 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       <h3 className="analysis-section__title">{title}</h3>
       {children}
     </section>
+  )
+}
+
+/** The objects of a dependency highlight: both sides (transitive closure) or one side, compact. */
+function DependencySection({
+  dependencies,
+  onReveal,
+}: {
+  dependencies: NonNullable<AnalysisPanelProps['dependencies']>
+  onReveal: (id: string) => void
+}) {
+  const t = useT()
+  const { direction, prerequisites, dependents } = dependencies
+  const side = (entries: readonly AnalysisEntry[]) =>
+    entries.length === 0 ? (
+      <p className="analysis-empty">{t('analysis.nothing')}</p>
+    ) : (
+      <EntryList entries={entries} onReveal={onReveal} compact />
+    )
+  if (direction !== 'closure') {
+    const entries = direction === 'prerequisites' ? prerequisites : dependents
+    const key = direction === 'prerequisites' ? 'analysis.closure.allPrerequisites' : 'analysis.closure.allDependents'
+    return (
+      <Section title={t(key, { count: entries.length })}>
+        <p className="analysis-hint">{t('analysis.closure.hint')}</p>
+        {side(entries)}
+      </Section>
+    )
+  }
+  // In a cycle through the selection an object is both; it still counts once.
+  const count = new Set([...prerequisites, ...dependents].map((entry) => entry.id)).size
+  return (
+    <Section title={t('analysis.closure.title', { count })}>
+      <p className="analysis-hint">{t('analysis.closure.hint')}</p>
+      <h4 className="analysis-subtitle">{t('analysis.closure.prerequisites', { count: prerequisites.length })}</h4>
+      {side(prerequisites)}
+      <h4 className="analysis-subtitle">{t('analysis.closure.dependents', { count: dependents.length })}</h4>
+      {side(dependents)}
+    </Section>
   )
 }
 
@@ -288,6 +330,7 @@ export function AnalysisPanel({
   unfinished,
   selectionFinished,
   unknownStatus,
+  dependencies,
   onReveal,
   onCopy,
   onClose,
@@ -393,6 +436,7 @@ export function AnalysisPanel({
 
         {scope === 'selection' ? (
           <>
+            {dependencies && <DependencySection dependencies={dependencies} onReveal={onReveal} />}
             {pathSection}
             {listSection(
               t('analysis.section.prerequisites'),

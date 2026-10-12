@@ -60,7 +60,7 @@ describe('AgentHelp', () => {
   it('states the edge direction the app uses', () => {
     const { container } = render(<AgentHelp />)
 
-    expect(container.textContent).toMatch(/source = abhängige Einheit, target = Einheit, von der sie abhängt/)
+    expect(container.textContent).toMatch(/source = Voraussetzung \(kommt zuerst\), target = abhängige Einheit/)
   })
 
   it('describes the language setting in German by default', () => {

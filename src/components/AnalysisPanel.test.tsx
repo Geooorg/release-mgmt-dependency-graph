@@ -35,6 +35,7 @@ function makeProps(overrides: Partial<AnalysisPanelProps> = {}): AnalysisPanelPr
     unfinished: [entry('c', { ready: true }), entry('b', { status: 'in Arbeit', waiting: true, waitingFor: ['Dienst C'] })],
     selectionFinished: false,
     unknownStatus: [],
+    dependencies: null,
     onReveal: vi.fn(),
     onCopy: vi.fn(),
     onClose: vi.fn(),
@@ -159,6 +160,72 @@ describe('AnalysisPanel', () => {
     const section = screen.getByRole('heading', { name: 'Offene Voraussetzungen (0)' }).closest('section')!
     expect(within(section).getByText('Fertig – Voraussetzungen werden nicht mehr betrachtet.')).toBeInTheDocument()
     expect(screen.queryByText('Keine offenen Voraussetzungen – kann released werden.')).not.toBeInTheDocument()
+  })
+
+  describe('transitive closure', () => {
+    const closure = (overrides: Partial<NonNullable<AnalysisPanelProps['dependencies']>> = {}) => ({
+      direction: 'closure' as const,
+      prerequisites: [entry('o', { name: 'OpenAPI Specs', status: 'in Arbeit', ready: true })],
+      dependents: [entry('f', { name: 'Feature_Complete', waiting: true, waitingFor: ['ZS-UI'] }), entry('r', { name: 'Release' })],
+      ...overrides,
+    })
+
+    it('lists prerequisites and dependents of the selection before the critical path', () => {
+      render(<AnalysisPanel {...makeProps({ dependencies: closure() })} />)
+
+      const section = screen.getByRole('heading', { level: 3, name: 'Transitive Hülle (3)' }).closest('section')!
+      expect(within(section).getByText(/auch fertige/)).toBeInTheDocument()
+      const prerequisites = within(section).getByRole('heading', { level: 4, name: 'Voraussetzungen (1)' })
+      const dependents = within(section).getByRole('heading', { level: 4, name: 'Betroffene (2)' })
+      expect(prerequisites.nextElementSibling).toHaveTextContent('OpenAPI Specs')
+      expect([...dependents.nextElementSibling!.querySelectorAll('.analysis-item__name')].map((n) => n.textContent)).toEqual([
+        'Feature_Complete',
+        'Release',
+      ])
+      // compact: no second line with what an entry waits for
+      expect(section).not.toHaveTextContent('wartet auf ZS-UI')
+      const headings = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
+      expect(headings.indexOf('Transitive Hülle (3)')).toBeLessThan(headings.indexOf('Kritischer Pfad (3 Schritte)'))
+    })
+
+    it('counts an object on both sides once and says when a side is empty', () => {
+      const shared = entry('q', { name: 'Q' })
+      render(<AnalysisPanel {...makeProps({ dependencies: closure({ prerequisites: [shared], dependents: [shared] }) })} />)
+      expect(screen.getByRole('heading', { level: 3, name: 'Transitive Hülle (1)' })).toBeInTheDocument()
+
+      render(<AnalysisPanel {...makeProps({ dependencies: closure({ prerequisites: [] }) })} />)
+      const section = screen.getByRole('heading', { level: 3, name: 'Transitive Hülle (2)' }).closest('section')!
+      expect(within(section).getByRole('heading', { level: 4, name: 'Voraussetzungen (0)' }).nextElementSibling).toHaveTextContent('Nichts.')
+    })
+
+    it('shows only one side for the one-way highlights', () => {
+      const { rerender } = render(
+        <AnalysisPanel {...makeProps({ dependencies: closure({ direction: 'prerequisites', dependents: [] }) })} />,
+      )
+      expect(screen.getByRole('heading', { level: 3, name: 'Alle Voraussetzungen (1)' })).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { level: 4, name: /Betroffene/ })).toBeNull()
+
+      rerender(<AnalysisPanel {...makeProps({ dependencies: closure({ direction: 'dependents', prerequisites: [] }) })} />)
+      expect(screen.getByRole('heading', { level: 3, name: 'Alle Betroffenen (2)' })).toBeInTheDocument()
+    })
+
+    it('reveals an entry on click', async () => {
+      const props = makeProps({ dependencies: closure() })
+      render(<AnalysisPanel {...props} />)
+      await userEvent.click(screen.getByRole('button', { name: /OpenAPI Specs/ }))
+      expect(props.onReveal).toHaveBeenCalledWith('o')
+    })
+
+    it.each([
+      ['en', 'Transitive closure (3)', 'Prerequisites (1)', 'Affected (2)'],
+      ['fr', 'Fermeture transitive (3)', 'Prérequis (1)', 'Concernés (2)'],
+    ] as const)('is translated in %s', (locale, title, prerequisites, dependents) => {
+      setTestLocale(locale)
+      render(<AnalysisPanel {...makeProps({ dependencies: closure() })} />)
+      expect(screen.getByRole('heading', { level: 3, name: title })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { level: 4, name: prerequisites })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { level: 4, name: dependents })).toBeInTheDocument()
+    })
   })
 
   describe('whole project', () => {

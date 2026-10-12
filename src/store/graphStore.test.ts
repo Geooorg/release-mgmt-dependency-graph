@@ -138,6 +138,44 @@ describe('graphStore', () => {
       })
     })
 
+    describe('reversing a connection', () => {
+      const withEdge = () =>
+        createGraphStore(
+          content([box('a', 0, 0), box('b', 400, 0)], [{ ...edge('e', 'a', 'b'), sourceHandle: 'right', targetHandle: 'left' }]),
+          counterIds(),
+        )
+
+      it('turns it around as one undo step', () => {
+        const store = withEdge()
+        store.getState().reverseEdge('e')
+
+        expect(store.getState().edges[0]).toEqual({ id: 'e', source: 'b', target: 'a', sourceHandle: 'left', targetHandle: 'right' })
+        expect(store.getState().history.past).toHaveLength(1)
+        store.getState().undo()
+        expect(store.getState().edges[0]).toMatchObject({ source: 'a', target: 'b' })
+      })
+
+      it('explains a refusal when the opposite connection exists', () => {
+        const store = createGraphStore(
+          content([box('a', 0, 0), box('b', 400, 0)], [edge('e1', 'a', 'b'), edge('e2', 'b', 'a')]),
+          counterIds(),
+        )
+        store.getState().reverseEdge('e1')
+
+        expect(store.getState().edges[0]).toEqual(edge('e1', 'a', 'b'))
+        expect(store.getState().history.past).toHaveLength(0)
+        expect(store.getState().notice?.message).toEqual({ key: 'notice.connection.duplicate' })
+      })
+
+      it('is locked while analysing', () => {
+        const store = withEdge()
+        store.getState().setMode('analyze')
+        store.getState().reverseEdge('e')
+
+        expect(store.getState().edges[0].source).toBe('a')
+      })
+    })
+
     describe('connection dropped on a node', () => {
       const pair = () => createGraphStore(content([box('a', 0, 0), box('b', 400, 0), group('g', 0, 300, 300, 200), box('m', 24, 56, 'g')]), counterIds())
 
@@ -1070,7 +1108,7 @@ describe('graphStore', () => {
       s(store).openSidebar('a')
       s(store).setTool('connect')
       s(store).setMode('analyze')
-      s(store).setHighlight('both')
+      s(store).setHighlight('closure')
       s(store).setAnalysisPanelVisible(false)
       s(store).setMode('build')
       expect(s(store).history.past).toHaveLength(0)
@@ -1437,10 +1475,10 @@ describe('graphStore', () => {
 
     it('keeps the highlight choice across mode switches', () => {
       const store = createGraphStore(twoNodes())
-      store.getState().setHighlight('incoming')
+      store.getState().setHighlight('dependents')
       store.getState().setMode('analyze')
       store.getState().setMode('build')
-      expect(store.getState().highlight).toBe('incoming')
+      expect(store.getState().highlight).toBe('dependents')
     })
 
     describe('in analysis mode the structure is protected', () => {

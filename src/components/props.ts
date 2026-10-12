@@ -1,4 +1,5 @@
 import type { Locale } from '../i18n/locale'
+import type { DependencyDirection } from '../model/dependency'
 import type { Status } from '../model/status'
 import type { ElementKind, MetadataEntry } from '../model/types'
 import type { Highlight, Tool, WorkMode } from '../model/workMode'
@@ -89,13 +90,17 @@ export interface ToolHintProps {
 
 export interface SidebarElement {
   id: string
-  /** `edge`: only the `name` entry (the caption) is shown/edited and saved, plus the `soft` checkbox (no colour, status or free-form fields). */
+  /** `edge`: only the `name` entry (the caption) is shown/edited and saved, plus the direction and the `soft` checkbox (no colour, status or free-form fields). */
   kind: ElementKind | 'edge'
   metadata: MetadataEntry[]
   /** Groups only: finished and total objects inside, shown as a read-only status summary. */
   progress?: { done: number; total: number }
   /** Edges only: marked as a soft (optional) dependency, shown as a checkbox. */
   soft?: boolean
+  /** Edges only: display names of both ends, to show which one comes first. */
+  ends?: { source: string; target: string }
+  /** Edges only: the connection can be turned around (the opposite one does not exist yet). */
+  canReverse?: boolean
 }
 
 /** The colour of all selected objects and groups, set in one go (several elements selected). */
@@ -172,6 +177,8 @@ export interface SidebarProps {
   onClose: () => void
   /** Edges only: the soft-dependency checkbox was toggled (applied at once, one undo step). */
   onSoftChange?: (soft: boolean) => void
+  /** Edges only: "Richtung umkehren" was clicked (applied at once, one undo step). */
+  onReverse?: () => void
   /** Hidden but kept (analysis mode): the form with its draft stays alive for when the sidebar returns. */
   hidden?: boolean
   /** Whether the open form holds an invalid draft that is not in the model; `false` again once it closes. */
@@ -331,6 +338,11 @@ export interface AnalysisPanelProps {
   selectionFinished: boolean
   /** Section "Zu klären": objects with an unknown status value (selection and its unfinished prerequisites, or the whole project). */
   unknownStatus: UnknownStatusEntry[]
+  /**
+   * The objects of the chosen dependency highlight (all of them, finished ones too), nearest first: both sides for
+   * the transitive closure, one side otherwise. Null without a dependency highlight or without a selection.
+   */
+  dependencies: { direction: DependencyDirection; prerequisites: AnalysisEntry[]; dependents: AnalysisEntry[] } | null
   /** Bring the object into view without changing the selection. */
   onReveal: (id: string) => void
   onCopy: () => void

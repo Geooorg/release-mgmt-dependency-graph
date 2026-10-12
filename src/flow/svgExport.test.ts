@@ -181,7 +181,7 @@ describe('buildSvg', () => {
     const doc = parse(
       buildSvg({
         nodes: [withStatus('done', 'fertig', 0), withStatus('blocked', 'blockiert', 300), node('waits', 'waits', 600, 0), node('plain', 'plain', 900, 0)],
-        edges: [edge('e', 'waits', 'blocked')],
+        edges: [edge('e', 'blocked', 'waits')],
       }),
     )
     const circles = (id: string) => doc.querySelectorAll(`[data-id="${id}"] circle`).length

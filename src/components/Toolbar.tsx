@@ -99,9 +99,9 @@ const TOOLS: readonly {
 
 const HIGHLIGHTS: readonly { value: Highlight; labelKey: MessageKey }[] = [
   { value: 'critical', labelKey: 'toolbar.highlight.critical' },
-  { value: 'outgoing', labelKey: 'toolbar.highlight.outgoing' },
-  { value: 'incoming', labelKey: 'toolbar.highlight.incoming' },
-  { value: 'both', labelKey: 'toolbar.highlight.both' },
+  { value: 'prerequisites', labelKey: 'toolbar.highlight.prerequisites' },
+  { value: 'dependents', labelKey: 'toolbar.highlight.dependents' },
+  { value: 'closure', labelKey: 'toolbar.highlight.closure' },
   { value: 'off', labelKey: 'toolbar.highlight.off' },
 ]
 
@@ -157,7 +157,7 @@ export function Toolbar({
   onHelp,
 }: ToolbarProps) {
   const t = useT()
-  const dependencyHighlight = highlight === 'outgoing' || highlight === 'incoming' || highlight === 'both'
+  const dependencyHighlight = highlight === 'prerequisites' || highlight === 'dependents' || highlight === 'closure'
   const cycleWord = t.plural('toolbar.cycles.word', cycleCount)
 
   return (

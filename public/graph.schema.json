@@ -95,12 +95,12 @@
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "source": {
-          "description": "Die abhängige Einheit (Objekt oder Gruppe).",
+          "description": "Die Voraussetzung (Objekt oder Gruppe), die zuerst kommt; der Pfeil beginnt hier.",
           "type": "string",
           "minLength": 1
         },
         "target": {
-          "description": "Die Einheit, von der source abhängt; der Pfeil zeigt hierhin.",
+          "description": "Die abhängige Einheit, die nach source kommt; der Pfeil zeigt hierhin.",
           "type": "string",
           "minLength": 1
         },

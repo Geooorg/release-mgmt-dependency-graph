@@ -1266,8 +1266,8 @@ describe('App: analysis mode layout', () => {
 
     it('blocks from the panel with a reason, flags the selection and undoes status and reason as steps', async () => {
       render(<App />)
-      const [first] = graphStore.getState().nodes
-      select(first.id)
+      const [, second] = graphStore.getState().nodes
+      select(second.id)
       await switchTo('Analysieren')
       const block = within(panel()!).getByRole('region', { name: 'Auswahl' })
 
@@ -1276,40 +1276,40 @@ describe('App: analysis mode layout', () => {
       await userEvent.type(within(block).getByLabelText('Grund'), 'Freigabe fehlt')
       await userEvent.tab()
 
-      expect(metadataOf(0)).toEqual([
-        { key: 'name', value: 'Projekt A' },
+      expect(metadataOf(1)).toEqual([
+        { key: 'name', value: 'Projekt B' },
         { key: 'status', value: 'blockiert' },
         { key: 'blockiert_grund', value: 'Freigabe fehlt' },
       ])
       expect(steps()).toBe(2)
       const banner = within(panel()!).getByRole('region', { name: 'Auswahl ist blockiert' })
-      expect(banner).toHaveTextContent('Projekt A ist blockiert – Freigabe fehlt')
-      // the first object also depends on the second one, which is not finished: the flag says so as well
+      expect(banner).toHaveTextContent('Projekt B ist blockiert – Freigabe fehlt')
+      // the second object also depends on the first one, which is not finished: the flag says so as well
       expect(document.querySelector('.box-node .blocked-flag')).toHaveAttribute(
         'aria-label',
-        'Blockiert: Freigabe fehlt – wartet außerdem auf: Projekt B',
+        'Blockiert: Freigabe fehlt – wartet außerdem auf: Projekt A',
       )
       const counts = within(within(panel()!).getByRole('list', { name: 'Projektstand' }))
       expect(counts.getByText('blockiert').closest('li')).toHaveTextContent('1 blockiert')
 
       // another status removes the reason; one undo step brings both back
       await userEvent.selectOptions(within(block).getByLabelText('Status'), 'in Arbeit')
-      expect(metadataOf(0)).toEqual([
-        { key: 'name', value: 'Projekt A' },
+      expect(metadataOf(1)).toEqual([
+        { key: 'name', value: 'Projekt B' },
         { key: 'status', value: 'in Arbeit' },
       ])
       expect(within(panel()!).queryByRole('region', { name: 'Auswahl ist blockiert' })).toBeNull()
       act(() => graphStore.getState().undo())
-      expect(metadataOf(0)).toContainEqual({ key: 'blockiert_grund', value: 'Freigabe fehlt' })
+      expect(metadataOf(1)).toContainEqual({ key: 'blockiert_grund', value: 'Freigabe fehlt' })
       expect(within(block).getByLabelText('Grund')).toHaveValue('Freigabe fehlt')
     })
 
     it('makes the object that depends on a blocked one wait, with an hourglass', async () => {
       render(<App />)
-      // the default project has an edge from the first to the second object
+      // the default project has an edge from the first to the second object: the second depends on the first
       const [first, second] = graphStore.getState().nodes
       const edge = graphStore.getState().edges[0]
-      const [dependent, prerequisite] = edge.source === first.id ? [first, second] : [second, first]
+      const [dependent, prerequisite] = edge.target === first.id ? [first, second] : [second, first]
       act(() => graphStore.getState().setStatus(prerequisite.id, 'blockiert'))
       await switchTo('Analysieren')
 
@@ -1324,12 +1324,31 @@ describe('App: analysis mode layout', () => {
     })
   })
 
+  it('highlights the transitive closure of the selection in red and lists it in the panel', async () => {
+    render(<App />)
+    // the default project: the first object comes before the second one
+    const [first, second] = graphStore.getState().nodes
+    select(first.id)
+    await switchTo('Analysieren')
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Hervorhebung' }), 'closure')
+
+    const section = within(panel()!).getByRole('heading', { level: 3, name: 'Transitive Hülle (1)' }).closest('section')!
+    expect(within(section).getByRole('heading', { level: 4, name: 'Voraussetzungen (0)' })).toBeInTheDocument()
+    expect(within(section).getByRole('heading', { level: 4, name: 'Betroffene (1)' }).nextElementSibling).toHaveTextContent(
+      second.metadata[0].value,
+    )
+    expect(document.querySelectorAll('.box-node--dependency')).toHaveLength(1)
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Hervorhebung' }), 'critical')
+    expect(within(panel()!).queryByRole('heading', { name: /Transitive Hülle/ })).toBeNull()
+  })
+
   describe('finished is final', () => {
     it('shows no mark on or above a finished object and says so for a finished selection', async () => {
       render(<App />)
       const [first, second] = graphStore.getState().nodes
       const edge = graphStore.getState().edges[0]
-      const [dependent, prerequisite] = edge.source === first.id ? [first, second] : [second, first]
+      const [dependent, prerequisite] = edge.target === first.id ? [first, second] : [second, first]
       act(() => graphStore.getState().setStatus(prerequisite.id, 'fertig'))
       select(prerequisite.id)
       await switchTo('Analysieren')

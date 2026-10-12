@@ -1,5 +1,6 @@
 import { createTranslate, type Translate } from '../i18n/translate'
 import { stronglyConnectedComponents } from './cycles'
+import type { DependencyDirection } from './dependency'
 import { buildEffectiveGraph, type EffectiveGraph } from './effectiveGraph'
 import { displayName } from './metadata'
 import { DEFAULT_PROJECT_NAME } from './projectName'
@@ -9,7 +10,7 @@ import type { GraphContent, ModelNode } from './types'
 
 /**
  * Release analysis on top of the effective dependency graph (see `buildEffectiveGraph`).
- * `A -> B` means "A depends on B", so the successors of a vertex are its prerequisites.
+ * `A -> B` means "A comes before B" (B depends on A); `succ` runs against the arrows, from a vertex to its prerequisites.
  * Everything is pure, deterministic (ties are broken by node order) and iterative, so large
  * graphs cannot overflow the stack.
  *
@@ -167,7 +168,7 @@ function prepare(content: GraphContent): Prepared {
   const { vertices } = graph
   const indexOf = new Map(vertices.map((id, i) => [id, i]))
   const kinds = new Map(content.nodes.map((n) => [n.id, n]))
-  const succ = vertices.map((id) => (graph.successors.get(id) ?? []).map((to) => indexOf.get(to) as number))
+  const succ = vertices.map((id) => (graph.prerequisites.get(id) ?? []).map((to) => indexOf.get(to) as number))
   const pred: number[][] = vertices.map(() => [])
   succ.forEach((list, from) => list.forEach((to) => pred[to].push(from)))
 
@@ -462,12 +463,52 @@ export function joinNames(names: readonly string[]): string {
   return names.length > MAX_LISTED_NAMES ? `${shown}, …` : shown
 }
 
-/** Markdown report (for the clipboard) of the analysis of a selection or the whole project. */
+/** Report lines of a dependency highlight: both sides of the transitive closure, or one side. */
+function dependencyLines(
+  dependencies: DependencyListing,
+  name: (id: string) => string,
+  statusOf: (id: string) => string,
+  t: Translate,
+): string[] {
+  const items = (ids: readonly string[]) => (ids.length > 0 ? ids.map((id) => `- ${name(id)} – ${statusOf(id)}`) : [t('analysis.nothing')])
+  const { direction, prerequisiteIds, dependentIds } = dependencies
+  if (direction !== 'closure') {
+    const ids = direction === 'prerequisites' ? prerequisiteIds : dependentIds
+    const key = direction === 'prerequisites' ? 'analysis.closure.allPrerequisites' : 'analysis.closure.allDependents'
+    return [`## ${t(key, { count: ids.length })}`, '', ...items(ids), '']
+  }
+  const count = new Set([...prerequisiteIds, ...dependentIds]).size
+  return [
+    `## ${t('analysis.closure.title', { count })}`,
+    '',
+    `### ${t('analysis.closure.prerequisites', { count: prerequisiteIds.length })}`,
+    '',
+    ...items(prerequisiteIds),
+    '',
+    `### ${t('analysis.closure.dependents', { count: dependentIds.length })}`,
+    '',
+    ...items(dependentIds),
+    '',
+  ]
+}
+
+/** Objects of the chosen dependency highlight (see `findDependencies`), for the report. */
+export interface DependencyListing {
+  direction: DependencyDirection
+  prerequisiteIds: readonly string[]
+  dependentIds: readonly string[]
+}
+
+/**
+ * Markdown report (for the clipboard) of the analysis of a selection or the whole project; with a
+ * dependency highlight on a selection, its objects come before the critical path.
+ */
 export function formatAnalysisMarkdown(
   content: GraphContent,
   project: ProjectAnalysis,
   selection: SelectionAnalysis,
   t: Translate = createTranslate('de'),
+  dependencies?: DependencyListing,
 ): string {
   const byId = new Map(content.nodes.map((n) => [n.id, n]))
   const name = (id: string) => {
@@ -559,6 +600,7 @@ export function formatAnalysisMarkdown(
     )
     lines.push(...pathLines)
   } else {
+    if (dependencies) lines.push(...dependencyLines(dependencies, name, statusOf, t))
     lines.push(
       ...pathLines,
       `## ${t('analysis.section.prerequisites')}`,

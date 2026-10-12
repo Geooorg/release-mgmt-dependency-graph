@@ -25,6 +25,8 @@ import {
   renameEdge,
   setEdgeSoft,
   reconnectEdge,
+  reverseEdge,
+  canReverseEdge,
   checkReconnection,
   renameElement,
   setColor,
@@ -1016,6 +1018,61 @@ describe('reconnectEdge', () => {
   it('does not mutate its input', () => {
     const c = deepFreeze(base())
     expect(() => reconnectEdge(c, 'e1', { source: 'a', target: 'c', targetHandle: 'top' })).not.toThrow()
+  })
+})
+
+describe('reverseEdge', () => {
+  const base = () =>
+    content(
+      [node('a', 0, 0), node('b', 300, 0), node('c', 600, 0)],
+      [
+        {
+          id: 'e1',
+          source: 'a',
+          target: 'b',
+          sourceHandle: 'right',
+          targetHandle: 'bottom',
+          metadata: [{ key: 'name', value: 'liefert' }, { key: 'optional', value: 'ja' }],
+        },
+        { id: 'e2', source: 'b', target: 'c' },
+        { id: 'e3', source: 'c', target: 'b' },
+      ],
+    )
+  const edgeOf = (c: GraphContent, id: string) => c.edges.find((e) => e.id === id)!
+
+  it('swaps the ends and their connectors, keeping id, place in the list and metadata', () => {
+    const result = reverseEdge(base(), 'e1')
+
+    expect(result.edges[0]).toEqual({
+      id: 'e1',
+      source: 'b',
+      target: 'a',
+      sourceHandle: 'bottom',
+      targetHandle: 'right',
+      metadata: [{ key: 'name', value: 'liefert' }, { key: 'optional', value: 'ja' }],
+    })
+    expect(result.edges.slice(1)).toEqual(base().edges.slice(1))
+  })
+
+  it('keeps an edge without connectors without connectors', () => {
+    const c = content([node('a', 0, 0), node('b', 300, 0)], [{ id: 'e', source: 'a', target: 'b' }])
+
+    expect(edgeOf(reverseEdge(c, 'e'), 'e')).toEqual({ id: 'e', source: 'b', target: 'a' })
+  })
+
+  it('refuses when the opposite edge already exists, and for an unknown edge', () => {
+    const c = base()
+
+    expect(canReverseEdge(c, 'e1')).toBe(true)
+    expect(canReverseEdge(c, 'e2')).toBe(false)
+    expect(canReverseEdge(c, 'nope')).toBe(false)
+    expect(reverseEdge(c, 'e2')).toBe(c)
+    expect(reverseEdge(c, 'nope')).toBe(c)
+  })
+
+  it('does not mutate its input', () => {
+    const c = deepFreeze(base())
+    expect(() => reverseEdge(c, 'e1')).not.toThrow()
   })
 })
 

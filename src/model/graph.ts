@@ -489,6 +489,27 @@ export function reconnectEdge(
   return { ...content, edges: content.edges.map((edge) => (edge.id === edgeId ? moved : edge)) }
 }
 
+/** Can edge `edgeId` point the other way? Not when the opposite edge already exists (or the edge is unknown). */
+export function canReverseEdge(content: GraphContent, edgeId: string): boolean {
+  const edge = content.edges.find((e) => e.id === edgeId)
+  return edge !== undefined && checkReconnection(content, edgeId, edge.target, edge.source).ok
+}
+
+/**
+ * Turns an edge around: swaps its ends together with their connectors, so the line keeps its place
+ * on the canvas. Id, metadata and position in the list stay. Refused (see `canReverseEdge`) -> the content itself.
+ */
+export function reverseEdge(content: GraphContent, edgeId: string): GraphContent {
+  const edge = content.edges.find((e) => e.id === edgeId)
+  if (edge === undefined || !canReverseEdge(content, edgeId)) return content
+  return reconnectEdge(content, edgeId, {
+    source: edge.target,
+    target: edge.source,
+    sourceHandle: edge.targetHandle,
+    targetHandle: edge.sourceHandle,
+  })
+}
+
 /**
  * Connectors that face each other, for connections made without dragging between two specific
  * connectors (toolbar "Verbinden"): horizontal if the centres differ more in x than in y.

@@ -453,9 +453,9 @@ describe('Toolbar', () => {
       const select = screen.getByRole('combobox', { name: 'Hervorhebung' })
       expect(within(select).getAllByRole('option').map((o) => [(o as HTMLOptionElement).value, o.textContent])).toEqual([
         ['critical', 'Kritischer Pfad'],
-        ['outgoing', '→ Voraussetzungen'],
-        ['incoming', '← Betroffene'],
-        ['both', '↔ Beide'],
+        ['prerequisites', '← Voraussetzungen'],
+        ['dependents', '→ Betroffene'],
+        ['closure', '↔ Trans. Hülle'],
         ['off', 'Keine'],
       ])
       expect(select).toHaveValue('critical')
@@ -465,8 +465,8 @@ describe('Toolbar', () => {
       const props = analyze()
       const { rerender } = render(<Toolbar {...props} />)
 
-      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Hervorhebung' }), 'both')
-      expect(props.onHighlightChange).toHaveBeenLastCalledWith('both')
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Hervorhebung' }), 'closure')
+      expect(props.onHighlightChange).toHaveBeenLastCalledWith('closure')
 
       rerender(<Toolbar {...props} highlight="off" />)
       expect(screen.getByRole('combobox', { name: 'Hervorhebung' })).toHaveValue('off')
@@ -497,10 +497,10 @@ describe('Toolbar', () => {
     })
 
     it('tells the user to select something for a dependency highlight without selection', () => {
-      const { rerender } = render(<Toolbar {...analyze({ highlight: 'outgoing', selectionEmpty: true })} />)
+      const { rerender } = render(<Toolbar {...analyze({ highlight: 'prerequisites', selectionEmpty: true })} />)
       expect(screen.getByRole('status')).toHaveTextContent('Objekt markieren')
 
-      rerender(<Toolbar {...analyze({ highlight: 'outgoing', selectionEmpty: false })} />)
+      rerender(<Toolbar {...analyze({ highlight: 'prerequisites', selectionEmpty: false })} />)
       expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })
 

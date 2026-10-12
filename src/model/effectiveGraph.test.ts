@@ -3,16 +3,16 @@ import { box, content, edge, group, note } from '../test/fixtures'
 import { buildEffectiveGraph } from './effectiveGraph'
 
 describe('buildEffectiveGraph', () => {
-  it('uses plain objects as vertices in input order, edges map 1:1', () => {
+  it('uses plain objects as vertices in input order, an arrow points from prerequisite to dependent', () => {
     const graph = buildEffectiveGraph(
       content([box('a', 0, 0), box('b', 1, 0), box('c', 2, 0)], [edge('ab', 'a', 'b'), edge('bc', 'b', 'c')]),
     )
     expect(graph.vertices).toEqual(['a', 'b', 'c'])
-    expect(graph.successors.get('a')).toEqual(['b'])
-    expect(graph.successors.get('b')).toEqual(['c'])
-    expect(graph.successors.get('c')).toEqual([])
-    expect(graph.edgeIdsOf('a', 'b')).toEqual(['ab'])
-    expect(graph.edgeIdsOf('b', 'a')).toEqual([])
+    expect(graph.prerequisites.get('a')).toEqual([])
+    expect(graph.prerequisites.get('b')).toEqual(['a'])
+    expect(graph.prerequisites.get('c')).toEqual(['b'])
+    expect(graph.edgeIdsOf('b', 'a')).toEqual(['ab'])
+    expect(graph.edgeIdsOf('a', 'b')).toEqual([])
   })
 
   it('resolves an edge into a group to all its members (any depth)', () => {
@@ -29,8 +29,9 @@ describe('buildEffectiveGraph', () => {
       ),
     )
     expect(graph.vertices).toEqual(['x', 'm1', 'm2'])
-    expect(graph.successors.get('x')).toEqual(['m1', 'm2'])
-    expect(graph.edgeIdsOf('x', 'm2')).toEqual(['xg'])
+    expect(graph.prerequisites.get('m1')).toEqual(['x'])
+    expect(graph.prerequisites.get('m2')).toEqual(['x'])
+    expect(graph.edgeIdsOf('m2', 'x')).toEqual(['xg'])
   })
 
   it('resolves an edge out of a group to all its members', () => {
@@ -39,8 +40,8 @@ describe('buildEffectiveGraph', () => {
         edge('gy', 'g', 'y'),
       ]),
     )
-    expect(graph.successors.get('m1')).toEqual(['y'])
-    expect(graph.successors.get('m2')).toEqual(['y'])
+    expect(graph.prerequisites.get('y')).toEqual(['m1', 'm2'])
+    expect(graph.edgeIdsOf('y', 'm1')).toEqual(['gy'])
   })
 
   it('lets a group without objects stand for itself', () => {
@@ -48,7 +49,7 @@ describe('buildEffectiveGraph', () => {
       content([box('x', 0, 0), group('g', 0, 0, 300, 200)], [edge('xg', 'x', 'g')]),
     )
     expect(graph.vertices).toEqual(['x', 'g'])
-    expect(graph.successors.get('x')).toEqual(['g'])
+    expect(graph.prerequisites.get('g')).toEqual(['x'])
   })
 
   it('combines group to group edges to all pairs and remembers every edge per pair', () => {
@@ -64,9 +65,9 @@ describe('buildEffectiveGraph', () => {
         [edge('gh', 'g', 'h'), edge('a1b', 'a1', 'b')],
       ),
     )
-    expect(graph.successors.get('a1')).toEqual(['b'])
-    expect(graph.edgeIdsOf('a1', 'b')).toEqual(['gh', 'a1b'])
-    expect(graph.edgeIdsOf('a2', 'b')).toEqual(['gh'])
+    expect(graph.prerequisites.get('b')).toEqual(['a1', 'a2'])
+    expect(graph.edgeIdsOf('b', 'a1')).toEqual(['gh', 'a1b'])
+    expect(graph.edgeIdsOf('b', 'a2')).toEqual(['gh'])
   })
 
   it('drops pairs that would be self loops', () => {
@@ -74,12 +75,12 @@ describe('buildEffectiveGraph', () => {
     const graph = buildEffectiveGraph(
       content([group('g', 0, 0, 100, 100), box('m', 0, 0, 'g')], [edge('gm', 'g', 'm')]),
     )
-    expect(graph.successors.get('m')).toEqual([])
+    expect(graph.prerequisites.get('m')).toEqual([])
   })
 
   it('ignores edges to unknown ids', () => {
-    const graph = buildEffectiveGraph(content([box('a', 0, 0)], [edge('e', 'a', 'ghost')]))
-    expect(graph.successors.get('a')).toEqual([])
+    const graph = buildEffectiveGraph(content([box('a', 0, 0)], [edge('e', 'ghost', 'a'), edge('f', 'a', 'ghost')]))
+    expect(graph.prerequisites.get('a')).toEqual([])
   })
 
   it('survives a corrupt parent loop', () => {

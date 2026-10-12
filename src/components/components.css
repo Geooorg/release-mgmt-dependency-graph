@@ -415,6 +415,10 @@
   font-size: 12px;
 }
 
+.sidebar__reverse {
+  align-self: flex-start;
+}
+
 .sidebar__color {
   display: flex;
   align-items: center;

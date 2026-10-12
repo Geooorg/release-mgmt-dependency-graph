@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createTranslate } from '../i18n/translate'
+import { findDependencies } from './dependency'
 import { box, content, edge, group, softEdge, withStatus } from '../test/fixtures'
 import {
   analyzeProject,
@@ -19,7 +20,7 @@ const sorted = (set: ReadonlySet<string>) => [...set].sort()
 describe('analyzeProject', () => {
   it('waits for nothing when everything is done', () => {
     const result = analyzeProject(
-      content([done('a'), done('b', 1), done('c', 2)], [edge('ab', 'a', 'b'), edge('bc', 'b', 'c')]),
+      content([done('a'), done('b', 1), done('c', 2)], [edge('ab', 'b', 'a'), edge('bc', 'c', 'b')]),
     )
     expect(result.waitingIds.size).toBe(0)
     expect(result.readyIds.size).toBe(0)
@@ -39,7 +40,7 @@ describe('analyzeProject', () => {
   it('blocks a chain down to its first open prerequisite', () => {
     // a depends on b depends on c; c is open
     const result = analyzeProject(
-      content([wip('a'), wip('b', 1), open('c', 2)], [edge('ab', 'a', 'b'), edge('bc', 'b', 'c')]),
+      content([wip('a'), wip('b', 1), open('c', 2)], [edge('ab', 'b', 'a'), edge('bc', 'c', 'b')]),
     )
     expect(sorted(result.waitingIds)).toEqual(['a', 'b'])
     expect(sorted(result.readyIds)).toEqual(['c'])
@@ -51,7 +52,7 @@ describe('analyzeProject', () => {
 
   it('waits transitively along a chain of unfinished objects', () => {
     const result = analyzeProject(
-      content([open('a'), open('b', 1), open('c', 2)], [edge('ab', 'a', 'b'), edge('bc', 'b', 'c')]),
+      content([open('a'), open('b', 1), open('c', 2)], [edge('ab', 'b', 'a'), edge('bc', 'c', 'b')]),
     )
     expect(sorted(result.waitingIds)).toEqual(['a', 'b'])
     expect(result.waitingFor.get('a')).toEqual(['b'])
@@ -59,9 +60,9 @@ describe('analyzeProject', () => {
     expect(sorted(result.readyIds)).toEqual(['c'])
   })
 
-  it('does not look through a finished object: App -> Lib (fertig) -> Core', () => {
+  it('does not look through a finished object: App <- Lib (fertig) <- Core', () => {
     const result = analyzeProject(
-      content([open('app'), done('lib', 1), open('core', 2)], [edge('al', 'app', 'lib'), edge('lc', 'lib', 'core')]),
+      content([open('app'), done('lib', 1), open('core', 2)], [edge('al', 'lib', 'app'), edge('lc', 'core', 'lib')]),
     )
     expect(result.waitingIds.size).toBe(0)
     expect(result.waitingFor.size).toBe(0)
@@ -72,7 +73,7 @@ describe('analyzeProject', () => {
 
   it('gives a finished object neither flag nor hourglass, whatever it depends on', () => {
     const result = analyzeProject(
-      content([done('a'), done('b', 1), stuck('c', 2), open('d', 3)], [edge('ab', 'a', 'b'), edge('ac', 'a', 'c'), edge('bd', 'b', 'd')]),
+      content([done('a'), done('b', 1), stuck('c', 2), open('d', 3)], [edge('ab', 'b', 'a'), edge('ac', 'c', 'a'), edge('bd', 'd', 'b')]),
     )
     expect(result.waitingIds.size).toBe(0)
     expect(sorted(result.blockedIds)).toEqual(['c'])
@@ -80,12 +81,12 @@ describe('analyzeProject', () => {
     expect(sorted(result.readyIds)).toEqual(['d'])
   })
 
-  it('explains the A -> B, A -> C, C -> D example: A waits for B only', () => {
+  it('explains the A <- B, A <- C, C <- D example: A waits for B only', () => {
     // a (offen) depends on b (no status) and c (fertig); c depends on d (no status)
     const result = analyzeProject(
       content(
         [open('a'), open('b', 1), done('c', 2), open('d', 3)],
-        [edge('ab', 'a', 'b'), edge('ac', 'a', 'c'), edge('cd', 'c', 'd')],
+        [edge('ab', 'b', 'a'), edge('ac', 'c', 'a'), edge('cd', 'd', 'c')],
       ),
     )
     expect(sorted(result.waitingIds)).toEqual(['a'])
@@ -96,13 +97,13 @@ describe('analyzeProject', () => {
 
   it('keeps the unfinished objects equal to blocked + waiting + ready, also with cycles, finished objects and empty groups', () => {
     const models = [
-      content([open('p'), wip('q', 1), open('r', 2)], [edge('pq', 'p', 'q'), edge('qp', 'q', 'p'), edge('pr', 'p', 'r')]),
-      content([done('a'), open('b', 1), wip('c', 2), done('d', 3)], [edge('ab', 'a', 'b'), edge('bc', 'b', 'c'), edge('cd', 'c', 'd')]),
-      content([done('p'), open('q', 1)], [edge('pq', 'p', 'q'), edge('qp', 'q', 'p')]),
-      content([open('x'), group('g', 0, 0, 10, 10), open('y', 2), done('z', 3), open('w', 4)], [edge('xg', 'x', 'g'), edge('gy', 'g', 'y'), edge('yz', 'y', 'z'), edge('zw', 'z', 'w')]),
+      content([open('p'), wip('q', 1), open('r', 2)], [edge('pq', 'q', 'p'), edge('qp', 'p', 'q'), edge('pr', 'r', 'p')]),
+      content([done('a'), open('b', 1), wip('c', 2), done('d', 3)], [edge('ab', 'b', 'a'), edge('bc', 'c', 'b'), edge('cd', 'd', 'c')]),
+      content([done('p'), open('q', 1)], [edge('pq', 'q', 'p'), edge('qp', 'p', 'q')]),
+      content([open('x'), group('g', 0, 0, 10, 10), open('y', 2), done('z', 3), open('w', 4)], [edge('xg', 'g', 'x'), edge('gy', 'y', 'g'), edge('yz', 'z', 'y'), edge('zw', 'w', 'z')]),
       content(
         [stuck('p'), wip('q', 1), open('r', 2), done('s', 3), stuck('t', 4)],
-        [edge('pq', 'p', 'q'), edge('qp', 'q', 'p'), edge('pr', 'p', 'r'), edge('st', 's', 't'), edge('tr', 't', 'r')],
+        [edge('pq', 'q', 'p'), edge('qp', 'p', 'q'), edge('pr', 'r', 'p'), edge('st', 't', 's'), edge('tr', 'r', 't')],
       ),
     ]
     for (const model of models) {
@@ -114,7 +115,7 @@ describe('analyzeProject', () => {
 
   it('does not let a finished object in a cycle make anything wait', () => {
     const result = analyzeProject(
-      content([done('p'), open('q', 1)], [edge('pq', 'p', 'q'), edge('qp', 'q', 'p')]),
+      content([done('p'), open('q', 1)], [edge('pq', 'q', 'p'), edge('qp', 'p', 'q')]),
     )
     expect(result.waitingIds.size).toBe(0)
     expect(sorted(result.readyIds)).toEqual(['q'])
@@ -126,7 +127,7 @@ describe('analyzeProject', () => {
         [group('g', 0, 0, 300, 200), done('m1', 0), open('m2', 1), open('y', 5), group('h', 0, 0, 300, 200)].map((n) =>
           n.id === 'm1' || n.id === 'm2' ? { ...n, parentId: 'g' } : n,
         ),
-        [edge('m1y', 'm1', 'y')],
+        [edge('m1y', 'y', 'm1')],
       ),
     )
     expect(result.waitingIds.size).toBe(0)
@@ -150,7 +151,7 @@ describe('analyzeProject', () => {
   })
 
   it('does not block an object whose prerequisites are all done', () => {
-    const result = analyzeProject(content([open('a'), done('b', 1)], [edge('ab', 'a', 'b')]))
+    const result = analyzeProject(content([open('a'), done('b', 1)], [edge('ab', 'b', 'a')]))
     expect(result.waitingIds.size).toBe(0)
     expect(sorted(result.readyIds)).toEqual(['a'])
   })
@@ -159,7 +160,7 @@ describe('analyzeProject', () => {
     const result = analyzeProject(
       content(
         [open('a'), open('b', 1), done('c', 2), open('d', 3)],
-        [edge('ad', 'a', 'd'), edge('ab', 'a', 'b'), edge('ac', 'a', 'c')],
+        [edge('ad', 'd', 'a'), edge('ab', 'b', 'a'), edge('ac', 'c', 'a')],
       ),
     )
     expect(result.waitingFor.get('a')).toEqual(['b', 'd'])
@@ -172,7 +173,7 @@ describe('analyzeProject', () => {
         [wip('x'), group('g', 0, 0, 300, 200), done('m1', 0), open('m2', 1)].map((n, i) =>
           i >= 2 ? { ...n, parentId: 'g' } : n,
         ),
-        [edge('xg', 'x', 'g')],
+        [edge('xg', 'g', 'x')],
       ),
     )
     expect(sorted(result.waitingIds)).toEqual(['x'])
@@ -185,7 +186,7 @@ describe('analyzeProject', () => {
         [group('g', 0, 0, 300, 200), open('m1', 0), open('m2', 1), open('y', 5)].map((n, i) =>
           i === 1 || i === 2 ? { ...n, parentId: 'g' } : n,
         ),
-        [edge('m2y', 'm2', 'y')],
+        [edge('m2y', 'y', 'm2')],
       ),
     )
     expect(sorted(result.waitingIds)).toEqual(['g', 'm2'])
@@ -214,7 +215,7 @@ describe('analyzeProject', () => {
   it('treats a group without objects as transparent (it has no work of its own)', () => {
     // a depends on the empty group, which depends on c (open)
     const result = analyzeProject(
-      content([open('a'), group('e', 0, 0, 10, 10), open('c', 2)], [edge('ae', 'a', 'e'), edge('ec', 'e', 'c')]),
+      content([open('a'), group('e', 0, 0, 10, 10), open('c', 2)], [edge('ae', 'e', 'a'), edge('ec', 'c', 'e')]),
     )
     expect(sorted(result.waitingIds)).toEqual(['a'])
     // names the unfinished object behind the empty group, not the group
@@ -224,14 +225,14 @@ describe('analyzeProject', () => {
 
   it('looks through an empty group, but stops at a finished object behind it', () => {
     const through = analyzeProject(
-      content([open('x'), group('g', 0, 0, 10, 10), open('y', 2)], [edge('xg', 'x', 'g'), edge('gy', 'g', 'y')]),
+      content([open('x'), group('g', 0, 0, 10, 10), open('y', 2)], [edge('xg', 'g', 'x'), edge('gy', 'y', 'g')]),
     )
     expect(through.waitingFor.get('x')).toEqual(['y'])
     expect(sorted(through.readyIds)).toEqual(['y'])
     const stopped = analyzeProject(
       content(
         [open('x'), group('g', 0, 0, 10, 10), done('f', 2), open('y', 3)],
-        [edge('xg', 'x', 'g'), edge('gf', 'g', 'f'), edge('fy', 'f', 'y')],
+        [edge('xg', 'g', 'x'), edge('gf', 'f', 'g'), edge('fy', 'y', 'f')],
       ),
     )
     expect(stopped.waitingIds.size).toBe(0)
@@ -240,7 +241,7 @@ describe('analyzeProject', () => {
 
   it('blocks open objects in a cycle: they can never become ready', () => {
     const result = analyzeProject(
-      content([open('p'), open('q', 1), open('r', 2)], [edge('pq', 'p', 'q'), edge('qp', 'q', 'p'), edge('pr', 'p', 'r')]),
+      content([open('p'), open('q', 1), open('r', 2)], [edge('pq', 'q', 'p'), edge('qp', 'p', 'q'), edge('pr', 'r', 'p')]),
     )
     expect(sorted(result.waitingIds)).toEqual(['p', 'q'])
     expect(sorted(result.readyIds)).toEqual(['r'])
@@ -249,7 +250,7 @@ describe('analyzeProject', () => {
   it('handles a 5000 object chain without overflowing the stack', () => {
     const size = 5000
     const nodes = Array.from({ length: size }, (_, i) => (i === size - 1 ? open(`n${i}`, i) : done(`n${i}`, i)))
-    const edges = Array.from({ length: size - 1 }, (_, i) => edge(`e${i}`, `n${i}`, `n${i + 1}`))
+    const edges = Array.from({ length: size - 1 }, (_, i) => edge(`e${i}`, `n${i + 1}`, `n${i}`))
     const result = analyzeProject(content(nodes, edges))
     expect(result.waitingIds.size).toBe(0)
     expect(result.counts).toMatchObject({ done: size - 1, waiting: 0, ready: 1 })
@@ -259,7 +260,7 @@ describe('analyzeProject', () => {
   it('handles a 5000 object chain of unfinished objects without overflowing the stack', () => {
     const size = 5000
     const nodes = Array.from({ length: size }, (_, i) => open(`n${i}`, i))
-    const edges = Array.from({ length: size - 1 }, (_, i) => edge(`e${i}`, `n${i}`, `n${i + 1}`))
+    const edges = Array.from({ length: size - 1 }, (_, i) => edge(`e${i}`, `n${i + 1}`, `n${i}`))
     const result = analyzeProject(content(nodes, edges))
     expect(result.counts).toMatchObject({ waiting: size - 1, ready: 1 })
     expect(result.waitingFor.get('n0')).toEqual(['n1'])
@@ -267,10 +268,10 @@ describe('analyzeProject', () => {
 })
 
 describe('analyzeSelection', () => {
-  // a -> b -> c -> d  (a depends on b, ...), a -> x -> d
+  // a <- b <- c <- d  (a depends on b, ...), a <- x <- d
   const graph = content(
     [open('a'), wip('b', 1), open('c', 2), open('d', 3), done('x', 4)],
-    [edge('ab', 'a', 'b'), edge('bc', 'b', 'c'), edge('cd', 'c', 'd'), edge('ax', 'a', 'x'), edge('xd', 'x', 'd')],
+    [edge('ab', 'b', 'a'), edge('bc', 'c', 'b'), edge('cd', 'd', 'c'), edge('ax', 'x', 'a'), edge('xd', 'd', 'x')],
   )
 
   it('lists open transitive prerequisites, ready ones first, then in release order', () => {
@@ -287,7 +288,7 @@ describe('analyzeSelection', () => {
     // d is two steps away via the finished x, but x is not looked through: three via b and c
     const result = analyzeSelection(graph, ['a'])
     expect(result.unfinished.find((u) => u.id === 'd')?.distance).toBe(3)
-    const shortcut = content([open('a'), open('b', 1), open('c', 2), open('d', 3)], [edge('ab', 'a', 'b'), edge('bc', 'b', 'c'), edge('cd', 'c', 'd'), edge('ad', 'a', 'd')])
+    const shortcut = content([open('a'), open('b', 1), open('c', 2), open('d', 3)], [edge('ab', 'b', 'a'), edge('bc', 'c', 'b'), edge('cd', 'd', 'c'), edge('ad', 'd', 'a')])
     expect(analyzeSelection(shortcut, ['a']).unfinished.find((u) => u.id === 'd')?.distance).toBe(1)
   })
 
@@ -297,7 +298,7 @@ describe('analyzeSelection', () => {
   })
 
   it('has no blockers when all prerequisites are done', () => {
-    const result = analyzeSelection(content([open('a'), done('b', 1)], [edge('ab', 'a', 'b')]), ['a'])
+    const result = analyzeSelection(content([open('a'), done('b', 1)], [edge('ab', 'b', 'a')]), ['a'])
     expect(result.unfinished).toEqual([])
     expect(result.criticalPath).toEqual({ nodeIds: ['a'], edgeIds: [], length: 1 })
   })
@@ -305,7 +306,7 @@ describe('analyzeSelection', () => {
   it('starts at all members of a selected group', () => {
     const grouped = content(
       [group('g', 0, 0, 300, 200), { ...open('m1'), parentId: 'g' }, { ...open('m2', 1), parentId: 'g' }, open('y', 5), open('z', 6)],
-      [edge('m1y', 'm1', 'y'), edge('m2z', 'm2', 'z')],
+      [edge('m1y', 'y', 'm1'), edge('m2z', 'z', 'm2')],
     )
     const result = analyzeSelection(grouped, ['g'])
     expect(result.selectedIds).toEqual(['g'])
@@ -313,7 +314,7 @@ describe('analyzeSelection', () => {
   })
 
   it('picks the longer of two chains as critical path, in release order', () => {
-    // a -> b -> c (2 open below) vs a -> x -> d -> e? build: long chain a-b-c-d, short a-x
+    // a <- b <- c (2 open below) vs a <- x <- d <- e? build: long chain a-b-c-d, short a-x
     const result = analyzeSelection(graph, ['a'])
     expect(result.criticalPath).toEqual({
       nodeIds: ['d', 'c', 'b', 'a'],
@@ -323,20 +324,20 @@ describe('analyzeSelection', () => {
   })
 
   it('ends a chain at a finished object', () => {
-    // a -> b(done) -> c -> d is cut at b: the chain through x (a, x) is the longest
+    // a <- b(done) <- c <- d is cut at b: the chain through x (a, x) is the longest
     const model = content(
       [open('a'), done('b', 1), open('c', 2), open('d', 3), open('x', 4)],
-      [edge('ab', 'a', 'b'), edge('bc', 'b', 'c'), edge('cd', 'c', 'd'), edge('ax', 'a', 'x')],
+      [edge('ab', 'b', 'a'), edge('bc', 'c', 'b'), edge('cd', 'd', 'c'), edge('ax', 'x', 'a')],
     )
     const result = analyzeSelection(model, ['a'])
     expect(result.criticalPath).toEqual({ nodeIds: ['x', 'a'], edgeIds: ['ax'], length: 2 })
     expect(result.unfinished.map((u) => u.id)).toEqual(['x'])
   })
 
-  it('does not look through a finished object: App -> Lib (fertig) -> Core', () => {
+  it('does not look through a finished object: App <- Lib (fertig) <- Core', () => {
     const model = content(
       [open('app'), done('lib', 1), open('core', 2)],
-      [edge('al', 'app', 'lib'), edge('lc', 'lib', 'core')],
+      [edge('al', 'lib', 'app'), edge('lc', 'core', 'lib')],
     )
     const result = analyzeSelection(model, ['app'])
     expect(result.unfinished).toEqual([])
@@ -350,10 +351,10 @@ describe('analyzeSelection', () => {
     expect(whole.criticalPath?.length).toBe(1)
   })
 
-  it('explains the A -> B, A -> C, C -> D example for the whole project', () => {
+  it('explains the A <- B, A <- C, C <- D example for the whole project', () => {
     const model = content(
       [open('a'), open('b', 1), done('c', 2), open('d', 3)],
-      [edge('ab', 'a', 'b'), edge('ac', 'a', 'c'), edge('cd', 'c', 'd')],
+      [edge('ab', 'b', 'a'), edge('ac', 'c', 'a'), edge('cd', 'd', 'c')],
     )
     const project = analyzeSelection(model, [])
     expect(project.criticalPath).toEqual({ nodeIds: ['b', 'a'], edgeIds: ['ab'], length: 2 })
@@ -368,7 +369,7 @@ describe('analyzeSelection', () => {
   it('follows the unfinished objects through an empty group', () => {
     const model = content(
       [open('x'), group('g', 0, 0, 10, 10), open('y', 2)],
-      [edge('xg', 'x', 'g'), edge('gy', 'g', 'y')],
+      [edge('xg', 'g', 'x'), edge('gy', 'y', 'g')],
     )
     const result = analyzeSelection(model, ['x'])
     expect(result.criticalPath?.length).toBe(2)
@@ -379,7 +380,7 @@ describe('analyzeSelection', () => {
   it('breaks ties by node order', () => {
     const model = content(
       [open('a'), open('p', 1), open('q', 2)],
-      [edge('aq', 'a', 'q'), edge('ap', 'a', 'p')],
+      [edge('aq', 'q', 'a'), edge('ap', 'p', 'a')],
     )
     expect(analyzeSelection(model, ['a']).criticalPath?.nodeIds).toEqual(['p', 'a'])
     // deterministic: same result a second time
@@ -387,12 +388,12 @@ describe('analyzeSelection', () => {
   })
 
   it('reports an empty critical path when nothing is open on the way', () => {
-    const model = content([done('a'), done('b', 1)], [edge('ab', 'a', 'b')])
+    const model = content([done('a'), done('b', 1)], [edge('ab', 'b', 'a')])
     expect(analyzeSelection(model, ['a']).criticalPath).toEqual({ nodeIds: [], edgeIds: [], length: 0 })
   })
 
   it('has an empty path and no prerequisites for a finished selection, whatever it depends on', () => {
-    const model = content([done('a'), open('b', 1), done('c', 2)], [edge('ab', 'a', 'b')])
+    const model = content([done('a'), open('b', 1), done('c', 2)], [edge('ab', 'b', 'a')])
     const result = analyzeSelection(model, ['a'])
     expect(result.criticalPath).toEqual({ nodeIds: [], edgeIds: [], length: 0 })
     expect(result.unfinished).toEqual([])
@@ -405,7 +406,7 @@ describe('analyzeSelection', () => {
   it('treats a selected group of finished objects as finished', () => {
     const model = content(
       [group('g', 0, 0, 300, 200), { ...done('m1'), parentId: 'g' }, { ...done('m2', 1), parentId: 'g' }, open('y', 5)],
-      [edge('m1y', 'm1', 'y')],
+      [edge('m1y', 'y', 'm1')],
     )
     const result = analyzeSelection(model, ['g'])
     expect(result.selectionFinished).toBe(true)
@@ -421,7 +422,7 @@ describe('analyzeSelection', () => {
   it('credits group edges to the explicit edge that produced the step', () => {
     const model = content(
       [open('x'), group('g', 0, 0, 300, 200), { ...open('m'), parentId: 'g' }],
-      [edge('xg', 'x', 'g')],
+      [edge('xg', 'g', 'x')],
     )
     expect(analyzeSelection(model, ['x']).criticalPath).toEqual({ nodeIds: ['m', 'x'], edgeIds: ['xg'], length: 2 })
   })
@@ -429,7 +430,7 @@ describe('analyzeSelection', () => {
   it('cannot compute a critical path when the relevant part contains a cycle, but still lists blockers', () => {
     const model = content(
       [open('a'), open('p', 1), open('q', 2)],
-      [edge('ap', 'a', 'p'), edge('pq', 'p', 'q'), edge('qp', 'q', 'p')],
+      [edge('ap', 'p', 'a'), edge('pq', 'q', 'p'), edge('qp', 'p', 'q')],
     )
     const result = analyzeSelection(model, ['a'])
     expect(result.criticalPath).toBeNull()
@@ -438,10 +439,10 @@ describe('analyzeSelection', () => {
   })
 
   it('breaks a cycle at a finished object: the critical path is defined', () => {
-    // p -> q -> p, but q is finished
+    // p <- q <- p, but q is finished
     const model = content(
       [open('p'), done('q', 1), open('r', 2)],
-      [edge('pq', 'p', 'q'), edge('qp', 'q', 'p'), edge('pr', 'p', 'r')],
+      [edge('pq', 'q', 'p'), edge('qp', 'p', 'q'), edge('pr', 'r', 'p')],
     )
     const result = analyzeSelection(model, ['p'])
     expect(result.cycleIds).toEqual([])
@@ -452,7 +453,7 @@ describe('analyzeSelection', () => {
   it('still cannot compute the path of a cycle of unfinished objects, in the project scope too', () => {
     const model = content(
       [open('p'), wip('q', 1), done('f', 2), open('r', 3)],
-      [edge('pq', 'p', 'q'), edge('qp', 'q', 'p'), edge('qf', 'q', 'f'), edge('fr', 'f', 'r')],
+      [edge('pq', 'q', 'p'), edge('qp', 'p', 'q'), edge('qf', 'f', 'q'), edge('fr', 'r', 'f')],
     )
     const result = analyzeSelection(model, [])
     expect(result.criticalPath).toBeNull()
@@ -463,7 +464,7 @@ describe('analyzeSelection', () => {
   it('cannot compute the path of a cycle that consists of empty groups and unfinished objects', () => {
     const model = content(
       [open('p'), group('g', 0, 0, 10, 10)],
-      [edge('pg', 'p', 'g'), edge('gp', 'g', 'p')],
+      [edge('pg', 'g', 'p'), edge('gp', 'p', 'g')],
     )
     expect(analyzeSelection(model, ['p']).criticalPath).toBeNull()
   })
@@ -471,7 +472,7 @@ describe('analyzeSelection', () => {
   it('ignores a cycle behind a finished selection and one that is not reachable', () => {
     const model = content(
       [done('a'), open('p', 1), open('q', 2)],
-      [edge('ap', 'a', 'p'), edge('pq', 'p', 'q'), edge('qp', 'q', 'p')],
+      [edge('ap', 'p', 'a'), edge('pq', 'q', 'p'), edge('qp', 'p', 'q')],
     )
     const result = analyzeSelection(model, ['a'])
     expect(result.cycleIds).toEqual([])
@@ -481,7 +482,7 @@ describe('analyzeSelection', () => {
   it('ignores a cycle that is not reachable from the selection', () => {
     const model = content(
       [open('a'), open('b', 1), open('p', 2), open('q', 3)],
-      [edge('ab', 'a', 'b'), edge('pq', 'p', 'q'), edge('qp', 'q', 'p')],
+      [edge('ab', 'b', 'a'), edge('pq', 'q', 'p'), edge('qp', 'p', 'q')],
     )
     const result = analyzeSelection(model, ['a'])
     expect(result.cycleIds).toEqual([])
@@ -489,10 +490,10 @@ describe('analyzeSelection', () => {
   })
 
   it('covers the whole project without a selection', () => {
-    // two roots: r1 -> m1 -> m2 (3 open), r2 -> m2 (2 open)
+    // two roots: r1 <- m1 <- m2 (3 open), r2 <- m2 (2 open)
     const model = content(
       [open('r1'), open('r2', 1), open('m1', 2), open('m2', 3), done('z', 4)],
-      [edge('r1m1', 'r1', 'm1'), edge('m1m2', 'm1', 'm2'), edge('r2m2', 'r2', 'm2')],
+      [edge('r1m1', 'm1', 'r1'), edge('m1m2', 'm2', 'm1'), edge('r2m2', 'm2', 'r2')],
     )
     const result = analyzeSelection(model, [])
     expect(result.scope).toBe('project')
@@ -508,8 +509,8 @@ describe('analyzeSelection', () => {
   })
 
   describe('soft dependencies', () => {
-    // a -soft-> b -> c, all open
-    const chain = content([open('a'), open('b', 1), open('c', 2)], [softEdge('ab', 'a', 'b'), edge('bc', 'b', 'c')])
+    // a <-soft- b <- c, all open
+    const chain = content([open('a'), open('b', 1), open('c', 2)], [softEdge('ab', 'b', 'a'), edge('bc', 'c', 'b')])
 
     it('leaves soft edges out of the critical path of the project', () => {
       expect(analyzeSelection(chain, []).criticalPath).toEqual({ nodeIds: ['c', 'b'], edgeIds: ['bc'], length: 2 })
@@ -528,7 +529,7 @@ describe('analyzeSelection', () => {
     })
 
     it('does not see a cycle that is closed by a soft edge only', () => {
-      const model = content([open('p'), open('q', 1)], [edge('pq', 'p', 'q'), softEdge('qp', 'q', 'p')])
+      const model = content([open('p'), open('q', 1)], [edge('pq', 'q', 'p'), softEdge('qp', 'p', 'q')])
       const result = analyzeSelection(model, [])
       expect(result.cycleIds).toEqual([])
       expect(result.criticalPath).toEqual({ nodeIds: ['q', 'p'], edgeIds: ['pq'], length: 2 })
@@ -538,7 +539,7 @@ describe('analyzeSelection', () => {
     it('ignores a cycle that is only reached over a soft edge', () => {
       const model = content(
         [open('a'), open('p', 1), open('q', 2)],
-        [softEdge('ap', 'a', 'p'), edge('pq', 'p', 'q'), edge('qp', 'q', 'p')],
+        [softEdge('ap', 'p', 'a'), edge('pq', 'q', 'p'), edge('qp', 'p', 'q')],
       )
       const result = analyzeSelection(model, ['a'])
       expect(result.cycleIds).toEqual([])
@@ -547,10 +548,10 @@ describe('analyzeSelection', () => {
     })
 
     it('marks only the hard edge when a soft group edge produces the same step', () => {
-      // x -> b directly, and x -soft-> g, which contains b
+      // x <- b directly, and x <-soft- g, which contains b
       const model = content(
         [group('g', 0, 0, 300, 200), open('x', 400), box('b', 10, 40, 'g')],
-        [softEdge('xg', 'x', 'g'), edge('xb', 'x', 'b')],
+        [softEdge('xg', 'g', 'x'), edge('xb', 'b', 'x')],
       )
       expect(analyzeSelection(model, ['x']).criticalPath).toEqual({ nodeIds: ['b', 'x'], edgeIds: ['xb'], length: 2 })
     })
@@ -563,7 +564,7 @@ describe('analyzeSelection', () => {
   it('computes a 5000 object chain without overflowing the stack', () => {
     const size = 5000
     const nodes = Array.from({ length: size }, (_, i) => open(`n${i}`, i))
-    const edges = Array.from({ length: size - 1 }, (_, i) => edge(`e${i}`, `n${i}`, `n${i + 1}`))
+    const edges = Array.from({ length: size - 1 }, (_, i) => edge(`e${i}`, `n${i + 1}`, `n${i}`))
     const result = analyzeSelection(content(nodes, edges), ['n0'])
     expect(result.criticalPath?.length).toBe(size)
     expect(result.criticalPath?.nodeIds[0]).toBe(`n${size - 1}`)
@@ -571,10 +572,10 @@ describe('analyzeSelection', () => {
   })
 
   describe('to clarify', () => {
-    // a -> b(done) -> c(open); u (unknown status) alone, v (unknown status) below a
+    // a <- b(done) <- c(open); u (unknown status) alone, v (unknown status) below a
     const model = content(
       [open('a'), done('b', 1), open('c', 2), withStatus(box('u', 3, 0), 'bald'), withStatus(box('v', 4, 0), 'x')],
-      [edge('ab', 'a', 'b'), edge('bc', 'b', 'c'), edge('av', 'a', 'v')],
+      [edge('ab', 'b', 'a'), edge('bc', 'c', 'b'), edge('av', 'v', 'a')],
     )
 
     it('lists every object with an unknown status of the project', () => {
@@ -603,7 +604,7 @@ describe('formatAnalysisMarkdown', () => {
   const model = {
     ...content(
       [open('a'), wip('b', 1), open('c', 2), done('x', 3)],
-      [edge('ab', 'a', 'b'), edge('bc', 'b', 'c'), edge('ax', 'a', 'x')],
+      [edge('ab', 'b', 'a'), edge('bc', 'c', 'b'), edge('ax', 'x', 'a')],
     ),
     projectName: 'Release-1',
   }
@@ -640,6 +641,31 @@ describe('formatAnalysisMarkdown', () => {
     )
   })
 
+  it('adds the objects of a dependency highlight before the critical path', () => {
+    const closure = { direction: 'closure' as const, ...findDependencies(named, ['b'], 'closure') }
+    const text = formatAnalysisMarkdown(named, analyzeProject(named), analyzeSelection(named, ['b']), createTranslate('de'), closure)
+    expect(text).toContain(
+      [
+        '## Transitive Hülle (2)',
+        '',
+        '### Voraussetzungen (1)',
+        '',
+        '- Dienst C – offen',
+        '',
+        '### Betroffene (1)',
+        '',
+        '- Dienst A – offen',
+        '',
+        '## Kritischer Pfad (2 Schritte)',
+      ].join('\n'),
+    )
+
+    const one = { direction: 'dependents' as const, ...findDependencies(named, ['a'], 'dependents') }
+    expect(formatAnalysisMarkdown(named, analyzeProject(named), analyzeSelection(named, ['a']), createTranslate('en'), one)).toContain(
+      '## All affected (0)\n\nNothing.\n',
+    )
+  })
+
   it('describes the whole project and uses the short id for unnamed objects', () => {
     const unnamed = { ...model, nodes: model.nodes.map((n) => ({ ...n, metadata: [{ key: 'name', value: '' }, ...n.metadata.slice(1)] })) }
     const text = formatAnalysisMarkdown(unnamed, analyzeProject(unnamed), analyzeSelection(unnamed, []))
@@ -652,7 +678,7 @@ describe('formatAnalysisMarkdown', () => {
   it('adds a section "Zu klären" for unknown status values', () => {
     const unclear = content(
       [open('a'), done('b', 1), open('c', 2), withStatus(box('u', 3, 0), 'erledigt')],
-      [edge('ab', 'a', 'b'), edge('bc', 'b', 'c')],
+      [edge('ab', 'b', 'a'), edge('bc', 'c', 'b')],
     )
     const text = formatAnalysisMarkdown(unclear, analyzeProject(unclear), analyzeSelection(unclear, []))
     expect(text).toContain('- zu klären: 1\n')
@@ -669,21 +695,21 @@ describe('formatAnalysisMarkdown', () => {
   })
 
   it('explains a missing critical path on a cycle', () => {
-    const cyclic = content([open('p'), open('q', 1)], [edge('pq', 'p', 'q'), edge('qp', 'q', 'p')])
+    const cyclic = content([open('p'), open('q', 1)], [edge('pq', 'q', 'p'), edge('qp', 'p', 'q')])
     const text = formatAnalysisMarkdown(cyclic, analyzeProject(cyclic), analyzeSelection(cyclic, ['p']))
     expect(text).toContain('Kritischer Pfad nicht berechenbar – Zyklus zwischen p, q.')
     expect(text).toContain('# Release-Analyse: Release-Management – p')
   })
 
   it('says so when nothing is open', () => {
-    const finished = content([done('a'), done('b', 1)], [edge('ab', 'a', 'b')])
+    const finished = content([done('a'), done('b', 1)], [edge('ab', 'b', 'a')])
     const text = formatAnalysisMarkdown(finished, analyzeProject(finished), analyzeSelection(finished, ['a']))
     expect(text).toContain('Fertig – Voraussetzungen werden nicht mehr betrachtet.')
     expect(text).not.toContain('kann released werden')
   })
 
   it('says a selection without unfinished prerequisites can be released', () => {
-    const ready = content([open('a'), done('b', 1)], [edge('ab', 'a', 'b')])
+    const ready = content([open('a'), done('b', 1)], [edge('ab', 'b', 'a')])
     const text = formatAnalysisMarkdown(ready, analyzeProject(ready), analyzeSelection(ready, ['a']))
     expect(text).toContain('Keine offenen Voraussetzungen – kann released werden.')
   })
@@ -699,8 +725,8 @@ describe('formatAnalysisMarkdown', () => {
     })
 
     it('makes everything that depends on it wait, with the blocked object named as the cause', () => {
-      // a -> b -> c; c is blocked by hand
-      const result = analyzeProject(content([open('a'), wip('b', 1), stuck('c', 2)], [edge('ab', 'a', 'b'), edge('bc', 'b', 'c')]))
+      // a <- b <- c; c is blocked by hand
+      const result = analyzeProject(content([open('a'), wip('b', 1), stuck('c', 2)], [edge('ab', 'b', 'a'), edge('bc', 'c', 'b')]))
       expect(sorted(result.waitingIds)).toEqual(['a', 'b'])
       expect(result.waitingFor.get('b')).toEqual(['c'])
       expect(result.waitingFor.get('a')).toEqual(['b'])
@@ -709,7 +735,7 @@ describe('formatAnalysisMarkdown', () => {
     })
 
     it('shows a blocked object that also waits as blocked only, but remembers what it waits for', () => {
-      const result = analyzeProject(content([stuck('a'), open('b', 1)], [edge('ab', 'a', 'b')]))
+      const result = analyzeProject(content([stuck('a'), open('b', 1)], [edge('ab', 'b', 'a')]))
       expect(sorted(result.blockedIds)).toEqual(['a'])
       expect(result.waitingIds.size).toBe(0)
       expect(result.waitingFor.get('a')).toEqual(['b'])
@@ -717,17 +743,17 @@ describe('formatAnalysisMarkdown', () => {
     })
 
     it('does not wait for a finished prerequisite, and a finished object over a blocked one carries nothing', () => {
-      const ok = analyzeProject(content([stuck('a'), done('b', 1)], [edge('ab', 'a', 'b')]))
+      const ok = analyzeProject(content([stuck('a'), done('b', 1)], [edge('ab', 'b', 'a')]))
       expect(ok.waitingFor.has('a')).toBe(false)
-      const over = analyzeProject(content([done('a'), stuck('b', 1)], [edge('ab', 'a', 'b')]))
+      const over = analyzeProject(content([done('a'), stuck('b', 1)], [edge('ab', 'b', 'a')]))
       expect(sorted(over.blockedIds)).toEqual(['b'])
       expect(over.waitingIds.size).toBe(0)
       expect(over.waitingFor.has('a')).toBe(false)
     })
 
     it('does not look through a finished object behind a blocked one', () => {
-      // a -> lib(done) -> k(blocked): a is ready
-      const result = analyzeProject(content([open('a'), done('lib', 1), stuck('k', 2)], [edge('al', 'a', 'lib'), edge('lk', 'lib', 'k')]))
+      // a <- lib(done) <- k(blocked): a is ready
+      const result = analyzeProject(content([open('a'), done('lib', 1), stuck('k', 2)], [edge('al', 'lib', 'a'), edge('lk', 'k', 'lib')]))
       expect(result.waitingIds.size).toBe(0)
       expect(sorted(result.readyIds)).toEqual(['a'])
     })
@@ -743,7 +769,7 @@ describe('formatAnalysisMarkdown', () => {
       const result = analyzeProject(
         content(
           [group('g', 0, 0, 300, 200), { ...stuck('m1'), parentId: 'g' }, { ...open('m2', 1), parentId: 'g' }, open('y', 5)],
-          [edge('m2m1', 'm2', 'm1')],
+          [edge('m2m1', 'm1', 'm2')],
         ),
       )
       expect(sorted(result.blockedIds)).toEqual(['g', 'm1'])
@@ -756,7 +782,7 @@ describe('formatAnalysisMarkdown', () => {
     it('keeps unfinished = blocked + waiting + ready with cycles through blocked objects', () => {
       const cyclic = content(
         [stuck('p'), open('q', 1), wip('r', 2), done('s', 3)],
-        [edge('pq', 'p', 'q'), edge('qp', 'q', 'p'), edge('rs', 'r', 's'), edge('qr', 'q', 'r')],
+        [edge('pq', 'q', 'p'), edge('qp', 'p', 'q'), edge('rs', 's', 'r'), edge('qr', 'r', 'q')],
       )
       const { counts } = analyzeProject(cyclic)
       expect(counts.total - counts.done).toBe(counts.blocked + counts.waiting + counts.ready)
@@ -767,7 +793,7 @@ describe('formatAnalysisMarkdown', () => {
       // a depends on w (waits for z), r (ready), k (blocked); z is ready
       const model = content(
         [open('a'), wip('w', 1), open('r', 2), stuck('k', 3), open('z', 4)],
-        [edge('aw', 'a', 'w'), edge('ar', 'a', 'r'), edge('ak', 'a', 'k'), edge('wz', 'w', 'z')],
+        [edge('aw', 'w', 'a'), edge('ar', 'r', 'a'), edge('ak', 'k', 'a'), edge('wz', 'z', 'w')],
       )
       const result = analyzeSelection(model, ['a'])
       expect(result.unfinished.map((u) => [u.id, u.state])).toEqual([
@@ -780,7 +806,7 @@ describe('formatAnalysisMarkdown', () => {
     })
 
     it('reports a selected object that is blocked itself', () => {
-      const model = content([stuck('a'), open('b', 1), stuck('c', 2)], [edge('ab', 'a', 'b')])
+      const model = content([stuck('a'), open('b', 1), stuck('c', 2)], [edge('ab', 'b', 'a')])
       expect(analyzeSelection(model, ['a']).selectedBlocked).toEqual(['a'])
       expect(analyzeSelection(model, ['a', 'b', 'c']).selectedBlocked).toEqual(['a', 'c'])
       expect(analyzeSelection(model, ['b']).selectedBlocked).toEqual([])
@@ -788,7 +814,7 @@ describe('formatAnalysisMarkdown', () => {
     })
 
     it('counts a blocked object as unfinished work on the critical path', () => {
-      const model = content([open('a'), stuck('b', 1)], [edge('ab', 'a', 'b')])
+      const model = content([open('a'), stuck('b', 1)], [edge('ab', 'b', 'a')])
       expect(analyzeSelection(model, ['a']).criticalPath).toEqual({ nodeIds: ['b', 'a'], edgeIds: ['ab'], length: 2 })
     })
   })
@@ -797,7 +823,7 @@ describe('formatAnalysisMarkdown', () => {
 describe('formatAnalysisMarkdown with blocked objects', () => {
   const model = content(
     [open('a'), stuck('lib', 1, 'Freigabe fehlt'), stuck('x', 2), wip('w', 3), open('z', 4)],
-    [edge('a-lib', 'a', 'lib'), edge('w-z', 'w', 'z'), edge('a-w', 'a', 'w')],
+    [edge('a-lib', 'lib', 'a'), edge('w-z', 'z', 'w'), edge('a-w', 'w', 'a')],
   )
   const named = {
     ...model,
@@ -825,7 +851,7 @@ describe('formatAnalysisMarkdown with blocked objects', () => {
   it('shortens long lists of what an object waits for', () => {
     const many = content(
       [open('a'), ...['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map((id, i) => open(id, i + 1))],
-      ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map((id) => edge(`a-${id}`, 'a', id)),
+      ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map((id) => edge(`a-${id}`, id, 'a')),
     )
     const text = formatAnalysisMarkdown(many, analyzeProject(many), analyzeSelection(many, []))
     expect(text).toContain('- a – offen, wartet auf p1, p2, p3, p4, p5, …')
@@ -836,7 +862,7 @@ describe('formatAnalysisMarkdown in other languages', () => {
   const model = {
     ...content(
       [open('a'), stuck('b', 1, 'Freigabe fehlt'), open('c', 2), withStatus(box('u', 3, 0), 'erledigt'), done('d', 4)],
-      [edge('ab', 'a', 'b'), edge('ac', 'a', 'c')],
+      [edge('ab', 'b', 'a'), edge('ac', 'c', 'a')],
     ),
     projectName: 'Release-1',
   }
@@ -874,7 +900,7 @@ describe('formatAnalysisMarkdown in other languages', () => {
   })
 
   it('names the cycle and the missing reason in English', () => {
-    const cyclic = content([stuck('p'), open('q', 1)], [edge('pq', 'p', 'q'), edge('qp', 'q', 'p')])
+    const cyclic = content([stuck('p'), open('q', 1)], [edge('pq', 'q', 'p'), edge('qp', 'p', 'q')])
     const text = formatAnalysisMarkdown(cyclic, analyzeProject(cyclic), analyzeSelection(cyclic, ['p']), createTranslate('en'))
     expect(text).toContain('Critical path cannot be computed – cycle between p, q.')
     expect(text).toContain('- p – no reason given')

@@ -16,7 +16,8 @@ const labelOf = (element: SidebarElement) =>
 
 /**
  * Sidebar content for an edge: the read-only UUID, the `name` field every element has, which is the
- * caption on the edge, and the checkbox for a soft (optional) dependency. The name is applied (trimmed)
+ * caption on the edge, its direction with the button to turn it around, and the checkbox for a soft
+ * (optional) dependency. The name is applied (trimmed)
  * with every keystroke; the draft keeps what was typed until the name changes from outside.
  */
 export function SidebarEdgeForm({
@@ -26,6 +27,7 @@ export function SidebarEdgeForm({
   onEditEnd,
   onClose,
   onSoftChange,
+  onReverse,
 }: SidebarEdgeFormProps) {
   const t = useT()
   const formId = useId()
@@ -98,6 +100,33 @@ export function SidebarEdgeForm({
           onBlur={gesture.end}
         />
       </div>
+
+      {onReverse && (
+        <div className="sidebar__field" role="group" aria-labelledby={`${formId}-direction`}>
+          <span id={`${formId}-direction`} className="sidebar__label">
+            {t('sidebar.field.direction')}
+          </span>
+          {element.ends && (
+            <span className="sidebar__check-hint">
+              {t('sidebar.direction.hint', { source: element.ends.source, target: element.ends.target })}
+            </span>
+          )}
+          <button
+            type="button"
+            className="ui-button sidebar__reverse"
+            disabled={element.canReverse === false}
+            aria-describedby={element.canReverse === false ? `${formId}-reverse-blocked` : undefined}
+            onClick={onReverse}
+          >
+            {t('sidebar.reverse')}
+          </button>
+          {element.canReverse === false && (
+            <span id={`${formId}-reverse-blocked`} className="sidebar__check-hint">
+              {t('sidebar.reverse.blocked')}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="sidebar__field">
         <label className="sidebar__check">

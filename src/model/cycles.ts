@@ -74,7 +74,7 @@ export function findCycles(
   const { vertices } = graph
   const position = new Map(vertices.map((id, i) => [id, i]))
   const successors = vertices.map((id) =>
-    (graph.successors.get(id) ?? []).map((to) => position.get(to) as number),
+    (graph.prerequisites.get(id) ?? []).map((to) => position.get(to) as number),
   )
   const component = stronglyConnectedComponents(successors)
 

@@ -26,19 +26,21 @@ import { Canvas } from './flow/Canvas'
 import { buildSvg } from './flow/svgExport'
 import { useLocale, useT } from './i18n/react'
 import { findCycles } from './model/cycles'
-import { canGroup } from './model/graph'
+import { canGroup, canReverseEdge } from './model/graph'
 import { contentFingerprint } from './model/fingerprint'
 import { displayName, getColor, getEdgeName } from './model/metadata'
 import { isSoftEdge } from './model/softDependency'
 import { findByMetadata } from './model/filter'
 import { findByName, nextHit, normalizeQuery } from './model/search'
 import { sidebarTarget } from './model/sidebarTarget'
+import { findDependencies } from './model/dependency'
 import { DEFAULT_STATUS, getBlockReason, getStatusInfo, parseStatus } from './model/status'
 import type { Tool } from './model/workMode'
 import {
   analyzeProject,
   analyzeSelection,
   formatAnalysisMarkdown,
+  type DependencyListing,
   type ProjectAnalysis,
   type SelectionAnalysis,
 } from './model/releaseAnalysis'
@@ -70,6 +72,7 @@ function toPanelProps(
   content: GraphContent,
   project: ProjectAnalysis,
   selection: SelectionAnalysis,
+  dependencies: DependencyListing | null,
 ): Omit<
   AnalysisPanelProps,
   'selected' | 'onStatusChange' | 'onBlockReasonChange' | 'onEditStart' | 'onEditEnd' | 'onReveal' | 'onCopy' | 'onClose'
@@ -111,6 +114,11 @@ function toPanelProps(
     unfinished: selection.unfinished.map((u) => entry(u.id)),
     selectionFinished: selection.selectionFinished,
     unknownStatus: selection.unknownStatus.map((item) => ({ id: item.id, name: nameOf(item.id), raw: item.raw })),
+    dependencies: dependencies && {
+      direction: dependencies.direction,
+      prerequisites: dependencies.prerequisiteIds.map(entry),
+      dependents: dependencies.dependentIds.map(entry),
+    },
   }
 }
 
@@ -170,9 +178,21 @@ function AppShell() {
         : null,
     [drawCritical, selection],
   )
+  // A dependency highlight follows the selection; it only exists in the analysis mode.
+  const dependencyDirection =
+    analyzing && highlight !== 'off' && highlight !== 'critical' && selectedNodeIds.length > 0 ? highlight : null
+  const dependencies = useMemo(
+    () =>
+      dependencyDirection
+        ? { direction: dependencyDirection, ...findDependencies({ nodes, edges }, selectedNodeIds, dependencyDirection) }
+        : null,
+    [dependencyDirection, nodes, edges, selectedNodeIds],
+  )
+  // One highlight at a time: the critical path, a dependency direction, or none.
+  const highlighted = critical ?? dependencies
   const panelProps = useMemo(
-    () => (panelVisible && selection ? toPanelProps({ nodes, edges }, analysis, selection) : null),
-    [panelVisible, selection, nodes, edges, analysis],
+    () => (panelVisible && selection ? toPanelProps({ nodes, edges }, analysis, selection, dependencies) : null),
+    [panelVisible, selection, nodes, edges, analysis, dependencies],
   )
   const nextCycle = useRef(0)
   // The sidebar follows the selection: one element is edited, several only get a hint.
@@ -267,15 +287,21 @@ function AppShell() {
       }
     }
     if (sidebarEdge) {
+      const nameOf = (id: string) => {
+        const node = nodes.find((n) => n.id === id)
+        return node ? displayName(node) : id.slice(0, 8)
+      }
       return {
         id: sidebarEdge.id,
         kind: 'edge' as const,
         metadata: [{ key: 'name', value: getEdgeName(sidebarEdge) }],
         soft: isSoftEdge(sidebarEdge),
+        ends: { source: nameOf(sidebarEdge.source), target: nameOf(sidebarEdge.target) },
+        canReverse: canReverseEdge({ nodes, edges }, sidebarEdge.id),
       }
     }
     return null
-  }, [sidebarNode, sidebarEdge, analysis])
+  }, [sidebarNode, sidebarEdge, analysis, nodes, edges])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -336,7 +362,7 @@ function AppShell() {
   const copyAnalysis = async () => {
     if (!selection) return
     const state = graphStore.getState()
-    const text = formatAnalysisMarkdown({ nodes, edges, projectName }, analysis, selection, t)
+    const text = formatAnalysisMarkdown({ nodes, edges, projectName }, analysis, selection, t, dependencies ?? undefined)
     if (await copyText(text)) {
       state.notify({ kind: 'success', message: { key: 'notice.analysis.copied' } })
     } else {
@@ -483,7 +509,7 @@ function AppShell() {
       />
       <div className="workspace">
         <main className="canvas">
-          <Canvas cycles={cycles} analysis={analysis} critical={critical} />
+          <Canvas cycles={cycles} analysis={analysis} highlighted={highlighted} />
           <ToolHint tool={tool} sourcePicked={connectSourcePicked} />
           {searchOpen && <SearchBar onSearch={runSearch} onClose={toggleSearch} />}
           {filter.open && (
@@ -545,6 +571,9 @@ function AppShell() {
           onClose={() => graphStore.getState().closeSidebar()}
           onSoftChange={(soft) => {
             if (sidebarElement?.kind === 'edge') graphStore.getState().setEdgeSoft(sidebarElement.id, soft)
+          }}
+          onReverse={() => {
+            if (sidebarElement?.kind === 'edge') graphStore.getState().reverseEdge(sidebarElement.id)
           }}
           onInvalidChange={reportSidebarInvalid}
         />
