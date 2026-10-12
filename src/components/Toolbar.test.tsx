@@ -264,10 +264,10 @@ describe('Toolbar', () => {
       const group = screen.getByRole('group', { name: 'Werkzeug' })
       expect(within(group).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
         'Auswählen',
+        'Rahmen-Auswahl',
         'Objekt anlegen',
         'Verbinden',
         'Notiz anlegen',
-        'Rahmen-Auswahl',
       ])
       expect(screen.getByRole('button', { name: 'Auswählen' })).toHaveAttribute('aria-pressed', 'true')
       expect(screen.getByRole('button', { name: 'Objekt anlegen' })).toHaveAttribute('aria-pressed', 'false')
@@ -280,10 +280,10 @@ describe('Toolbar', () => {
       const group = screen.getByRole('group', { name: 'Werkzeug' })
       expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual([
         'Auswählen',
+        'Rahmen',
         'Objekt',
         'Verbinden',
         'Notiz',
-        'Rahmen',
       ])
       for (const button of within(group).getAllByRole('button')) {
         expect(button.querySelector('svg[aria-hidden="true"]')).not.toBeNull()

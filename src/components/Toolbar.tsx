@@ -64,6 +64,14 @@ const TOOLS: readonly {
     shortcut: 'V',
   },
   {
+    value: 'box',
+    labelKey: 'toolbar.tool.box.label',
+    nameKey: 'toolbar.tool.box.name',
+    titleKey: 'toolbar.tool.box.title',
+    icon: <BoxSelectIcon size={ICON_SIZE} />,
+    shortcut: 'R',
+  },
+  {
     value: 'create',
     labelKey: 'toolbar.tool.create.label',
     nameKey: 'toolbar.tool.create.name',
@@ -86,14 +94,6 @@ const TOOLS: readonly {
     titleKey: 'toolbar.tool.note.title',
     icon: <NoteIcon size={ICON_SIZE} />,
     shortcut: 'S',
-  },
-  {
-    value: 'box',
-    labelKey: 'toolbar.tool.box.label',
-    nameKey: 'toolbar.tool.box.name',
-    titleKey: 'toolbar.tool.box.title',
-    icon: <BoxSelectIcon size={ICON_SIZE} />,
-    shortcut: 'R',
   },
 ]
 
