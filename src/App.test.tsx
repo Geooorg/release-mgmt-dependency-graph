@@ -741,6 +741,123 @@ describe('App: search by name', () => {
   })
 })
 
+describe('App: filter by metadata', () => {
+  const filterButton = () => screen.getByRole('button', { name: 'Filtern' })
+  const keyField = () => screen.getByRole('textbox', { name: 'Schlüssel' })
+  const valueField = () => screen.getByRole('textbox', { name: 'Wert' })
+  const results = () => screen.queryByRole('complementary', { name: 'Filter' })
+  const selected = () => graphStore.getState().selectedNodeIds
+  const entry = (key: string, value: string) => ({ key, value })
+
+  beforeEach(() => {
+    act(() => {
+      graphStore.getState().replaceContent({
+        nodes: [
+          { id: 'a', kind: 'node', position: { x: 0, y: 0 }, metadata: [entry('name', 'Service A'), entry('team', 'Backend')] },
+          { id: 'g', kind: 'group', position: { x: 0, y: 300 }, size: { width: 300, height: 200 }, metadata: [entry('name', 'Gruppe'), entry('Team', 'backend')] },
+          { id: 'b', kind: 'node', position: { x: 400, y: 0 }, metadata: [entry('name', 'Service B'), entry('team', 'Backend Core')] },
+          { id: 'n', kind: 'note', position: { x: 800, y: 0 }, metadata: [entry('name', 'Notiz'), entry('team', 'Backend')] },
+        ],
+        edges: [],
+      })
+      graphStore.getState().closeSidebar()
+    })
+  })
+
+  it('opens and closes the bar with the button and lists nothing but a hint at first', async () => {
+    render(<App />)
+    expect(screen.queryByRole('search', { name: 'Nach Metadaten filtern' })).toBeNull()
+
+    await userEvent.click(filterButton())
+    expect(keyField()).toHaveFocus()
+    expect(results()).toHaveTextContent('Schlüssel eingeben')
+
+    await userEvent.click(filterButton())
+    expect(screen.queryByRole('search', { name: 'Nach Metadaten filtern' })).toBeNull()
+    expect(results()).toBeNull()
+  })
+
+  it('lists the elements whose entry matches completely, in the sidebar, and counts them', async () => {
+    render(<App />)
+    await userEvent.click(filterButton())
+    await userEvent.type(keyField(), 'TEAM')
+    await userEvent.type(valueField(), 'backend')
+
+    expect(within(results()!).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      expect.stringContaining('Service A'),
+      expect.stringContaining('Gruppe'),
+    ])
+    expect(screen.getByRole('search', { name: 'Nach Metadaten filtern' })).toHaveTextContent('2 Treffer')
+
+    await userEvent.clear(valueField())
+    await userEvent.type(valueField(), 'back')
+    expect(within(results()!).queryByRole('listitem')).toBeNull()
+    expect(screen.getByRole('search', { name: 'Nach Metadaten filtern' })).toHaveTextContent('Keine Treffer')
+  })
+
+  it('selects a hit on click, keeps the list and shows the form again after closing', async () => {
+    render(<App />)
+    await userEvent.click(filterButton())
+    await userEvent.type(keyField(), 'team')
+    await userEvent.type(valueField(), 'backend')
+
+    await userEvent.click(within(results()!).getByRole('button', { name: 'Gruppe auswählen' }))
+    expect(selected()).toEqual(['g'])
+    expect(results()).not.toBeNull()
+    expect(sidebar()).toBeNull()
+    expect(within(results()!).getByRole('button', { name: 'Gruppe auswählen' })).toHaveAttribute('aria-current', 'true')
+
+    await userEvent.keyboard('{Escape}')
+    expect(results()).toBeNull()
+    expect(screen.getByLabelText('Name')).toHaveValue('Gruppe')
+  })
+
+  it('keeps the texts when the bar is reopened', async () => {
+    render(<App />)
+    await userEvent.click(filterButton())
+    await userEvent.type(keyField(), 'team')
+    await userEvent.type(valueField(), 'backend')
+
+    await userEvent.click(filterButton())
+    await userEvent.click(filterButton())
+    expect(keyField()).toHaveValue('team')
+    expect(valueField()).toHaveValue('backend')
+    expect(within(results()!).getAllByRole('listitem')).toHaveLength(2)
+  })
+
+  it('and the search close each other', async () => {
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: 'Suchen' }))
+    expect(screen.getByRole('textbox', { name: 'Suchen nach Name' })).toBeInTheDocument()
+
+    await userEvent.click(filterButton())
+    expect(screen.queryByRole('textbox', { name: 'Suchen nach Name' })).toBeNull()
+    expect(keyField()).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Suchen' }))
+    expect(screen.queryByRole('textbox', { name: 'Schlüssel' })).toBeNull()
+    expect(results()).toBeNull()
+  })
+
+  it('shows the sidebar with the hits while analysing, only as long as the filter is open', async () => {
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: 'Analysieren' }))
+    expect(results()).toBeNull()
+
+    await userEvent.click(filterButton())
+    await userEvent.type(keyField(), 'team')
+    await userEvent.type(valueField(), 'Backend Core')
+    expect(within(results()!).getAllByRole('listitem')).toHaveLength(1)
+
+    await userEvent.click(within(results()!).getByRole('button', { name: 'Service B auswählen' }))
+    expect(selected()).toEqual(['b'])
+
+    await userEvent.click(filterButton())
+    expect(results()).toBeNull()
+    expect(sidebar()).toBeNull()
+  })
+})
+
 describe('App: copy and paste', () => {
   const copyButton = () => screen.getByRole('button', { name: 'Kopieren' })
   const pasteButton = () => screen.getByRole('button', { name: 'Einfügen' })
@@ -991,6 +1108,8 @@ describe('App: build tools', () => {
     expect(tool()).toBe('create')
     await userEvent.keyboard('c')
     expect(tool()).toBe('connect')
+    await userEvent.keyboard('r')
+    expect(tool()).toBe('box')
     await userEvent.keyboard('v')
     expect(tool()).toBe('select')
   })

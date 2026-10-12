@@ -1235,3 +1235,39 @@ describe('Sidebar', () => {
     })
   })
 })
+
+describe('Sidebar with a filter', () => {
+  const filter = {
+    results: [{ id: ID_B, name: 'Treffer B', key: 'team', value: 'Backend' }],
+    selectedIds: [],
+    hasQuery: true,
+    onPick: vi.fn(),
+    onClose: vi.fn(),
+  }
+
+  it('shows the hits instead of the form, even with nothing selected', () => {
+    render(<Sidebar {...makeProps({ element: null, selectionCount: 0, filter })} />)
+
+    expect(screen.getByRole('button', { name: 'Treffer B auswählen' })).toBeInTheDocument()
+    expect(screen.queryByRole('complementary', { name: 'Metadaten' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the form mounted but hidden, so an unfinished draft survives', async () => {
+    const props = makeProps()
+    const { rerender } = render(<Sidebar {...props} />)
+    const nameField = () => screen.getByDisplayValue('Projekt A')
+    await userEvent.type(nameField(), 'x')
+
+    rerender(<Sidebar {...props} filter={filter} />)
+    expect(screen.queryByRole('complementary', { name: 'Metadaten' })).not.toBeInTheDocument()
+    expect(screen.getByDisplayValue('Projekt Ax')).toBeInTheDocument()
+
+    rerender(<Sidebar {...props} />)
+    expect(screen.getByDisplayValue('Projekt Ax')).toBeInTheDocument()
+  })
+
+  it('stays hidden as a whole when told so', () => {
+    render(<Sidebar {...makeProps({ filter, hidden: true })} />)
+    expect(screen.queryByRole('button', { name: 'Treffer B auswählen' })).not.toBeInTheDocument()
+  })
+})

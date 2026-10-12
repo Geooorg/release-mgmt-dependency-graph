@@ -40,6 +40,9 @@ export interface ToolbarProps {
   onDelete: () => void
   onCopy: () => void
   onPaste: () => void
+  /** The filter bar (and with it the result list in the sidebar) is shown. */
+  filterOpen: boolean
+  onToggleFilter: () => void
   /** The search field is shown. */
   searchOpen: boolean
   onToggleSearch: () => void
@@ -64,6 +67,17 @@ export interface SearchOutcome {
 export interface SearchBarProps {
   /** Runs the search for this text (a jump to a hit) and reports where it landed. */
   onSearch: (query: string) => SearchOutcome
+  onClose: () => void
+}
+
+export interface FilterBarProps {
+  /** Texts of the two fields; the owner keeps them so they survive closing the bar. */
+  keyText: string
+  valueText: string
+  /** Number of matching elements for the current texts. */
+  count: number
+  onKeyChange: (text: string) => void
+  onValueChange: (text: string) => void
   onClose: () => void
 }
 
@@ -107,7 +121,33 @@ export interface BulkStatus {
   onChange: (status: Status) => void
 }
 
+/** One hit of the metadata filter. */
+export interface FilterResult {
+  id: string
+  name: string
+  /** `#rrggbb` of the element; undefined = default colour. */
+  color?: string
+  /** The metadata entry that matched, as stored. */
+  key: string
+  value: string
+}
+
+/** The result list of the filter; its presence replaces the form of the sidebar. */
+export interface SidebarFilterProps {
+  results: FilterResult[]
+  /** Selected elements; their rows are marked. */
+  selectedIds: readonly string[]
+  /** A key has been entered: an empty list then means "no hits" rather than "nothing asked yet". */
+  hasQuery: boolean
+  /** Select the hit and bring it into view. */
+  onPick: (id: string) => void
+  /** Closes the filter (not the selection). */
+  onClose: () => void
+}
+
 export interface SidebarProps {
+  /** Filter open: the hit list is shown and the form is kept, hidden. */
+  filter?: SidebarFilterProps
   /** null = no single element to edit. */
   element: SidebarElement | null
   /** With `element === null`: more than one selected element shows a hint instead of a form; otherwise the sidebar is closed. */

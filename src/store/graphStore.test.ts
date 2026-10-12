@@ -1173,7 +1173,7 @@ describe('graphStore', () => {
   })
 
   describe('tools', () => {
-    it('starts with the select tool and switches between the four exclusively', () => {
+    it('starts with the select tool and switches between the five exclusively', () => {
       const store = createGraphStore(twoNodes())
       const s = () => store.getState()
       expect(s().tool).toBe('select')
@@ -1183,8 +1183,19 @@ describe('graphStore', () => {
       expect(s().tool).toBe('note')
       s().setTool('connect')
       expect(s().tool).toBe('connect')
+      s().setTool('box')
+      expect(s().tool).toBe('box')
       s().setTool('select')
       expect(s().tool).toBe('select')
+    })
+
+    it('leaves the frame tool when switching to the analysis mode', () => {
+      const store = createGraphStore(twoNodes())
+      store.getState().setTool('box')
+      store.getState().setMode('analyze')
+      expect(store.getState().tool).toBe('select')
+      store.getState().setTool('box')
+      expect(store.getState().tool).toBe('select')
     })
 
     it('drops a picked source when the tool changes and records nothing', () => {

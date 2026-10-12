@@ -17,6 +17,7 @@ import type { MetadataEntry } from '../model/types'
 import type { SidebarElement, SidebarProps } from './props'
 import { SidebarBulkColor } from './SidebarBulkColor'
 import { SidebarBulkStatus } from './SidebarBulkStatus'
+import { SidebarFilterResults } from './SidebarFilterResults'
 import { SidebarEdgeForm } from './SidebarEdgeForm'
 import { useEditGesture, useReportInvalid } from './useSidebarEffects'
 import './components.css'
@@ -99,7 +100,7 @@ function entriesOf(draft: Draft, withStatus: boolean): MetadataEntry[] {
   return normalizeMetadata(toEntries(toDraft(toEntries(draft), withStatus)))
 }
 
-type SidebarFormProps = Omit<SidebarProps, 'element' | 'selectionCount' | 'hidden'> & {
+type SidebarFormProps = Omit<SidebarProps, 'element' | 'selectionCount' | 'hidden' | 'filter'> & {
   element: SidebarElement & { kind: 'node' | 'group' | 'note' }
 }
 
@@ -356,7 +357,14 @@ function SidebarForm({
   )
 }
 
-export function Sidebar({ element, selectionCount, bulkColor, bulkStatus, hidden, ...handlers }: SidebarProps) {
+function SidebarSelection({
+  element,
+  selectionCount,
+  bulkColor,
+  bulkStatus,
+  hidden,
+  ...handlers
+}: Omit<SidebarProps, 'filter'>) {
   const t = useT()
   if (element === null) {
     if (selectionCount < 2) return null
@@ -395,5 +403,21 @@ export function Sidebar({ element, selectionCount, bulkColor, bulkStatus, hidden
         <SidebarForm key={element.id} element={{ ...element, kind: element.kind }} {...handlers} />
       )}
     </aside>
+  )
+}
+
+export function Sidebar({ filter, ...props }: SidebarProps) {
+  const t = useT()
+  // The form stays mounted, hidden, while the hits are shown: an unfinished draft must survive looking at them.
+  // Same position in the tree either way, otherwise React would rebuild the form.
+  return (
+    <>
+      {filter && (
+        <aside className="sidebar sidebar--filter" aria-label={t('filter.results.title')} hidden={props.hidden}>
+          <SidebarFilterResults {...filter} />
+        </aside>
+      )}
+      <SidebarSelection {...props} hidden={filter ? true : props.hidden} />
+    </>
   )
 }

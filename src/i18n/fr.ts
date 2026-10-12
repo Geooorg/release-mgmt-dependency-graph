@@ -29,6 +29,9 @@ export const fr: Catalog = {
   'help.search.title': 'Recherche',
   'help.search.body':
     'La loupe de la barre d’outils ouvre le champ de recherche (dans les deux modes).\n- La recherche porte sur le début du nom, sans tenir compte de la casse, pour les objets et les groupes.\n- Entrée saute au premier résultat, puis chaque nouvelle pression, avec un texte inchangé, au suivant.\n- Échap ferme le champ de recherche.',
+  'help.filter.title': 'Filtre',
+  'help.filter.body':
+    'L’entonnoir de la barre d’outils (avant la loupe, dans les deux modes) ouvre la barre de filtre : saisissez la clé et la valeur d’une entrée de métadonnées.\n- Elle trouve les objets et groupes qui ont une entrée avec exactement cette clé et exactement cette valeur – correspondance complète, sans tenir compte de la casse (pas de sous-chaîne). Les notes et les liens ne sont pas parcourus.\n- Les résultats sont listés en direct dans le panneau latéral (en mode analyse, il est affiché pour cela). Un clic sur un résultat le sélectionne et l’affiche dans le graphe.\n- Échap ou × ferme le filtre ; le panneau latéral montre alors de nouveau le formulaire de la sélection. La recherche et le filtre se ferment mutuellement.\n- Pour sélectionner plusieurs éléments : outil « Cadre » (R), puis tracez un cadre sur la zone libre.',
   'help.clipboard.title': 'Copier, coller, annuler',
   'help.clipboard.body':
     '- Ctrl/Cmd + C copie les objets et groupes sélectionnés avec le contenu des groupes, mais sans les liaisons. Ctrl/Cmd + V les colle comme nouveaux éléments avec de nouveaux ID. Les deux ne fonctionnent qu’en mode édition ; le collage est verrouillé en mode analyse.\n- Ctrl/Cmd + Z annule la dernière modification, Ctrl/Cmd + Maj + Z ou Ctrl/Cmd + Y la rétablit. Ces raccourcis fonctionnent dans les deux modes.\n- Les boutons correspondants ne sont disponibles qu’en mode édition.',
@@ -37,7 +40,7 @@ export const fr: Catalog = {
     '- Le projet est enregistré automatiquement dans le navigateur (uniquement dans ce navigateur).\n- « Exporter » ouvre une boîte de dialogue : télécharger le projet en fichier JSON <nom du projet>_<date>_<heure>.json, télécharger le graphe en image SVG (même nommage, non importable) ou copier le projet en texte JSON dans le presse-papiers.\n- « Importer » charge un fichier JSON et remplace le projet actuel ; une confirmation est demandée et les modifications non exportées sont signalées.\n- « Coller du JSON » charge un projet depuis du texte collé.\n- Le nom du projet (en haut à gauche, modifiable) ne peut contenir que A–Z, a–z, 0–9 ainsi que - _ .',
   'help.shortcuts.title': 'Raccourcis clavier',
   'help.shortcuts.body':
-    '- V : Sélectionner · N : Objet · C : Relier (mode édition uniquement)\n- Suppr ou Retour arrière : supprimer la sélection (mode édition uniquement)\n- Échap : terminer l’outil, puis fermer le panneau, puis effacer la sélection\n- Ctrl/Cmd + C / V : copier / coller (mode édition uniquement)\n- Ctrl/Cmd + Z / Ctrl/Cmd + Maj + Z ou Ctrl/Cmd + Y : annuler / rétablir (dans les deux modes)\n- Entrée dans le champ de recherche : résultat suivant',
+    '- V : Sélectionner · N : Objet · C : Relier · S : Note · R : Cadre (mode édition uniquement)\n- Suppr ou Retour arrière : supprimer la sélection (mode édition uniquement)\n- Échap : terminer l’outil, puis fermer le filtre, puis fermer le panneau, puis effacer la sélection\n- Ctrl/Cmd + C / V : copier / coller (mode édition uniquement)\n- Ctrl/Cmd + Z / Ctrl/Cmd + Maj + Z ou Ctrl/Cmd + Y : annuler / rétablir (dans les deux modes)\n- Entrée dans le champ de recherche : résultat suivant',
   'toolbar.label': 'Outils',
   'toolbar.mode.group': 'Mode de travail',
   'toolbar.mode.build': 'Éditer',
@@ -59,6 +62,10 @@ export const fr: Catalog = {
   'toolbar.tool.note.name': 'Créer une note',
   'toolbar.tool.note.title':
     'Cliquez sur un endroit libre de la zone pour y placer un pense-bête. Double-cliquez sur la note pour modifier son texte, tirez son cadre pour la redimensionner. Après la pose, « Sélectionner » est de nouveau actif ; Échap annule.',
+  'toolbar.tool.box.label': 'Cadre',
+  'toolbar.tool.box.name': 'Sélection par cadre',
+  'toolbar.tool.box.title':
+    'Sélectionner plusieurs éléments : tracez un cadre sur la zone libre – tout ce qu’il entoure entièrement est sélectionné. Ensuite « Sélectionner » est de nouveau actif ; Échap annule.',
   'toolbar.tool.connect.label': 'Relier',
   'toolbar.tool.connect.name': 'Relier',
   'toolbar.tool.connect.title':
@@ -108,6 +115,10 @@ export const fr: Catalog = {
     'Les dépendances cycliques empêchent un ordre de release valide. Cliquer sélectionne le cycle suivant.',
   'toolbar.cycles.word_one': 'cycle',
   'toolbar.cycles.word_other': 'cycles',
+  'toolbar.section.filter': 'Filtre',
+  'toolbar.filter': 'Filtrer',
+  'toolbar.filter.title':
+    'Filtrer les objets et groupes selon un champ de métadonnées (clé = valeur, correspondance complète, sans tenir compte de la casse) ; les résultats sont listés dans le panneau latéral.',
   'toolbar.search': 'Rechercher',
   'toolbar.search.title':
     'Rechercher un objet ou un groupe par son nom (début du nom, sans tenir compte de la casse). Entrée saute au résultat, Entrée à nouveau au suivant.',
@@ -153,6 +164,18 @@ export const fr: Catalog = {
   'export.submit': 'Exporter',
   'export.copied': 'Copié dans le presse-papiers.',
   'export.copyFailed': 'Copie impossible. Choisissez plutôt « Fichier JSON ».',
+  'filter.label': 'Filtrer par métadonnées',
+  'filter.key': 'Clé',
+  'filter.value': 'Valeur',
+  'filter.keyPlaceholder': 'Clé (p. ex. team)',
+  'filter.valuePlaceholder': 'Valeur (complète)',
+  'filter.count_one': '{count} résultat',
+  'filter.count_other': '{count} résultats',
+  'filter.none': 'Aucun résultat',
+  'filter.close': 'Fermer le filtre',
+  'filter.results.title': 'Filtre',
+  'filter.results.hint': 'Saisissez une clé ci-dessus pour trouver les objets et groupes ayant ce champ.',
+  'filter.results.pick': 'Sélectionner {name}',
   'search.label': 'Rechercher par nom',
   'search.placeholder': 'Le nom commence par … (Entrée)',
   'search.none': 'Aucun résultat',
@@ -160,6 +183,7 @@ export const fr: Catalog = {
   'search.close': 'Fermer la recherche',
   'toolHint.create': 'Cliquez sur un emplacement libre pour créer un objet …',
   'toolHint.note': 'Cliquez sur un endroit libre pour placer une note …',
+  'toolHint.box': 'Tracez un cadre sur la zone libre …',
   'toolHint.connect.source': 'Cliquez sur la source …',
   'toolHint.connect.target': 'Cliquez sur la cible …',
   'flow.controls': 'Commandes d’affichage',
@@ -400,7 +424,7 @@ export const fr: Catalog = {
     'Objet : bouton <c>aria-label="{create}"</c>, puis clic sur <c>.react-flow__pane</c>. Nom dans le champ de la barre latérale (l’id se termine par <c>-name</c>). C’est un input React : utiliser le setter natif de value et déclencher un événement <c>input</c>.',
   'agent.ui.group': 'Regrouper : bouton <c>aria-label="{group}"</c> (fonctionne aussi avec 1 objet).',
   'agent.ui.multi':
-    'La sélection multiple (clic avec Ctrl/Maj, rectangle de sélection) ne fonctionne PAS avec des événements simulés. Utiliser plutôt la voie JSON.',
+    'La sélection multiple (clic avec Ctrl/Maj, rectangle de sélection, outil « Cadre ») ne fonctionne PAS avec des événements simulés. Utiliser plutôt la voie JSON.',
   'agent.ui.files':
     'L’import/export de fichiers (« {import} », « {export} ») ouvre des boîtes de dialogue de fichiers natives ou des téléchargements et n’est pas fiable pour les agents. Utiliser plutôt la voie par le texte (section précédente).',
   'agent.chrome.title': 'Pièges du pilotage de Chrome (execute_javascript)',

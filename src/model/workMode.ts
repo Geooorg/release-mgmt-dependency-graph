@@ -9,9 +9,10 @@ export type Highlight = 'critical' | DependencyDirection | 'off'
 /**
  * The tool of the build mode (mutually exclusive): `select` clicks select, `create` clicks on free
  * space add an object, `note` a click on free space adds one sticky note (then back to `select`),
- * `connect` clicks pick source and target of a connection.
+ * `connect` clicks pick source and target of a connection, `box` drags a frame on free space and
+ * selects what it encloses (then back to `select`).
  */
-export type Tool = 'select' | 'create' | 'note' | 'connect'
+export type Tool = 'select' | 'create' | 'note' | 'connect' | 'box'
 
 export const DEFAULT_TOOL: Tool = 'select'
 export const DEFAULT_WORK_MODE: WorkMode = 'build'

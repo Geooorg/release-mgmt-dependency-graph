@@ -7,6 +7,7 @@ import { HelpDialog } from './components/HelpDialog'
 import { ImportDialog } from './components/ImportDialog'
 import { ExportDialog } from './components/ExportDialog'
 import { JsonImportDialog } from './components/JsonImportDialog'
+import { FilterBar } from './components/FilterBar'
 import { SearchBar } from './components/SearchBar'
 import { Sidebar } from './components/Sidebar'
 import { ToolHint } from './components/ToolHint'
@@ -19,6 +20,7 @@ import type {
   BulkStatus,
   ExportFormat,
   SearchOutcome,
+  SidebarFilterProps,
 } from './components/props'
 import { Canvas } from './flow/Canvas'
 import { buildSvg } from './flow/svgExport'
@@ -28,6 +30,7 @@ import { canGroup } from './model/graph'
 import { contentFingerprint } from './model/fingerprint'
 import { displayName, getColor, getEdgeName } from './model/metadata'
 import { isSoftEdge } from './model/softDependency'
+import { findByMetadata } from './model/filter'
 import { findByName, nextHit, normalizeQuery } from './model/search'
 import { sidebarTarget } from './model/sidebarTarget'
 import { DEFAULT_STATUS, getBlockReason, getStatusInfo, parseStatus } from './model/status'
@@ -55,7 +58,7 @@ const beginSidebarEdit = () => graphStore.getState().beginGesture()
 const endSidebarEdit = () => graphStore.getState().endGesture()
 
 /** Keyboard shortcuts of the build mode tools. */
-const TOOL_KEYS: Record<string, Tool> = { v: 'select', n: 'create', s: 'note', c: 'connect' }
+const TOOL_KEYS: Record<string, Tool> = { v: 'select', n: 'create', s: 'note', c: 'connect', r: 'box' }
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -116,6 +119,8 @@ function AppShell() {
   const [importDialog, setImportDialog] = useState<{ unsaved: boolean } | null>(null)
   // JSON as text instead of a file: the shown text (null = closed) and the paste dialog with its last errors.
   const [searchOpen, setSearchOpen] = useState(false)
+  // The filter texts outlive the bar, so reopening it shows the last filter again.
+  const [filter, setFilter] = useState({ open: false, key: '', value: '' })
   const [helpOpen, setHelpOpen] = useState(false)
   const locale = useLocale()
   const t = useT()
@@ -179,6 +184,32 @@ function AppShell() {
     () => (target.kind === 'node' ? (nodes.find((n) => n.id === target.id) ?? null) : null),
     [target, nodes],
   )
+  // The global Escape handler is set up once; it reads the open state from here.
+  const filterOpenRef = useRef(false)
+  useEffect(() => {
+    filterOpenRef.current = filter.open
+  })
+  const closeFilter = () => setFilter((current) => ({ ...current, open: false }))
+  // Derived, never stored: the elements with the entered metadata entry, listed in the sidebar while the bar is open.
+  const filterHits = useMemo(
+    () => (filter.open ? findByMetadata(nodes, filter.key, filter.value) : []),
+    [filter, nodes],
+  )
+  const sidebarFilter = useMemo<SidebarFilterProps | undefined>(() => {
+    if (!filter.open) return undefined
+    return {
+      results: filterHits.flatMap((hit) => {
+        const node = nodes.find((n) => n.id === hit.id)
+        return node
+          ? [{ id: hit.id, name: displayName(node), color: getColor(node.metadata), key: hit.key, value: hit.value }]
+          : []
+      }),
+      selectedIds: selectedNodeIds,
+      hasQuery: filter.key.trim() !== '',
+      onPick: (id) => graphStore.getState().focusNodes([id]),
+      onClose: closeFilter,
+    }
+  }, [filter, filterHits, nodes, selectedNodeIds])
   // Several elements selected: their colour can be set together (connections have none).
   const bulkColor = useMemo<BulkColor | undefined>(() => {
     if (target.kind !== 'multiple') return undefined
@@ -274,8 +305,9 @@ function AppShell() {
         event.preventDefault()
         state.deleteSelection()
       } else if (event.key === 'Escape') {
-        // One level at a time: the tool, then the analysis panel, finally the selection (and with it the sidebar).
+        // One level at a time: the tool, the filter, then the analysis panel, finally the selection (and with it the sidebar).
         if (state.tool !== 'select') state.setTool('select')
+        else if (filterOpenRef.current) setFilter((current) => ({ ...current, open: false }))
         else if (state.mode === 'analyze' && state.analysisPanelVisible) state.setAnalysisPanelVisible(false)
         else state.closeSidebar()
       }
@@ -324,9 +356,19 @@ function AppShell() {
     return { count: hits.length, position: hits.indexOf(id) + 1 }
   }
 
+  // Search and filter share the spot above the canvas: opening one closes the other.
   const toggleSearch = () => {
     lastSearch.current = { query: '', id: null }
-    setSearchOpen((open) => !open)
+    if (!searchOpen) setFilter((current) => ({ ...current, open: false }))
+    setSearchOpen(!searchOpen)
+  }
+
+  const toggleFilter = () => {
+    if (!filter.open) {
+      lastSearch.current = { query: '', id: null }
+      setSearchOpen(false)
+    }
+    setFilter((current) => ({ ...current, open: !current.open }))
   }
 
   const exportModel = () => {
@@ -428,6 +470,8 @@ function AppShell() {
         onDelete={() => graphStore.getState().deleteSelection()}
         onCopy={() => graphStore.getState().copySelection()}
         onPaste={() => graphStore.getState().paste()}
+        filterOpen={filter.open}
+        onToggleFilter={toggleFilter}
         searchOpen={searchOpen}
         onToggleSearch={toggleSearch}
         onExport={() => setExportOpen(true)}
@@ -442,6 +486,16 @@ function AppShell() {
           <Canvas cycles={cycles} analysis={analysis} critical={critical} />
           <ToolHint tool={tool} sourcePicked={connectSourcePicked} />
           {searchOpen && <SearchBar onSearch={runSearch} onClose={toggleSearch} />}
+          {filter.open && (
+            <FilterBar
+              keyText={filter.key}
+              valueText={filter.value}
+              count={filterHits.length}
+              onKeyChange={(key) => setFilter((current) => ({ ...current, key }))}
+              onValueChange={(value) => setFilter((current) => ({ ...current, value }))}
+              onClose={closeFilter}
+            />
+          )}
           <div className="banner-host">
             <Banner
               message={notice ? t(notice.message.key, notice.message.params) : null}
@@ -468,9 +522,11 @@ function AppShell() {
             onClose={() => graphStore.getState().setAnalysisPanelVisible(false)}
           />
         )}
-        {/* Hidden, not unmounted, while analysing: the selection and an unfinished sidebar draft stay as they are. */}
+        {/* Hidden, not unmounted, while analysing: the selection and an unfinished sidebar draft stay as they are.
+            An open filter shows its hits in it even then. */}
         <Sidebar
-          hidden={analyzing}
+          hidden={analyzing && !filter.open}
+          filter={sidebarFilter}
           element={sidebarElement}
           selectionCount={selectedNodeIds.length + selectedEdgeIds.length}
           bulkColor={bulkColor}

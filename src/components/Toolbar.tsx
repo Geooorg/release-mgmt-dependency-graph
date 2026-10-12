@@ -5,11 +5,13 @@ import { useT } from '../i18n/react'
 import type { Highlight, Tool, WorkMode } from '../model/workMode'
 import {
   AddObjectIcon,
+  BoxSelectIcon,
   ClipboardIcon,
   ConnectIcon,
   CopyIcon,
   CursorIcon,
   CycleIcon,
+  FilterIcon,
   GraphIcon,
   GroupIcon,
   NoteIcon,
@@ -85,6 +87,14 @@ const TOOLS: readonly {
     icon: <NoteIcon size={ICON_SIZE} />,
     shortcut: 'S',
   },
+  {
+    value: 'box',
+    labelKey: 'toolbar.tool.box.label',
+    nameKey: 'toolbar.tool.box.name',
+    titleKey: 'toolbar.tool.box.title',
+    icon: <BoxSelectIcon size={ICON_SIZE} />,
+    shortcut: 'R',
+  },
 ]
 
 const HIGHLIGHTS: readonly { value: Highlight; labelKey: MessageKey }[] = [
@@ -135,6 +145,8 @@ export function Toolbar({
   onDelete,
   onCopy,
   onPaste,
+  filterOpen,
+  onToggleFilter,
   searchOpen,
   onToggleSearch,
   onExport,
@@ -240,6 +252,20 @@ export function Toolbar({
               </Section>
             </>
           )}
+
+          <Section label={t('toolbar.section.filter')}>
+            <Tooltip text={t('toolbar.filter.title')}>
+              <button
+                type="button"
+                className="ui-button ui-button--tool"
+                aria-label={t('toolbar.filter')}
+                aria-pressed={filterOpen}
+                onClick={onToggleFilter}
+              >
+                <FilterIcon />
+              </button>
+            </Tooltip>
+          </Section>
 
           <Section label={t('toolbar.section.search')}>
             <Tooltip text={t('toolbar.search.title')}>

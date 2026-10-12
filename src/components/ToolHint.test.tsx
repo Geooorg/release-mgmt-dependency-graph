@@ -14,6 +14,11 @@ describe('ToolHint', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Auf eine freie Stelle klicken')
   })
 
+  it('explains the frame tool', () => {
+    render(<ToolHint tool="box" sourcePicked={false} />)
+    expect(screen.getByRole('status')).toHaveTextContent('Rahmen aufziehen')
+  })
+
   it('asks for the source, then for the target, with the connect tool', () => {
     const { rerender } = render(<ToolHint tool="connect" sourcePicked={false} />)
     expect(screen.getByRole('status')).toHaveTextContent('Quelle anklicken …')

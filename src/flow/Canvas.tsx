@@ -5,6 +5,7 @@ import {
   getViewportForBounds,
   MiniMap,
   ReactFlow,
+  SelectionMode,
   useReactFlow,
   useStore,
   useStoreApi,
@@ -286,6 +287,14 @@ export function Canvas({ cycles, analysis, critical }: CanvasProps) {
         onNodeDragStop={(_, __, dragged) => endDragGesture(dragged.map((n) => n.id))}
         onSelectionDragStop={(_, dragged) => endDragGesture(dragged.map((n) => n.id))}
         deleteKeyCode={null}
+        // The frame tool: dragging on free space draws a selection frame (only fully enclosed elements count);
+        // the middle and right buttons still pan. One frame per use, then back to the select tool.
+        selectionOnDrag={tool === 'box'}
+        selectionMode={SelectionMode.Full}
+        panOnDrag={tool === 'box' ? [1, 2] : true}
+        onSelectionEnd={() => {
+          if (graphStore.getState().tool === 'box') graphStore.getState().setTool('select')
+        }}
         // The structure is locked while analysing: no connecting (connectors are hidden too).
         nodesConnectable={!analyzing}
         className={[analyzing && 'flow--locked', (tool === 'create' || tool === 'note') && 'flow--create'].filter(Boolean).join(' ') || undefined}

@@ -28,6 +28,9 @@ export const de = {
   'help.search.title': 'Suche',
   'help.search.body':
     'Die Lupe in der Toolbar öffnet das Suchfeld (in beiden Modi).\n- Gesucht wird nach dem Anfang des Namens, ohne Beachtung der Groß-/Kleinschreibung, bei Objekten und Gruppen.\n- Enter springt zum ersten Treffer, jedes weitere Enter bei unverändertem Text zum nächsten.\n- Esc schließt das Suchfeld.',
+  'help.filter.title': 'Filter',
+  'help.filter.body':
+    'Der Trichter in der Toolbar (vor der Lupe, in beiden Modi) öffnet die Filterleiste: Schlüssel und Wert eines Metadateneintrags eingeben.\n- Gefunden werden Objekte und Gruppen, bei denen es einen Eintrag mit genau diesem Schlüssel und genau diesem Wert gibt – vollständig, ohne Beachtung der Groß-/Kleinschreibung (kein Teilstring). Notizen und Verbindungen werden nicht durchsucht.\n- Die Treffer stehen live in der Seitenleiste (im Analysemodus wird sie dafür eingeblendet). Ein Klick auf einen Treffer wählt ihn aus und zeigt ihn im Graph.\n- Esc oder × schließt den Filter; danach zeigt die Seitenleiste wieder das Formular der Auswahl. Suche und Filter schließen sich gegenseitig.\n- Mehrere Elemente auswählen: Werkzeug „Rahmen“ (R), dann auf der freien Fläche einen Rahmen aufziehen.',
   'help.clipboard.title': 'Kopieren, Einfügen, Rückgängig',
   'help.clipboard.body':
     '- Strg/Cmd + C kopiert die markierten Objekte und Gruppen samt dem Inhalt der Gruppen, aber ohne Verbindungen. Strg/Cmd + V fügt sie als neue Elemente mit neuen IDs ein. Beides geht nur im Editiermodus; im Analysemodus ist Einfügen gesperrt.\n- Strg/Cmd + Z macht die letzte Änderung rückgängig, Strg/Cmd + Umschalt + Z oder Strg/Cmd + Y stellt sie wieder her. Diese Kürzel gelten in beiden Modi.\n- Die Schaltflächen für diese Aktionen stehen nur im Editiermodus zur Verfügung.',
@@ -36,7 +39,7 @@ export const de = {
     '- Das Projekt wird automatisch im Browser gespeichert (nur in diesem Browser).\n- „Export“ öffnet einen Dialog: Das Projekt lässt sich als JSON-Datei <Projektname>_<Datum>_<Uhrzeit>.json herunterladen, der Graph als SVG-Grafik (gleiche Namensform, nicht importierbar) oder das Projekt als JSON-Text in die Zwischenablage kopieren.\n- „Import“ lädt eine JSON-Datei und ersetzt das aktuelle Projekt; vorher wird gefragt, bei nicht exportierten Änderungen zusätzlich gewarnt.\n- „JSON einfügen“ lädt ein Projekt aus eingefügtem Text.\n- Der Projektname (oben links, änderbar) darf nur A–Z, a–z, 0–9 sowie - _ . enthalten.',
   'help.shortcuts.title': 'Tastenkürzel',
   'help.shortcuts.body':
-    '- V: Auswählen · N: Objekt · C: Verbinden (nur im Editiermodus)\n- Entf oder Rücktaste: Markiertes löschen (nur im Editiermodus)\n- Esc: Werkzeug beenden, dann Panel schließen, dann Auswahl aufheben\n- Strg/Cmd + C / V: Kopieren / Einfügen (nur im Editiermodus)\n- Strg/Cmd + Z / Strg/Cmd + Umschalt + Z oder Strg/Cmd + Y: Rückgängig / Wiederholen (in beiden Modi)\n- Enter im Suchfeld: nächster Treffer',
+    '- V: Auswählen · N: Objekt · C: Verbinden · S: Notiz · R: Rahmen (nur im Editiermodus)\n- Entf oder Rücktaste: Markiertes löschen (nur im Editiermodus)\n- Esc: Werkzeug beenden, dann Filter schließen, dann Panel schließen, dann Auswahl aufheben\n- Strg/Cmd + C / V: Kopieren / Einfügen (nur im Editiermodus)\n- Strg/Cmd + Z / Strg/Cmd + Umschalt + Z oder Strg/Cmd + Y: Rückgängig / Wiederholen (in beiden Modi)\n- Enter im Suchfeld: nächster Treffer',
   'toolbar.label': 'Werkzeuge',
   'toolbar.mode.group': 'Arbeitsmodus',
   'toolbar.mode.build': 'Editieren',
@@ -58,6 +61,10 @@ export const de = {
   'toolbar.tool.note.name': 'Notiz anlegen',
   'toolbar.tool.note.title':
     'Auf eine freie Stelle der Fläche klicken, um dort einen Notizzettel zu platzieren. Doppelklick auf die Notiz bearbeitet den Text, am Rahmen lässt sich die Größe ändern. Nach dem Anlegen ist wieder „Auswählen“ aktiv; Esc bricht ab.',
+  'toolbar.tool.box.label': 'Rahmen',
+  'toolbar.tool.box.name': 'Rahmen-Auswahl',
+  'toolbar.tool.box.title':
+    'Mehrere Elemente auswählen: Auf der freien Fläche einen Rahmen aufziehen – alles, was er ganz umschließt, wird ausgewählt. Danach ist wieder „Auswählen“ aktiv; Esc bricht ab.',
   'toolbar.tool.connect.label': 'Verbinden',
   'toolbar.tool.connect.name': 'Verbinden',
   'toolbar.tool.connect.title':
@@ -107,6 +114,10 @@ export const de = {
     'Zyklische Abhängigkeiten verhindern eine gültige Release-Reihenfolge. Klicken wählt den nächsten Zyklus aus.',
   'toolbar.cycles.word_one': 'Zyklus',
   'toolbar.cycles.word_other': 'Zyklen',
+  'toolbar.section.filter': 'Filter',
+  'toolbar.filter': 'Filtern',
+  'toolbar.filter.title':
+    'Objekte und Gruppen nach einem Metadatenfeld filtern (Schlüssel = Wert, vollständig, ohne Groß-/Kleinschreibung); die Treffer stehen in der Seitenleiste.',
   'toolbar.search': 'Suchen',
   'toolbar.search.title':
     'Objekt oder Gruppe über den Namen suchen (Anfang des Namens, Groß-/Kleinschreibung egal). Enter springt zum Treffer, nochmal Enter zum nächsten.',
@@ -152,6 +163,18 @@ export const de = {
   'export.submit': 'Exportieren',
   'export.copied': 'In die Zwischenablage kopiert.',
   'export.copyFailed': 'Kopieren nicht möglich. Bitte stattdessen „JSON-Datei“ wählen.',
+  'filter.label': 'Nach Metadaten filtern',
+  'filter.key': 'Schlüssel',
+  'filter.value': 'Wert',
+  'filter.keyPlaceholder': 'Schlüssel (z. B. team)',
+  'filter.valuePlaceholder': 'Wert (vollständig)',
+  'filter.count_one': '{count} Treffer',
+  'filter.count_other': '{count} Treffer',
+  'filter.none': 'Keine Treffer',
+  'filter.close': 'Filter schließen',
+  'filter.results.title': 'Filter',
+  'filter.results.hint': 'Oben einen Schlüssel eingeben, um Objekte und Gruppen mit diesem Feld zu finden.',
+  'filter.results.pick': '{name} auswählen',
   'search.label': 'Suchen nach Name',
   'search.placeholder': 'Name beginnt mit … (Enter)',
   'search.none': 'Kein Treffer',
@@ -160,6 +183,7 @@ export const de = {
   'toolHint.create': 'Auf eine freie Stelle klicken, um ein Objekt anzulegen …',
   'toolHint.note':
     'Auf eine freie Stelle klicken, um eine Notiz zu platzieren …',
+  'toolHint.box': 'Auf der freien Fläche einen Rahmen aufziehen …',
   'toolHint.connect.source': 'Quelle anklicken …',
   'toolHint.connect.target': 'Ziel anklicken …',
   'flow.controls': 'Ansichtssteuerung',
@@ -400,7 +424,7 @@ export const de = {
     'Objekt: Button <c>aria-label="{create}"</c>, dann Klick auf <c>.react-flow__pane</c>. Name im Sidebar-Input (id endet auf <c>-name</c>). Es ist ein React-Input: nativen value-Setter nutzen und ein <c>input</c>-Event auslösen.',
   'agent.ui.group': 'Gruppieren: Button <c>aria-label="{group}"</c> (funktioniert auch mit 1 Objekt).',
   'agent.ui.multi':
-    'Mehrfachauswahl (Strg/Shift-Klick, Aufziehrechteck) funktioniert mit simulierten Events NICHT. Stattdessen den JSON-Weg nehmen.',
+    'Mehrfachauswahl (Strg/Shift-Klick, Aufziehrechteck, Werkzeug „Rahmen“) funktioniert mit simulierten Events NICHT. Stattdessen den JSON-Weg nehmen.',
   'agent.ui.files':
     'Datei-Import/-Export („{import}“, „{export}“) öffnen native Dateidialoge bzw. Downloads und sind für Agenten unzuverlässig. Dafür gibt es den Weg über Text (vorheriger Abschnitt).',
   'agent.chrome.title': 'Stolpersteine bei Chrome-Steuerung (execute_javascript)',

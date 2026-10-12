@@ -1496,6 +1496,17 @@ ol.analysis-list > li::before {
     width: min(var(--sidebar-width), calc(100% - 16px));
     box-shadow: 0 8px 24px rgb(17 24 39 / 0.2);
   }
+
+  /* The filter bar floats over the top of the canvas: the hit list starts below it (two rows when it wraps). */
+  .sidebar.sidebar--filter {
+    top: 72px;
+  }
+}
+
+@media (max-width: 479px) {
+  .sidebar.sidebar--filter {
+    top: 116px;
+  }
 }
 
 /* ---------- JSON dialogs (show / paste the project as text) ---------- */
@@ -1719,4 +1730,101 @@ ol.analysis-list > li::before {
 .search-bar__status--none {
   color: var(--danger-600);
   font-weight: 600;
+}
+
+/* Takes the place of the search bar; the two never show at once. */
+.filter-bar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  left: 12px;
+  z-index: 7;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  /* Right-aligned and as wide as its content; wraps instead of squeezing the fields on a narrow canvas. */
+  width: max-content;
+  max-width: calc(100% - 24px);
+  margin-left: auto;
+  padding: 6px 8px 6px 10px;
+  border: 1px solid var(--gray-300);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgb(17 24 39 / 0.15);
+}
+
+.filter-bar__input {
+  flex: 1 1 110px;
+  width: 150px;
+  min-width: 90px;
+}
+
+.filter-bar__status {
+  min-width: 6.5em;
+  color: var(--gray-600);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.filter-bar__status--none {
+  color: var(--danger-600);
+  font-weight: 600;
+}
+
+.filter-results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.filter-results__item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.filter-results__item:hover {
+  background: var(--gray-50, #f9fafb);
+}
+
+.filter-results__item[aria-current='true'] {
+  border-color: var(--blue-600);
+  background: var(--blue-50);
+}
+
+.filter-results__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.filter-results__name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-results__entry {
+  grid-column: 2;
+  overflow: hidden;
+  color: var(--gray-600);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

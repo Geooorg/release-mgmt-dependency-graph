@@ -244,6 +244,25 @@ export function PasteIcon({ size }: { size?: number }) {
 }
 
 /** Magnifier: search an object or group by name. */
+/** Dashed frame with a pointer: select by dragging a frame. */
+export function BoxSelectIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <rect x="3" y="3" width="14" height="14" rx="1.5" strokeDasharray="3 2.5" />
+      <path d="m13 13 7 3-3 1-1 3z" />
+    </Icon>
+  )
+}
+
+/** Funnel: filter by a metadata field. */
+export function FilterIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M3 5h18l-7 8v6l-4-2v-4z" />
+    </Icon>
+  )
+}
+
 export function SearchIcon({ size }: { size?: number }) {
   return (
     <Icon size={size}>

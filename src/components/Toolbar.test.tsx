@@ -34,6 +34,8 @@ function makeProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
     onDelete: vi.fn(),
     onCopy: vi.fn(),
     onPaste: vi.fn(),
+    filterOpen: false,
+    onToggleFilter: vi.fn(),
     searchOpen: false,
     onToggleSearch: vi.fn(),
     onExport: vi.fn(),
@@ -185,6 +187,24 @@ describe('Toolbar', () => {
     expect(props.onPasteJson).toHaveBeenCalledTimes(1)
   })
 
+  it('has a filter button in both modes, right before the search, that shows whether the bar is open', async () => {
+    const props = makeProps({ filterOpen: true })
+    const { rerender } = render(<Toolbar {...props} />)
+    const button = () => screen.getByRole('button', { name: 'Filtern' })
+
+    expect(button()).toHaveAttribute('aria-pressed', 'true')
+    expect(button().compareDocumentPosition(screen.getByRole('button', { name: 'Suchen' }))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+    await userEvent.click(button())
+    expect(props.onToggleFilter).toHaveBeenCalledTimes(1)
+
+    rerender(<Toolbar {...props} mode="analyze" filterOpen={false} />)
+    expect(button()).toHaveAttribute('aria-pressed', 'false')
+    await userEvent.hover(button())
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Schlüssel')
+  })
+
   it('has a search button in both modes that shows whether the field is open', async () => {
     const props = makeProps({ searchOpen: true })
     const { rerender } = render(<Toolbar {...props} />)
@@ -238,7 +258,7 @@ describe('Toolbar', () => {
   })
 
   describe('tool switch', () => {
-    it('is a labelled group of four buttons with a pressed state, the select tool by default', () => {
+    it('is a labelled group of five buttons with a pressed state, the select tool by default', () => {
       render(<Toolbar {...makeProps()} />)
 
       const group = screen.getByRole('group', { name: 'Werkzeug' })
@@ -247,6 +267,7 @@ describe('Toolbar', () => {
         'Objekt anlegen',
         'Verbinden',
         'Notiz anlegen',
+        'Rahmen-Auswahl',
       ])
       expect(screen.getByRole('button', { name: 'Auswählen' })).toHaveAttribute('aria-pressed', 'true')
       expect(screen.getByRole('button', { name: 'Objekt anlegen' })).toHaveAttribute('aria-pressed', 'false')
@@ -262,6 +283,7 @@ describe('Toolbar', () => {
         'Objekt',
         'Verbinden',
         'Notiz',
+        'Rahmen',
       ])
       for (const button of within(group).getAllByRole('button')) {
         expect(button.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
@@ -285,6 +307,8 @@ describe('Toolbar', () => {
       expect(props.onToolChange).toHaveBeenLastCalledWith('create')
       await user.click(screen.getByRole('button', { name: 'Verbinden' }))
       expect(props.onToolChange).toHaveBeenLastCalledWith('connect')
+      await user.click(screen.getByRole('button', { name: 'Rahmen-Auswahl' }))
+      expect(props.onToolChange).toHaveBeenLastCalledWith('box')
       await user.click(screen.getByRole('button', { name: 'Auswählen' }))
       expect(props.onToolChange).toHaveBeenLastCalledWith('select')
     })

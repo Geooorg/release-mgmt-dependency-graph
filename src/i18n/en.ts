@@ -29,6 +29,9 @@ export const en: Catalog = {
   'help.search.title': 'Search',
   'help.search.body':
     'The magnifier in the toolbar opens the search field (in both modes).\n- The search matches the start of the name, case-insensitive, for objects and groups.\n- Enter jumps to the first hit, and each further Enter with unchanged text to the next one.\n- Esc closes the search field.',
+  'help.filter.title': 'Filter',
+  'help.filter.body':
+    'The funnel in the toolbar (before the magnifier, in both modes) opens the filter bar: enter the key and the value of a metadata entry.\n- It finds objects and groups that have an entry with exactly this key and exactly this value – a complete match, case-insensitive (no substring). Notes and connections are not searched.\n- The hits are listed live in the sidebar (in the analysis mode it is shown for that). Clicking a hit selects it and shows it in the graph.\n- Esc or × closes the filter; the sidebar then shows the form of the selection again. Search and filter close each other.\n- To select several elements: tool “Frame” (R), then drag a frame on the empty canvas.',
   'help.clipboard.title': 'Copy, paste, undo',
   'help.clipboard.body':
     '- Ctrl/Cmd + C copies the selected objects and groups including the content of groups, but without connections. Ctrl/Cmd + V pastes them as new elements with new IDs. Both only work in edit mode; pasting is locked in analysis mode.\n- Ctrl/Cmd + Z undoes the last change, Ctrl/Cmd + Shift + Z or Ctrl/Cmd + Y restores it. These shortcuts work in both modes.\n- The buttons for these actions are only available in edit mode.',
@@ -37,7 +40,7 @@ export const en: Catalog = {
     '- The project is saved automatically in the browser (this browser only).\n- “Export” opens a dialog: download the project as a JSON file <project name>_<date>_<time>.json, download the graph as an SVG image (same naming, cannot be imported) or copy the project as JSON text to the clipboard.\n- “Import” loads a JSON file and replaces the current project; you are asked first and warned about changes that were not exported.\n- “Paste JSON” loads a project from pasted text.\n- The project name (top left, editable) may only contain A–Z, a–z, 0–9 and - _ .',
   'help.shortcuts.title': 'Keyboard shortcuts',
   'help.shortcuts.body':
-    '- V: Select · N: Object · C: Connect (edit mode only)\n- Del or Backspace: delete the selection (edit mode only)\n- Esc: end the tool, then close the panel, then clear the selection\n- Ctrl/Cmd + C / V: copy / paste (edit mode only)\n- Ctrl/Cmd + Z / Ctrl/Cmd + Shift + Z or Ctrl/Cmd + Y: undo / redo (both modes)\n- Enter in the search field: next hit',
+    '- V: Select · N: Object · C: Connect · S: Note · R: Frame (edit mode only)\n- Del or Backspace: delete the selection (edit mode only)\n- Esc: end the tool, then close the filter, then close the panel, then clear the selection\n- Ctrl/Cmd + C / V: copy / paste (edit mode only)\n- Ctrl/Cmd + Z / Ctrl/Cmd + Shift + Z or Ctrl/Cmd + Y: undo / redo (both modes)\n- Enter in the search field: next hit',
   'toolbar.label': 'Tools',
   'toolbar.mode.group': 'Work mode',
   'toolbar.mode.build': 'Edit',
@@ -59,6 +62,10 @@ export const en: Catalog = {
   'toolbar.tool.note.name': 'Create note',
   'toolbar.tool.note.title':
     'Click a free spot on the canvas to place a sticky note there. Double-click the note to edit its text, drag its frame to resize it. After placing one, “Select” is active again; Esc cancels.',
+  'toolbar.tool.box.label': 'Frame',
+  'toolbar.tool.box.name': 'Frame selection',
+  'toolbar.tool.box.title':
+    'Select several elements: drag a frame on the empty canvas – everything it fully encloses gets selected. Afterwards “Select” is active again; Esc cancels.',
   'toolbar.tool.connect.label': 'Connect',
   'toolbar.tool.connect.name': 'Connect',
   'toolbar.tool.connect.title':
@@ -108,6 +115,10 @@ export const en: Catalog = {
     'Cyclic dependencies prevent a valid release order. Click to select the next cycle.',
   'toolbar.cycles.word_one': 'cycle',
   'toolbar.cycles.word_other': 'cycles',
+  'toolbar.section.filter': 'Filter',
+  'toolbar.filter': 'Filter',
+  'toolbar.filter.title':
+    'Filter objects and groups by a metadata field (key = value, complete match, case-insensitive); the matches are listed in the sidebar.',
   'toolbar.search': 'Search',
   'toolbar.search.title':
     'Search an object or group by name (start of the name, case-insensitive). Enter jumps to the hit, Enter again to the next one.',
@@ -153,6 +164,18 @@ export const en: Catalog = {
   'export.submit': 'Export',
   'export.copied': 'Copied to the clipboard.',
   'export.copyFailed': 'Copying is not possible. Please choose “JSON file” instead.',
+  'filter.label': 'Filter by metadata',
+  'filter.key': 'Key',
+  'filter.value': 'Value',
+  'filter.keyPlaceholder': 'Key (e.g. team)',
+  'filter.valuePlaceholder': 'Value (complete)',
+  'filter.count_one': '{count} match',
+  'filter.count_other': '{count} matches',
+  'filter.none': 'No matches',
+  'filter.close': 'Close filter',
+  'filter.results.title': 'Filter',
+  'filter.results.hint': 'Enter a key above to find objects and groups with that field.',
+  'filter.results.pick': 'Select {name}',
   'search.label': 'Search by name',
   'search.placeholder': 'Name starts with … (Enter)',
   'search.none': 'No match',
@@ -160,6 +183,7 @@ export const en: Catalog = {
   'search.close': 'Close search',
   'toolHint.create': 'Click an empty spot to create an object …',
   'toolHint.note': 'Click a free spot to place a note …',
+  'toolHint.box': 'Drag a frame on the empty canvas …',
   'toolHint.connect.source': 'Click the source …',
   'toolHint.connect.target': 'Click the target …',
   'flow.controls': 'View controls',
@@ -400,7 +424,7 @@ export const en: Catalog = {
     'Object: button <c>aria-label="{create}"</c>, then click on <c>.react-flow__pane</c>. Name in the sidebar input (id ends in <c>-name</c>). It is a React input: use the native value setter and fire an <c>input</c> event.',
   'agent.ui.group': 'Group: button <c>aria-label="{group}"</c> (also works with 1 object).',
   'agent.ui.multi':
-    'Multiple selection (Ctrl/Shift click, selection rectangle) does NOT work with simulated events. Use the JSON route instead.',
+    'Multiple selection (Ctrl/Shift click, selection rectangle, the “Frame” tool) does NOT work with simulated events. Use the JSON route instead.',
   'agent.ui.files':
     'File import/export (“{import}”, “{export}”) open native file dialogs or downloads and are unreliable for agents. Use the text route instead (previous section).',
   'agent.chrome.title': 'Pitfalls when driving Chrome (execute_javascript)',
