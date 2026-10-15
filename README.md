@@ -125,6 +125,8 @@ Die Toolbar hat oben links einen Umschalter **Editieren | Analysieren**. Welche 
 | Kopieren / Einfügen | Im Modus *Editieren* Toolbar-Bereich **Zwischenablage** (Strg/Cmd + C und V, nicht in Textfeldern): **Kopieren** merkt die markierten Objekte und Gruppen samt dem Inhalt der Gruppen, **Einfügen** legt Kopien mit **neuen UUIDs** an (leicht nach unten rechts versetzt, jede weitere Wiederholung ein Stück weiter) und markiert sie; sie landen wieder in ihrer Gruppe (die bei Bedarf mitwächst), sonst auf der obersten Ebene. **Verbindungen werden weder kopiert noch eingefügt.** Ein Undo-Schritt; im Modus *Analysieren* nicht verfügbar. Die Zwischenablage gilt nur in dieser Sitzung (nicht gespeichert, nicht die System-Zwischenablage) |
 | Gruppe wächst mit | Legt man ein Objekt in einer Gruppe an (Werkzeug *Objekt*) oder zieht eines hinein, vergrößert sich die Gruppe von selbst (auch nach links/oben, ohne dass sich etwas auf dem Bildschirm verschiebt, und bei verschachtelten Gruppen die Elterngruppen mit), sobald das Objekt nicht mehr hineinpasst. Ist eine Gruppe voll, entsteht das neue Objekt am Rand und die Gruppe wächst darum. Ein Undo-Schritt |
 | Farbe mehrerer Elemente | Mehrere Objekte/Gruppen markieren (Strg/Cmd-Klick oder Aufziehrechteck): Die Sidebar zeigt das Feld **Farbe (color) für alle n Elemente** (Anzeige „verschieden“, wenn die Farben abweichen) und **Zurücksetzen** (entfernt die Farbe bei allen). Ein Undo-Schritt |
+| Klasse und Entity | Objekt anklicken → Sidebar → Felder **Klasse (class)** (Standard `java.lang.Object`) und **Entity (entity)** (leer), unter Status/Grund; wirken sofort, eine Feldbearbeitung ist ein Undo-Schritt. Gruppen und Notizen haben sie nicht. Noch ohne Funktion |
+| Klasse und Entity mehrerer Objekte | Mehrere Elemente markieren: Enthält die Auswahl Objekte (Gruppen und Notizen bleiben außen vor), zeigt die Sidebar unter dem Status die Textfelder **Klasse (class) für alle n Objekte** und **Entity (entity) für alle n Objekte** („verschieden“ als Hinweis, wenn die Werte abweichen). Jedes Feld setzt den Wert bei allen markierten Objekten; eine Eingabe von Hineinklicken bis Verlassen ist ein Undo-Schritt. Auch im Modus *Analysieren* |
 | Status mehrerer Objekte | Mehrere Elemente markieren: Enthält die Auswahl Objekte (Gruppen haben keinen Status und bleiben außen vor), zeigt die Sidebar unter der Farbe das Auswahlfeld **Status für alle n Objekte** (offen / in Arbeit / blockiert / fertig; „verschieden“, wenn die Status abweichen; ein gemeinsamer unbekannter Wert steht als „<Wert> (unbekannt)“ zur Wahl). Die Wahl setzt den Status bei allen markierten Objekten, ein Undo-Schritt; bei jedem anderen Status als `blockiert` entfällt dort der Grund (`blockiert_grund`). Auch im Modus *Analysieren* |
 | Export | Toolbar → **Export** → Dialog „Exportieren“: **JSON-Datei** (lädt `<Projektname>_<Datum>_<Uhrzeit>.json` herunter und merkt sich den Stand als „exportiert“), **SVG** (lädt `<Projektname>_<Datum>_<Uhrzeit>.svg` mit dem gezeichneten Graph herunter, zählt nicht als exportiert) oder **JSON (Zwischenablage)** (kopiert denselben Text wie die Datei, zählt als exportiert; meldet, wenn die Zwischenablage nicht verfügbar ist) |
 | Import | Toolbar → **Import** → Dialog „Projekt ersetzen?“: **Exportieren und importieren**, **Ohne Export importieren** oder **Abbrechen** (Esc). Bei Änderungen seit dem letzten Export steht dort eine hervorgehobene Warnung |
@@ -160,7 +162,7 @@ Der Export entspricht exakt dem im `localStorage` abgelegten Modell (Schlüssel 
 
 ```json
 {
-  "version": 3,
+  "version": 4,
   "projectName": "Release-Management",
   "nodes": [
     {
@@ -182,7 +184,9 @@ Der Export entspricht exakt dem im `localStorage` abgelegten Modell (Schlüssel 
       "metadata": [
         { "key": "name", "value": "Service A" },
         { "key": "status", "value": "blockiert" },
-        { "key": "blockiert_grund", "value": "Freigabe fehlt" }
+        { "key": "blockiert_grund", "value": "Freigabe fehlt" },
+        { "key": "class", "value": "java.lang.Object" },
+        { "key": "entity", "value": "" }
       ]
     }
   ],
@@ -197,11 +201,13 @@ Der Export entspricht exakt dem im `localStorage` abgelegten Modell (Schlüssel 
 - `kind`: `node` (blauer Kasten) oder `group` (Gruppe/Sub-Graph).
 - `parentId` (optional) verweist auf eine Gruppe; `position` ist dann relativ zu dieser Gruppe.
 - `metadata` ist eine geordnete Liste; der Eintrag `name` steht immer an erster Stelle.
-- **Version 3** ergänzt `kind: "note"` (Notizzettel, siehe 35.); Dateien der Version 2 werden unverändert weiter geladen und beim nächsten Speichern als Version 3 geschrieben.
+- **Version 4** ergänzt bei jedem Objekt (`kind: "node"`, nicht Gruppen und Notizen) die Metadateneinträge `class` und `entity` (siehe unten). Dateien der Versionen 1 bis 3 werden weiter geladen: Fehlende Einträge werden mit ihren Standardwerten ergänzt, gespeichert und exportiert wird als Version 4.
+- **Version 3** ergänzt `kind: "note"` (Notizzettel, siehe 35.); Dateien der Version 2 werden unverändert weiter geladen.
 - **Version 2** ersetzt das frühere `label` einer Kante durch `metadata` mit dem Eintrag `name`. Dateien und gespeicherte Stände der Version 1 werden weiter geladen: Das `label` wird zum Namen der Verbindung.
 - Kanten sind gerichtet: von `source` nach `target`; „`source` kommt vor `target`" (`target` hängt von `source` ab); bei Gruppen gilt die Kante für alle Mitglieder. Eine Kante hat optional `metadata` wie ein Objekt; der Eintrag `name` ist ihre Beschriftung, der Eintrag `optional` mit dem Wert `ja` kennzeichnet eine optionale Abhängigkeit (ohne Namen und weitere Einträge entfällt das Feld). `sourceHandle`/`targetHandle` (`top`, `right`, `bottom`, `left`) sind optional; fehlen sie (ältere Dateien), werden die einander zugewandten Seiten gezeichnet.
 - `color` ist ein optionaler Metadateneintrag der Form `#rrggbb`; andere Werte werden wie „keine Farbe" behandelt.
-- `status` ist ein optionaler Metadateneintrag mit einem der vier Werte `offen`, `in Arbeit`, `blockiert`, `fertig` (nur bei Objekten); fehlt er, gilt `offen`, ein unbekannter Wert zählt als `offen` und bleibt erhalten. `blockiert_grund` ist ein optionaler Freitext, der nur zusammen mit dem Status `blockiert` gilt (die App entfernt ihn beim Wechsel auf einen anderen Status). Reihenfolge der Sondereinträge: `name`, `color`, `status`, `blockiert_grund`, danach die freien Felder. Ältere Dateien ohne diese Einträge bleiben gültig, das Schema ist weiter `version: 1`.
+- `status` ist ein optionaler Metadateneintrag mit einem der vier Werte `offen`, `in Arbeit`, `blockiert`, `fertig` (nur bei Objekten); fehlt er, gilt `offen`, ein unbekannter Wert zählt als `offen` und bleibt erhalten. `blockiert_grund` ist ein optionaler Freitext, der nur zusammen mit dem Status `blockiert` gilt (die App entfernt ihn beim Wechsel auf einen anderen Status). Reihenfolge der Sondereinträge: `name`, `color`, `status`, `blockiert_grund`, `class`, `entity`, danach die freien Felder. Ältere Dateien ohne `color`/`status` bleiben gültig.
+- `class` und `entity` tragen **alle Objekte** (`kind: "node"`); Gruppen und Notizen haben sie nicht (dort wären es gewöhnliche freie Felder). `class` ist ein Java-Typ (später evtl. durch ein Java-Objekt abgebildet), Standard `java.lang.Object`, editierbar (auch leer); `entity` ist für später vorgesehen und zunächst leer. Beide haben noch **keine Funktion**. Fehlt ein Eintrag (ältere Datei, Version 1–3), ergänzt der Import ihn mit dem Standardwert; vorhandene Werte bleiben unverändert.
 
 **Warum JSON statt XML?** Gleiches Format wie im `localStorage`, nativer Parser, und freie
 Feldnamen (z. B. `Release-Datum`) wären als XML-Elementnamen ungültig.

@@ -17,6 +17,7 @@ import type {
   AnalysisPanelProps,
   AnalysisSelected,
   BulkColor,
+  BulkObjectFields,
   BulkStatus,
   ExportFormat,
   SearchOutcome,
@@ -29,6 +30,7 @@ import { findCycles } from './model/cycles'
 import { canGroup, canReverseEdge } from './model/graph'
 import { contentFingerprint } from './model/fingerprint'
 import { displayName, getColor, getEdgeName } from './model/metadata'
+import { getClass, getEntity } from './model/objectFields'
 import { isSoftEdge } from './model/softDependency'
 import { findByMetadata } from './model/filter'
 import { findByName, nextHit, normalizeQuery } from './model/search'
@@ -45,7 +47,7 @@ import {
   type SelectionAnalysis,
 } from './model/releaseAnalysis'
 import { exportFileName, parseModelJson, serializeModel, toModel } from './model/serialize'
-import type { GraphContent } from './model/types'
+import type { GraphContent, MetadataEntry } from './model/types'
 import { copyText } from './storage/clipboard'
 import { downloadTextFile, pickTextFile } from './storage/fileIO'
 import { graphStore, useGraph } from './store/appStore'
@@ -258,6 +260,21 @@ function AppShell() {
       status: shared.size === 1 ? values[0] : '',
       mixed: shared.size > 1,
       onChange: (status) => graphStore.getState().setSelectionStatus(status),
+    }
+  }, [target, nodes, selectedNodeIds])
+  // ... and their class and entity (objects only), both changeable together.
+  const bulkFields = useMemo<BulkObjectFields | undefined>(() => {
+    if (target.kind !== 'multiple') return undefined
+    const objects = nodes.filter((n) => n.kind === 'node' && selectedNodeIds.includes(n.id))
+    if (objects.length === 0) return undefined
+    const shared = (read: (entries: readonly MetadataEntry[]) => string, onChange: (value: string) => void) => {
+      const values = new Set(objects.map((n) => read(n.metadata)))
+      return { value: values.size === 1 ? [...values][0] : '', mixed: values.size > 1, onChange }
+    }
+    return {
+      count: objects.length,
+      class: shared(getClass, (value) => graphStore.getState().setSelectionClass(value)),
+      entity: shared(getEntity, (value) => graphStore.getState().setSelectionEntity(value)),
     }
   }, [target, nodes, selectedNodeIds])
   const sidebarEdge = useMemo(
@@ -557,6 +574,7 @@ function AppShell() {
           selectionCount={selectedNodeIds.length + selectedEdgeIds.length}
           bulkColor={bulkColor}
           bulkStatus={bulkStatus}
+          bulkFields={bulkFields}
           onChange={(metadata) => {
             if (!sidebarElement) return
             const state = graphStore.getState()

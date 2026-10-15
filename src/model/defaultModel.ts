@@ -1,6 +1,7 @@
 import { createTranslate, type Translate } from '../i18n/translate'
 import { addEdge, createNode, defaultIdGenerator } from './graph'
 import { normalizeMetadata } from './metadata'
+import { withObjectFields } from './objectFields'
 import { NAME_KEY, NODE_SIZE } from './types'
 import type { GraphContent, IdGenerator, ModelNode } from './types'
 
@@ -10,7 +11,7 @@ const GAP = 120
 function namedNode(name: string, x: number, newId: IdGenerator): ModelNode {
   return {
     ...createNode({ x, y: START.y }, newId),
-    metadata: normalizeMetadata([{ key: NAME_KEY, value: name }]),
+    metadata: [...withObjectFields(normalizeMetadata([{ key: NAME_KEY, value: name }]))],
   }
 }
 

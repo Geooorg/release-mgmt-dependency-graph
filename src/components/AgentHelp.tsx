@@ -15,7 +15,8 @@ const OFFSET = { x: GROUP_PADDING, y: GROUP_HEADER_HEIGHT + GROUP_PADDING }
 const SINGLE_GROUP = { width: W + 2 * GROUP_PADDING, height: H + 2 * GROUP_PADDING + GROUP_HEADER_HEIGHT }
 
 // Technical snippets are identical in every language, so they are passed in instead of being translated.
-const NODE_SHAPE = '{ id, kind: "node", position:{x,y}, metadata:[{key:"name",value}], parentId? }'
+const NODE_SHAPE =
+  '{ id, kind: "node", position:{x,y}, metadata:[{key:"name",value},{key:"class",value:"java.lang.Object"}?,{key:"entity",value:""}?], parentId? }'
 const GROUP_SHAPE = '{ id, kind: "group", position:{x,y}, size:{width,height}, metadata:[...] }'
 const NOTE_SHAPE = '{ id, kind: "note", position:{x,y}, size?:{width,height}, metadata:[{key:"name",value:text},{key:"color",value}?] }'
 const EDGE_SHAPE = '{ id, source, target, metadata? }'

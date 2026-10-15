@@ -30,6 +30,8 @@ import {
   checkReconnection,
   renameElement,
   setColor,
+  setClasses,
+  setEntities,
   updateMetadata,
   wouldBreakHierarchy,
 } from './graph'
@@ -125,12 +127,16 @@ describe('createNode', () => {
       id: 'id-1',
       kind: 'node',
       position: { x: 10, y: 20 },
-      metadata: [{ key: 'name', value: 'Neues Objekt' }],
+      metadata: [
+        { key: 'name', value: 'Neues Objekt' },
+        { key: 'class', value: 'java.lang.Object' },
+        { key: 'entity', value: '' },
+      ],
     })
   })
 
   it('takes a given default name', () => {
-    expect(createNode({ x: 0, y: 0 }, counter(), 'New object').metadata).toEqual([{ key: 'name', value: 'New object' }])
+    expect(createNode({ x: 0, y: 0 }, counter(), 'New object').metadata[0]).toEqual({ key: 'name', value: 'New object' })
   })
 
   it('sets neither size nor parentId', () => {
@@ -1679,5 +1685,65 @@ describe('notes', () => {
   it('is no object for status changes', () => {
     const c = content([stick('a')])
     expect(setStatus(c, 'a', 'fertig')).toBe(c)
+  })
+})
+
+describe('setClasses / setEntities', () => {
+  const typed = (id: string) =>
+    node(id, 0, 0, {
+      metadata: [
+        { key: 'name', value: id },
+        { key: 'class', value: 'java.lang.Object' },
+        { key: 'entity', value: '' },
+        { key: 'owner', value: 'Anna' },
+      ],
+    })
+
+  it('set the class of every listed object in place and skip groups, notes and unknown ids', () => {
+    const c = content([typed('a'), typed('b'), group('g', 0, 400, 300, 200), node('n', 0, 0, { kind: 'note' })])
+    const result = setClasses(c, ['a', 'g', 'n', 'nope'], 'de.mecom.Release')
+
+    expect(find(result, 'a').metadata).toEqual([
+      { key: 'name', value: 'a' },
+      { key: 'class', value: 'de.mecom.Release' },
+      { key: 'entity', value: '' },
+      { key: 'owner', value: 'Anna' },
+    ])
+    expect(find(result, 'b')).toBe(find(c, 'b'))
+    expect(find(result, 'g')).toBe(find(c, 'g'))
+    expect(find(result, 'n')).toBe(find(c, 'n'))
+  })
+
+  it('set the entity of every listed object, trimmed', () => {
+    const result = setEntities(content([typed('a'), typed('b')]), ['a', 'b'], '  Release  ')
+    expect(find(result, 'a').metadata[2]).toEqual({ key: 'entity', value: 'Release' })
+    expect(find(result, 'b').metadata[2]).toEqual({ key: 'entity', value: 'Release' })
+  })
+
+  it('change both fields independently of each other', () => {
+    const c = content([typed('a')])
+    const result = setEntities(setClasses(c, ['a'], 'x.Y'), ['a'], 'e')
+    expect(find(result, 'a').metadata.slice(1, 3)).toEqual([
+      { key: 'class', value: 'x.Y' },
+      { key: 'entity', value: 'e' },
+    ])
+  })
+
+  it('allow an empty value', () => {
+    const result = setClasses(content([typed('a')]), ['a'], '')
+    expect(find(result, 'a').metadata[1]).toEqual({ key: 'class', value: '' })
+  })
+
+  it('add a missing entry at its canonical place', () => {
+    const result = setClasses(content([node('a', 0, 0, { metadata: [{ key: 'name', value: 'a' }, { key: 'owner', value: 'Anna' }] })]), ['a'], 'x.Y')
+    expect(find(result, 'a').metadata.map((m) => m.key)).toEqual(['name', 'class', 'owner'])
+  })
+
+  it('return the same content when nothing changes', () => {
+    const c = content([typed('a'), group('g', 0, 400, 300, 200)])
+    expect(setClasses(c, ['a'], 'java.lang.Object')).toBe(c)
+    expect(setEntities(c, ['a'], ' ')).toBe(c)
+    expect(setClasses(c, ['g'], 'x.Y')).toBe(c)
+    expect(setClasses(c, [], 'x.Y')).toBe(c)
   })
 })

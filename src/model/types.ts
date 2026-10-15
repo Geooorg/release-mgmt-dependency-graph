@@ -5,13 +5,16 @@
  * Positions of nodes with a `parentId` are relative to that parent group.
  */
 
-export const SCHEMA_VERSION = 3
+export const SCHEMA_VERSION = 4
 
 /** Older format that is still imported: an edge had a plain `label` instead of `metadata`. */
 export const LEGACY_SCHEMA_VERSION = 1
 
 /** Version 2 had no notes; otherwise it reads exactly like the current one. */
 export const PREVIOUS_SCHEMA_VERSION = 2
+
+/** Version 3 had no `class`/`entity` entries on objects; they are added with their defaults on import. */
+export const VERSION_BEFORE_OBJECT_FIELDS = 3
 
 /** One free-form metadata field. Order is significant and preserved. */
 export interface MetadataEntry {

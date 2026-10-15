@@ -80,6 +80,31 @@ describe('graphStore', () => {
       expect(store.getState().nodes.every((n) => n.metadata.every((m) => m.key !== 'status'))).toBe(true)
     })
 
+    it('sets class and entity of the selected objects (not groups) as one undo step each', () => {
+      const store = createGraphStore(content([box('a', 0, 0), box('b', 300, 0), group('g', 0, 400, 300, 200)]), counterIds())
+      store.getState().applyNodeSelection([
+        { id: 'a', selected: true },
+        { id: 'b', selected: true },
+        { id: 'g', selected: true },
+      ])
+      const field = (key: string) => store.getState().nodes.map((n) => n.metadata.find((m) => m.key === key)?.value)
+
+      store.getState().setSelectionClass('de.mecom.Release')
+      expect(field('class')).toEqual(['de.mecom.Release', 'de.mecom.Release', undefined])
+      expect(store.getState().history.past).toHaveLength(1)
+
+      store.getState().setSelectionEntity('rel')
+      expect(field('entity')).toEqual(['rel', 'rel', undefined])
+      expect(store.getState().history.past).toHaveLength(2)
+
+      store.getState().setSelectionEntity('rel')
+      expect(store.getState().history.past).toHaveLength(2)
+
+      store.getState().undo()
+      expect(field('entity')).toEqual([undefined, undefined, undefined])
+      expect(field('class')).toEqual(['de.mecom.Release', 'de.mecom.Release', undefined])
+    })
+
     it('grows a group when an object is dropped into it, as part of the drop', () => {
       const store = createGraphStore(content([group('g', 0, 0, 300, 200), box('a', 200, 150)]), counterIds())
       store.getState().finishDrag(['a'])
@@ -1000,7 +1025,11 @@ describe('graphStore', () => {
       expect(store.getState().importText(valid)).toBe(true)
       const state = store.getState()
       expect(state.nodes.map((n) => n.id)).toEqual(['x'])
-      expect(state.nodes[0].metadata).toEqual([{ key: 'name', value: 'X' }])
+      expect(state.nodes[0].metadata).toEqual([
+        { key: 'name', value: 'X' },
+        { key: 'class', value: 'java.lang.Object' },
+        { key: 'entity', value: '' },
+      ])
       expect(state.selectedNodeIds).toEqual([])
       expect(state.notice).toMatchObject({ kind: 'success' })
     })
@@ -1052,7 +1081,7 @@ describe('graphStore', () => {
 
     it('reports a successful import as a message key', () => {
       const store = createGraphStore(twoNodes())
-      store.getState().importText(JSON.stringify({ version: 3, nodes: [], edges: [] }))
+      store.getState().importText(JSON.stringify({ version: 4, nodes: [], edges: [] }))
       expect(store.getState().notice).toEqual({ kind: 'success', message: { key: 'notice.import.done' } })
     })
   })

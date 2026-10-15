@@ -169,7 +169,7 @@ describe('a full group', () => {
 describe('addNodeAtPoint', () => {
   it('names the new object as given', () => {
     const result = addNodeAtPoint(content([]), { x: 300, y: 200 }, counterIds(), 'New object')
-    expect(result.content.nodes[0].metadata).toEqual([{ key: 'name', value: 'New object' }])
+    expect(result.content.nodes[0].metadata[0]).toEqual({ key: 'name', value: 'New object' })
   })
 
   it('adds a top-level object centred on the point', () => {

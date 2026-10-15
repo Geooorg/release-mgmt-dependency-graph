@@ -126,6 +126,22 @@ export interface BulkStatus {
   onChange: (status: Status) => void
 }
 
+/** One shared text of the selected objects, set in one go (`mixed`: they differ). */
+export interface BulkText {
+  /** The text they share; '' when none is set. Ignored when `mixed`. */
+  value: string
+  mixed: boolean
+  onChange: (value: string) => void
+}
+
+/** `class` and `entity` of all selected objects (not groups, not notes), changed together (several elements selected). */
+export interface BulkObjectFields {
+  /** Number of selected objects. */
+  count: number
+  class: BulkText
+  entity: BulkText
+}
+
 /** One hit of the metadata filter. */
 export interface FilterResult {
   id: string
@@ -161,6 +177,8 @@ export interface SidebarProps {
   bulkColor?: BulkColor
   /** With several elements selected: the shared status control; absent when the selection has no object (only groups). */
   bulkStatus?: BulkStatus
+  /** With several elements selected: the shared class and entity controls; absent when the selection has no object. */
+  bulkFields?: BulkObjectFields
   /**
    * Live edit: called with every valid draft, already normalized (trimmed, empty keys dropped, `name`
    * first). An invalid draft (duplicate field names) is not reported; the owner keeps the last valid state.

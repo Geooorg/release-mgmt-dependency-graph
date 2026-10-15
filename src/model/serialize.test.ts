@@ -13,7 +13,7 @@ type Json = Record<string, unknown>
 /** A valid untrusted input (plain JSON shape) that individual tests then break on purpose. */
 function validInput(): { version: unknown; nodes: Json[]; edges: Json[] } {
   return {
-    version: 3,
+    version: 4,
     nodes: [
       {
         id: 'g1',
@@ -74,7 +74,7 @@ function allErrors(input: unknown): string {
 }
 
 const sampleModel: GraphModel = {
-  version: 3,
+  version: 4,
   nodes: [
     {
       id: 'g1',
@@ -91,7 +91,11 @@ const sampleModel: GraphModel = {
       kind: 'node',
       parentId: 'g1',
       position: { x: 24, y: 56 },
-      metadata: [{ key: 'name', value: 'A' }],
+      metadata: [
+        { key: 'name', value: 'A' },
+        { key: 'class', value: 'java.lang.Object' },
+        { key: 'entity', value: '' },
+      ],
     },
     {
       id: 'n2',
@@ -100,6 +104,8 @@ const sampleModel: GraphModel = {
       size: { width: 200, height: 80 },
       metadata: [
         { key: 'name', value: '' },
+        { key: 'class', value: 'de.mecom.Release' },
+        { key: 'entity', value: 'rel' },
         { key: 'empty', value: '' },
       ],
     },
@@ -122,7 +128,7 @@ describe('toModel', () => {
 
   it('adds the schema version and orders the nodes parents first', () => {
     const model = toModel(content)
-    expect(model.version).toBe(3)
+    expect(model.version).toBe(4)
     expect(model.nodes.map((n) => n.id)).toEqual(['g', 'c'])
     expect(model.edges).toEqual(content.edges)
   })
@@ -145,8 +151,8 @@ describe('toModel', () => {
 
 describe('parseModel: success', () => {
   it('accepts an empty graph', () => {
-    expect(modelOf(parseModel({ version: 3, nodes: [], edges: [] }))).toEqual({
-      version: 3,
+    expect(modelOf(parseModel({ version: 4, nodes: [], edges: [] }))).toEqual({
+      version: 4,
       nodes: [],
       edges: [],
     })
@@ -154,7 +160,7 @@ describe('parseModel: success', () => {
 
   it('accepts a valid graph with groups, nested nodes and edges', () => {
     const model = modelOf(parseModel(validInput()))
-    expect(model.version).toBe(3)
+    expect(model.version).toBe(4)
     expect(model.nodes.map((n) => n.id)).toEqual(['g1', 'n1', 'n2'])
     expect(model.nodes[1]).toEqual({
       id: 'n1',
@@ -163,6 +169,8 @@ describe('parseModel: success', () => {
       position: { x: 24, y: 56 },
       metadata: [
         { key: 'name', value: 'A' },
+        { key: 'class', value: 'java.lang.Object' },
+        { key: 'entity', value: '' },
         { key: 'owner', value: 'Anna' },
       ],
     })
@@ -176,10 +184,14 @@ describe('parseModel: success', () => {
     expect('parentId' in model.nodes[0]).toBe(false)
   })
 
-  it('tolerates missing metadata and yields an empty name entry', () => {
+  it('tolerates missing metadata and yields an empty name entry (plus the default class and entity)', () => {
     const input = validInput()
     delete input.nodes[2].metadata
-    expect(modelOf(parseModel(input)).nodes[2].metadata).toEqual([{ key: 'name', value: '' }])
+    expect(modelOf(parseModel(input)).nodes[2].metadata).toEqual([
+      { key: 'name', value: '' },
+      { key: 'class', value: 'java.lang.Object' },
+      { key: 'entity', value: '' },
+    ])
   })
 
   it('normalizes metadata (trim, drop empty keys, name first)', () => {
@@ -191,6 +203,8 @@ describe('parseModel: success', () => {
     ]
     expect(modelOf(parseModel(input)).nodes[1].metadata).toEqual([
       { key: 'name', value: 'A' },
+      { key: 'class', value: 'java.lang.Object' },
+      { key: 'entity', value: '' },
       { key: 'owner', value: 'Anna' },
     ])
   })
@@ -267,7 +281,7 @@ describe('parseModel: untrusted input is never copied wholesale', () => {
       { key: '__proto__', value: 'x' },
     ]
     const model = modelOf(parseModel(input))
-    expect(model.nodes[1].metadata[1]).toEqual({ key: '__proto__', value: 'x' })
+    expect(model.nodes[1].metadata).toContainEqual({ key: '__proto__', value: 'x' })
     expect(({} as Json).x).toBeUndefined()
   })
 })
@@ -285,7 +299,7 @@ describe('parseModel: top level', () => {
     expect(allErrors(input)).toMatch(/Version.*fehlt/)
   })
 
-  it.each([4, 0, '3', null, 1.5, {}])('reports unsupported version %j', (version) => {
+  it.each([5, 0, '4', null, 1.5, {}])('reports unsupported version %j', (version) => {
     const input = validInput()
     input.version = version
     expect(allErrors(input)).toMatch(/Nicht unterstützte Version/)
@@ -572,7 +586,7 @@ describe('parseModel: edges', () => {
 describe('parseModel: error collection', () => {
   it('collects problems from all areas in one run', () => {
     const input = validInput()
-    input.version = 4
+    input.version = 5
     delete input.nodes[0].size // group without size
     input.nodes[1].parentId = 'missing'
     input.nodes[2].id = 'g1' // duplicate id
@@ -627,7 +641,7 @@ describe('parseModelJson', () => {
   it('passes valid JSON with the wrong shape on to the model validation', () => {
     expect(errorsOf(parseModelJson('null'))[0]).toMatch(/Graph/)
     expect(errorsOf(parseModelJson('{"version":1}'))).toHaveLength(2)
-    expect(allErrors(JSON.parse('{"version":4,"nodes":[],"edges":[]}'))).toMatch(/Version/)
+    expect(allErrors(JSON.parse('{"version":5,"nodes":[],"edges":[]}'))).toMatch(/Version/)
   })
 })
 
@@ -637,8 +651,8 @@ describe('parseModelJson', () => {
 
 describe('serializeModel', () => {
   it('writes pretty-printed JSON with two spaces and a trailing newline', () => {
-    const text = serializeModel({ version: 3, nodes: [], edges: [] })
-    expect(text).toBe('{\n  "version": 3,\n  "nodes": [],\n  "edges": []\n}\n')
+    const text = serializeModel({ version: 4, nodes: [], edges: [] })
+    expect(text).toBe('{\n  "version": 4,\n  "nodes": [],\n  "edges": []\n}\n')
   })
 
   it('uses the stable key order version, nodes, edges and a canonical order inside the elements', () => {
@@ -655,7 +669,7 @@ describe('serializeModel', () => {
           id: 'n',
         },
       ],
-      version: 3,
+      version: 4,
     } as unknown as GraphModel
     const parsed = JSON.parse(serializeModel(scrambled)) as GraphModel
     expect(Object.keys(parsed)).toEqual(['version', 'nodes', 'edges'])
@@ -668,7 +682,7 @@ describe('serializeModel', () => {
 
   it('omits undefined optional properties', () => {
     const text = serializeModel({
-      version: 3,
+      version: 4,
       nodes: [
         { id: 'a', kind: 'node', parentId: undefined, size: undefined, position: { x: 0, y: 0 }, metadata: [] },
       ],
@@ -709,6 +723,8 @@ describe('round trip', () => {
           position: { x: 1, y: 2 },
           metadata: [
             { key: 'name', value: '"quoted" \\ back\tslash' },
+            { key: 'class', value: 'java.lang.Object' },
+            { key: 'entity', value: '' },
             { key: 'emoji ✓', value: '日本語 \u2028 Ende' },
           ],
         },
@@ -784,7 +800,7 @@ describe('project name in the model', () => {
   })
 
   it('is exported right after the version and survives a round trip', () => {
-    const model: GraphModel = { version: 3, projectName: 'Alpha', nodes: [], edges: [] }
+    const model: GraphModel = { version: 4, projectName: 'Alpha', nodes: [], edges: [] }
     const text = serializeModel(model)
     expect(text.indexOf('"projectName"')).toBeGreaterThan(text.indexOf('"version"'))
     expect(text.indexOf('"projectName"')).toBeLessThan(text.indexOf('"nodes"'))
@@ -829,7 +845,7 @@ describe('edge connectors', () => {
 
   it('serializes connectors in a stable key order and round-trips them', () => {
     const model: GraphModel = {
-      version: 3,
+      version: 4,
       nodes: [
         { id: 'a', kind: 'node', position: { x: 0, y: 0 }, metadata: [{ key: 'name', value: 'A' }] },
         { id: 'b', kind: 'node', position: { x: 9, y: 0 }, metadata: [{ key: 'name', value: 'B' }] },
@@ -887,7 +903,7 @@ describe('edge names', () => {
 
   it('serializes the metadata after the connectors and round-trips it', () => {
     const model: GraphModel = {
-      version: 3,
+      version: 4,
       nodes: [
         { id: 'a', kind: 'node', position: { x: 0, y: 0 }, metadata: [{ key: 'name', value: 'A' }] },
         { id: 'b', kind: 'node', position: { x: 9, y: 0 }, metadata: [{ key: 'name', value: 'B' }] },
@@ -924,7 +940,7 @@ describe('edge names', () => {
     it('is imported as the current version', () => {
       const result = parseModel(edgeInput({ label: 'x' }, 1))
 
-      expect(result.ok && result.model.version).toBe(3)
+      expect(result.ok && result.model.version).toBe(4)
     })
   })
 
@@ -948,7 +964,7 @@ describe('parse messages in the chosen language', () => {
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.errors).toEqual([
-      'La version (version) est absente. La version attendue est 3.',
+      'La version (version) est absente. La version attendue est 4.',
       'Le champ "nodes" doit être une liste.',
       'Le champ "edges" doit être une liste.',
     ])
@@ -998,7 +1014,7 @@ describe('notes in the file format', () => {
   })
 
   it('round-trips a note with text, colour and size', () => {
-    const result = parseModelJson(serializeModel({ version: 3, nodes: [noteNode() as never], edges: [] }))
+    const result = parseModelJson(serializeModel({ version: 4, nodes: [noteNode() as never], edges: [] }))
 
     expect(result.ok && result.model.nodes[0]).toMatchObject({
       kind: 'note',
@@ -1012,7 +1028,7 @@ describe('notes in the file format', () => {
 
   it('does not need a size', () => {
     const { size: _size, ...bare } = noteNode()
-    expect(parseModel({ version: 3, nodes: [bare], edges: [] }).ok).toBe(true)
+    expect(parseModel({ version: 4, nodes: [bare], edges: [] }).ok).toBe(true)
   })
 
   it('refuses a connection to or from a note', () => {
@@ -1021,7 +1037,7 @@ describe('notes in the file format', () => {
       { id: 'e', source: 'a', target: 'sticky' },
       { id: 'e', source: 'sticky', target: 'a' },
     ]) {
-      const result = parseModel({ version: 3, nodes: [plain, noteNode()], edges: [edge] })
+      const result = parseModel({ version: 4, nodes: [plain, noteNode()], edges: [edge] })
       expect(result.ok).toBe(false)
       expect(!result.ok && result.errors.join(' ')).toMatch(/Notiz/)
     }
@@ -1029,11 +1045,84 @@ describe('notes in the file format', () => {
 
   it('may sit in a group', () => {
     const grp = { id: 'g', kind: 'group', position: { x: 0, y: 0 }, size: { width: 300, height: 200 }, metadata: [] }
-    expect(parseModel({ version: 3, nodes: [grp, noteNode({ parentId: 'g' })], edges: [] }).ok).toBe(true)
+    expect(parseModel({ version: 4, nodes: [grp, noteNode({ parentId: 'g' })], edges: [] }).ok).toBe(true)
   })
 
-  it('still reads files of version 2 (without notes) and writes them as version 3', () => {
+  it('still reads files of version 2 (without notes) and writes them as the current version', () => {
     const result = parseModel({ version: 2, nodes: [], edges: [] })
-    expect(result.ok && result.model.version).toBe(3)
+    expect(result.ok && result.model.version).toBe(4)
+  })
+})
+
+describe('class and entity of objects (version 4)', () => {
+  const bare = (extra: Json = {}): Json => ({ id: 'o', kind: 'node', position: { x: 0, y: 0 }, ...extra })
+  const keys = (r: ParseResult, id = 'o') => (r.ok ? r.model.nodes.find((n) => n.id === id)?.metadata.map((m) => m.key) : undefined)
+  const entries = (r: ParseResult, id = 'o') => (r.ok ? r.model.nodes.find((n) => n.id === id)?.metadata : undefined)
+
+  it.each([1, 2, 3, 4])('fills in the defaults when a version %i object has neither field', (version) => {
+    const result = parseModel({ version, nodes: [bare({ metadata: [{ key: 'name', value: 'A' }] })], edges: [] })
+    expect(result.ok && result.model.version).toBe(4)
+    expect(entries(result)).toEqual([
+      { key: 'name', value: 'A' },
+      { key: 'class', value: 'java.lang.Object' },
+      { key: 'entity', value: '' },
+    ])
+  })
+
+  it('gives an object without any metadata a name, class and entity', () => {
+    expect(keys(parseModel({ version: 3, nodes: [bare()], edges: [] }))).toEqual(['name', 'class', 'entity'])
+  })
+
+  it('keeps stored values, also an empty class, and only adds the missing entry', () => {
+    const result = parseModel({
+      version: 4,
+      nodes: [
+        bare({ metadata: [{ key: 'name', value: 'A' }, { key: 'class', value: 'de.mecom.Release' }, { key: 'entity', value: 'rel' }] }),
+        bare({ id: 'p', metadata: [{ key: 'name', value: 'B' }, { key: 'class', value: '' }] }),
+      ],
+      edges: [],
+    })
+    expect(entries(result)?.slice(1)).toEqual([{ key: 'class', value: 'de.mecom.Release' }, { key: 'entity', value: 'rel' }])
+    expect(entries(result, 'p')?.slice(1)).toEqual([{ key: 'class', value: '' }, { key: 'entity', value: '' }])
+  })
+
+  it('puts them behind color, status and blockiert_grund and before free fields', () => {
+    const metadata = [
+      { key: 'name', value: 'A' },
+      { key: 'color', value: '#112233' },
+      { key: 'status', value: 'blockiert' },
+      { key: 'blockiert_grund', value: 'x' },
+      { key: 'owner', value: 'Anna' },
+    ]
+    expect(keys(parseModel({ version: 3, nodes: [bare({ metadata })], edges: [] }))).toEqual([
+      'name',
+      'color',
+      'status',
+      'blockiert_grund',
+      'class',
+      'entity',
+      'owner',
+    ])
+  })
+
+  it('leaves groups and notes alone', () => {
+    const group = { id: 'g', kind: 'group', position: { x: 0, y: 0 }, size: { width: 300, height: 200 }, metadata: [{ key: 'name', value: 'G' }] }
+    const note = { id: 'n', kind: 'note', position: { x: 0, y: 0 }, metadata: [{ key: 'name', value: 'text' }] }
+    const result = parseModel({ version: 3, nodes: [group, note], edges: [] })
+    expect(keys(result, 'g')).toEqual(['name'])
+    expect(keys(result, 'n')).toEqual(['name'])
+  })
+
+  it('still reports a duplicate class key', () => {
+    const metadata = [{ key: 'name', value: 'A' }, { key: 'class', value: 'a' }, { key: 'class', value: 'b' }]
+    const result = parseModel({ version: 4, nodes: [bare({ metadata })], edges: [] })
+    expect(result.ok).toBe(false)
+  })
+
+  it('round-trips through serializeModel and parseModelJson unchanged', () => {
+    const first = parseModel({ version: 3, nodes: [bare({ metadata: [{ key: 'name', value: 'A' }] })], edges: [] })
+    if (!first.ok) throw new Error('setup')
+    const second = parseModelJson(serializeModel(first.model))
+    expect(second).toEqual(first)
   })
 })

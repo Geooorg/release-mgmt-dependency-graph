@@ -12,10 +12,12 @@ import {
   STATUS_VALUES,
 } from '../model/status'
 import { useT } from '../i18n/react'
+import { CLASS_KEY, DEFAULT_CLASS, DEFAULT_ENTITY, ENTITY_KEY } from '../model/objectFields'
 import { COLOR_KEY, DEFAULT_COLOR, NAME_KEY, NOTE_DEFAULT_COLOR } from '../model/types'
 import type { MetadataEntry } from '../model/types'
 import type { SidebarElement, SidebarProps } from './props'
 import { SidebarBulkColor } from './SidebarBulkColor'
+import { SidebarBulkFields } from './SidebarBulkFields'
 import { SidebarBulkStatus } from './SidebarBulkStatus'
 import { SidebarFilterResults } from './SidebarFilterResults'
 import { SidebarEdgeForm } from './SidebarEdgeForm'
@@ -31,7 +33,7 @@ interface Row {
   autoFocus?: boolean
 }
 
-/** Local edit state: the fixed `name`, `color`, `status` and `blockiert_grund` fields plus the free-form rows. */
+/** Local edit state: the fixed `name`, `color`, `status`, `blockiert_grund`, `class` and `entity` fields plus the free-form rows. */
 interface Draft {
   name: string
   /** `#rrggbb`, or '' = no colour set (default blue). */
@@ -40,6 +42,10 @@ interface Draft {
   status: string
   /** Reason of the status `blockiert` (objects only, and only while blocked); '' = none. */
   reason: string
+  /** `class` of an object (default `java.lang.Object`); unused for groups and notes. */
+  objectClass: string
+  /** `entity` of an object (default empty); unused for groups and notes. */
+  entity: string
   rows: Row[]
 }
 
@@ -54,15 +60,18 @@ function toRows(entries: readonly MetadataEntry[]): Row[] {
   return entries.map((entry) => ({ rid: newRowId(), key: entry.key, value: entry.value }))
 }
 
-function toDraft(entries: readonly MetadataEntry[], withStatus: boolean): Draft {
+function toDraft(entries: readonly MetadataEntry[], isObject: boolean): Draft {
   const nameIndex = entries.findIndex((entry) => entry.key === NAME_KEY)
   const colorIndex = entries.findIndex((entry) => entry.key === COLOR_KEY)
   // The status key is matched trimmed and case-insensitively; it is written back as `status`.
-  const statusIndex = withStatus ? entries.findIndex((entry) => isStatusKey(entry.key)) : -1
+  const statusIndex = isObject ? entries.findIndex((entry) => isStatusKey(entry.key)) : -1
   const color = colorIndex >= 0 ? entries[colorIndex].value.trim().toLowerCase() : ''
   const status = statusIndex >= 0 ? entries[statusIndex].value.trim() : ''
   // Only a blocked object has a reason field; for any other status the key is an ordinary row.
   const reasonIndex = parseStatus(status) === 'blockiert' ? entries.findIndex((entry) => isBlockReasonKey(entry.key)) : -1
+  // Only objects have class and entity; for a group or note the keys are ordinary rows.
+  const classIndex = isObject ? entries.findIndex((entry) => entry.key === CLASS_KEY) : -1
+  const entityIndex = isObject ? entries.findIndex((entry) => entry.key === ENTITY_KEY) : -1
   return {
     name: nameIndex >= 0 ? entries[nameIndex].value : '',
     // An unusable colour value counts as "not set" and is dropped on the next edit.
@@ -70,20 +79,34 @@ function toDraft(entries: readonly MetadataEntry[], withStatus: boolean): Draft 
     // An unknown value is kept as it is (and offered as an extra option), never silently replaced.
     status,
     reason: reasonIndex >= 0 ? entries[reasonIndex].value : '',
+    objectClass: classIndex >= 0 ? entries[classIndex].value : DEFAULT_CLASS,
+    entity: entityIndex >= 0 ? entries[entityIndex].value : DEFAULT_ENTITY,
     rows: toRows(
       entries.filter(
-        (_, index) => index !== nameIndex && index !== colorIndex && index !== statusIndex && index !== reasonIndex,
+        (_, index) =>
+          index !== nameIndex &&
+          index !== colorIndex &&
+          index !== statusIndex &&
+          index !== reasonIndex &&
+          index !== classIndex &&
+          index !== entityIndex,
       ),
     ),
   }
 }
 
-function toEntries(draft: Draft): MetadataEntry[] {
+function toEntries(draft: Draft, isObject: boolean): MetadataEntry[] {
   return [
     { key: NAME_KEY, value: draft.name },
     ...(draft.color ? [{ key: COLOR_KEY, value: draft.color }] : []),
     ...(draft.status ? [{ key: STATUS_KEY, value: draft.status }] : []),
     ...(draft.reason.trim() ? [{ key: BLOCK_REASON_KEY, value: draft.reason }] : []),
+    ...(isObject
+      ? [
+          { key: CLASS_KEY, value: draft.objectClass },
+          { key: ENTITY_KEY, value: draft.entity },
+        ]
+      : []),
     ...draft.rows.map(({ key, value }) => ({ key, value })),
   ]
 }
@@ -96,8 +119,8 @@ function sameEntries(a: readonly MetadataEntry[], b: readonly MetadataEntry[]): 
  * What the draft stands for in the model. A free row typed as "Status" takes the place of the
  * status field, so the stored entry is canonical; empty keys are dropped, values trimmed.
  */
-function entriesOf(draft: Draft, withStatus: boolean): MetadataEntry[] {
-  return normalizeMetadata(toEntries(toDraft(toEntries(draft), withStatus)))
+function entriesOf(draft: Draft, isObject: boolean): MetadataEntry[] {
+  return normalizeMetadata(toEntries(toDraft(toEntries(draft, isObject), isObject), isObject))
 }
 
 type SidebarFormProps = Omit<SidebarProps, 'element' | 'selectionCount' | 'hidden' | 'filter'> & {
@@ -119,34 +142,34 @@ function SidebarForm({
 }: SidebarFormProps) {
   const t = useT()
   const formId = useId()
-  const withStatus = element.kind === 'node'
+  const isObject = element.kind === 'node'
   // A note has only its text and a colour: no status, no free fields.
   const isNote = element.kind === 'note'
   const [received, setReceived] = useState(element.metadata)
-  const [applied, setApplied] = useState(() => entriesOf(toDraft(element.metadata, withStatus), withStatus))
-  const [draft, setDraft] = useState(() => toDraft(element.metadata, withStatus))
+  const [applied, setApplied] = useState(() => entriesOf(toDraft(element.metadata, isObject), isObject))
+  const [draft, setDraft] = useState(() => toDraft(element.metadata, isObject))
   const gesture = useEditGesture(onEditStart, onEditEnd)
 
   if (received !== element.metadata) {
     setReceived(element.metadata)
-    const incoming = entriesOf(toDraft(element.metadata, withStatus), withStatus)
+    const incoming = entriesOf(toDraft(element.metadata, isObject), isObject)
     // Our own change coming back is equal to `applied`; anything else is news from outside.
     if (!sameEntries(incoming, applied)) {
       setApplied(incoming)
-      setDraft(toDraft(element.metadata, withStatus))
+      setDraft(toDraft(element.metadata, isObject))
     }
   }
 
-  const duplicates = findDuplicateKeys(entriesOf(draft, withStatus))
+  const duplicates = findDuplicateKeys(entriesOf(draft, isObject))
   useReportInvalid(duplicates.length > 0, onInvalidChange)
   // The fixed fields show what the model will hold, e.g. also for a free row typed as "Status".
-  const shown = toDraft(toEntries(draft), withStatus)
+  const shown = toDraft(toEntries(draft, isObject), isObject)
   const blocked = parseStatus(shown.status) === 'blockiert'
 
   /** `discrete`: a click or choice that is one undo step of its own; otherwise typing, bundled until the field is left. */
   function edit(next: Draft, discrete = false) {
     setDraft(next)
-    const entries = entriesOf(next, withStatus)
+    const entries = entriesOf(next, isObject)
     // Invalid or nothing new (e.g. a freshly added row without a key): the model keeps its state.
     if (findDuplicateKeys(entries).length > 0 || sameEntries(entries, applied)) return
     if (discrete) gesture.end()
@@ -258,7 +281,7 @@ function SidebarForm({
         </div>
       </div>
 
-      {withStatus && (
+      {isObject && (
         <div className="sidebar__field">
           <label className="sidebar__label" htmlFor={`${formId}-status`}>
             {t('sidebar.field.status')}
@@ -281,7 +304,7 @@ function SidebarForm({
         </div>
       )}
 
-      {withStatus && blocked && (
+      {isObject && blocked && (
         <div className="sidebar__field">
           <label className="sidebar__label" htmlFor={`${formId}-reason`}>
             {t('sidebar.field.reason')}
@@ -295,6 +318,35 @@ function SidebarForm({
             onBlur={gesture.end}
           />
         </div>
+      )}
+
+      {isObject && (
+        <>
+          <div className="sidebar__field">
+            <label className="sidebar__label" htmlFor={`${formId}-class`}>
+              {t('sidebar.field.class')}
+            </label>
+            <input
+              id={`${formId}-class`}
+              className="ui-input"
+              value={draft.objectClass}
+              onChange={(event) => edit({ ...draft, objectClass: event.target.value })}
+              onBlur={gesture.end}
+            />
+          </div>
+          <div className="sidebar__field">
+            <label className="sidebar__label" htmlFor={`${formId}-entity`}>
+              {t('sidebar.field.entity')}
+            </label>
+            <input
+              id={`${formId}-entity`}
+              className="ui-input"
+              value={draft.entity}
+              onChange={(event) => edit({ ...draft, entity: event.target.value })}
+              onBlur={gesture.end}
+            />
+          </div>
+        </>
       )}
 
       {element.kind === 'group' && element.progress && (
@@ -362,6 +414,7 @@ function SidebarSelection({
   selectionCount,
   bulkColor,
   bulkStatus,
+  bulkFields,
   hidden,
   ...handlers
 }: Omit<SidebarProps, 'filter'>) {
@@ -389,6 +442,9 @@ function SidebarSelection({
             <SidebarBulkColor {...bulkColor} onEditStart={handlers.onEditStart} onEditEnd={handlers.onEditEnd} />
           )}
           {bulkStatus && <SidebarBulkStatus {...bulkStatus} />}
+          {bulkFields && (
+            <SidebarBulkFields {...bulkFields} onEditStart={handlers.onEditStart} onEditEnd={handlers.onEditEnd} />
+          )}
         </div>
       </aside>
     )

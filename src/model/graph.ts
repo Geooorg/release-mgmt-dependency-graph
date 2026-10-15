@@ -1,5 +1,6 @@
 import { createTranslate } from '../i18n/translate'
 import { getEdgeName, getName, isValidColor, normalizeMetadata, tidyEdgeMetadata, withColorEntry } from './metadata'
+import { withClassEntry, withEntityEntry, withObjectFields } from './objectFields'
 import {
   BLOCK_REASON_KEY,
   STATUS_KEY,
@@ -110,7 +111,7 @@ function updateNode(
 const DEFAULT_NODE_NAME = createTranslate('de')('node.defaultName')
 const DEFAULT_GROUP_NAME = createTranslate('de')('group.defaultName')
 
-/** Creates a plain node: kind 'node', metadata normalized with the given name, no explicit size. */
+/** Creates a plain node: kind 'node', metadata normalized with the given name plus the default `class`/`entity`, no explicit size. */
 export function createNode(
   position: Point,
   newId: IdGenerator = defaultIdGenerator,
@@ -120,7 +121,7 @@ export function createNode(
     id: newId(),
     kind: 'node',
     position: { x: position.x, y: position.y },
-    metadata: normalizeMetadata([{ key: NAME_KEY, value: name }]),
+    metadata: [...withObjectFields(normalizeMetadata([{ key: NAME_KEY, value: name }]))],
   }
 }
 
@@ -582,6 +583,37 @@ export function setColor(content: GraphContent, ids: readonly string[], color: s
     return { ...node, metadata }
   })
   return changed ? { ...content, nodes } : content
+}
+
+function setObjectField(
+  content: GraphContent,
+  ids: readonly string[],
+  value: string,
+  write: (entries: readonly MetadataEntry[], value: string) => MetadataEntry[],
+): GraphContent {
+  const targets = new Set(ids)
+  let changed = false
+  const nodes = content.nodes.map((node) => {
+    if (!targets.has(node.id) || node.kind !== 'node') return node
+    const metadata = normalizeMetadata(write(node.metadata, value))
+    if (JSON.stringify(metadata) === JSON.stringify(node.metadata)) return node
+    changed = true
+    return { ...node, metadata }
+  })
+  return changed ? { ...content, nodes } : content
+}
+
+/**
+ * Sets the `class` (trimmed, may be empty) of all listed objects at once. Groups, notes and unknown
+ * ids are skipped, objects that already have it keep their reference; nothing to change -> the content itself.
+ */
+export function setClasses(content: GraphContent, ids: readonly string[], value: string): GraphContent {
+  return setObjectField(content, ids, value, withClassEntry)
+}
+
+/** Like `setClasses`, for the `entity` field. */
+export function setEntities(content: GraphContent, ids: readonly string[], value: string): GraphContent {
+  return setObjectField(content, ids, value, withEntityEntry)
 }
 
 /**

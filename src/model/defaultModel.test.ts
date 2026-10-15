@@ -43,7 +43,11 @@ describe('createDefaultContent', () => {
   it('creates top-level nodes with normalized metadata', () => {
     for (const n of createDefaultContent(counter()).nodes) {
       expect('parentId' in n).toBe(false)
-      expect(n.metadata).toEqual([{ key: 'name', value: getName(n.metadata) }])
+      expect(n.metadata).toEqual([
+        { key: 'name', value: getName(n.metadata) },
+        { key: 'class', value: 'java.lang.Object' },
+        { key: 'entity', value: '' },
+      ])
     }
   })
 

@@ -211,7 +211,7 @@ describe('App: changes are applied at once', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
     expect(screen.getAllByLabelText('Feldname')).toHaveLength(1)
-    expect(graphStore.getState().nodes[0].metadata).toHaveLength(1)
+    expect(graphStore.getState().nodes[0].metadata).toHaveLength(3) // name, class, entity
 
     await userEvent.type(screen.getByLabelText('Wert'), 'v')
     await userEvent.type(screen.getByLabelText('Feldname'), 'owner')
@@ -337,6 +337,8 @@ describe('App: invalid sidebar draft', () => {
     // "nam" was valid and is kept; the duplicate "name" never reached the model.
     expect(graphStore.getState().nodes[0].metadata).toEqual([
       { key: 'name', value: 'Projekt A' },
+      { key: 'class', value: 'java.lang.Object' },
+      { key: 'entity', value: '' },
       { key: 'nam', value: '' },
     ])
   })
@@ -526,6 +528,54 @@ describe('App: import warning', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Analysieren' }))
     await userEvent.click(screen.getByRole('button', { name: 'Import' }))
     expect(importDialog()).not.toBeNull()
+  })
+})
+
+describe('App: class and entity of a multi selection', () => {
+  const valueOf = (index: number, key: string) => graphStore.getState().nodes[index].metadata.find((m) => m.key === key)?.value
+
+  it('shows the shared defaults and changes both fields of every selected object, one undo step per field', async () => {
+    render(<App />)
+    const [first, second] = graphStore.getState().nodes
+    select(first.id, second.id)
+    const before = graphStore.getState().history.past.length
+
+    expect(screen.getByLabelText('Klasse (class) für alle 2 Objekte')).toHaveValue('java.lang.Object')
+    expect(screen.getByLabelText('Entity (entity) für alle 2 Objekte')).toHaveValue('')
+
+    const cls = screen.getByLabelText('Klasse (class) für alle 2 Objekte')
+    await userEvent.clear(cls)
+    await userEvent.type(cls, 'a.B')
+    await userEvent.type(screen.getByLabelText('Entity (entity) für alle 2 Objekte'), 'rel')
+    await userEvent.tab()
+
+    for (const index of [0, 1]) {
+      expect(valueOf(index, 'class')).toBe('a.B')
+      expect(valueOf(index, 'entity')).toBe('rel')
+    }
+    expect(graphStore.getState().history.past).toHaveLength(before + 2)
+
+    act(() => graphStore.getState().undo())
+    expect(valueOf(0, 'entity')).toBe('')
+    expect(valueOf(1, 'entity')).toBe('')
+    expect(valueOf(0, 'class')).toBe('a.B')
+  })
+
+  it('shows that the values differ and replaces all of them', async () => {
+    render(<App />)
+    const [first, second] = graphStore.getState().nodes
+    act(() => {
+      graphStore.getState().updateMetadata(first.id, first.metadata.map((m) => (m.key === 'class' ? { ...m, value: 'x.Y' } : m)))
+    })
+    select(first.id, second.id)
+
+    const cls = screen.getByLabelText('Klasse (class) für alle 2 Objekte')
+    expect(cls).toHaveValue('')
+    expect(cls).toHaveAttribute('placeholder', 'verschieden')
+
+    await userEvent.type(cls, 'c.D')
+    expect(valueOf(0, 'class')).toBe('c.D')
+    expect(valueOf(1, 'class')).toBe('c.D')
   })
 })
 
@@ -1280,6 +1330,8 @@ describe('App: analysis mode layout', () => {
         { key: 'name', value: 'Projekt B' },
         { key: 'status', value: 'blockiert' },
         { key: 'blockiert_grund', value: 'Freigabe fehlt' },
+        { key: 'class', value: 'java.lang.Object' },
+        { key: 'entity', value: '' },
       ])
       expect(steps()).toBe(2)
       const banner = within(panel()!).getByRole('region', { name: 'Auswahl ist blockiert' })
@@ -1297,6 +1349,8 @@ describe('App: analysis mode layout', () => {
       expect(metadataOf(1)).toEqual([
         { key: 'name', value: 'Projekt B' },
         { key: 'status', value: 'in Arbeit' },
+        { key: 'class', value: 'java.lang.Object' },
+        { key: 'entity', value: '' },
       ])
       expect(within(panel()!).queryByRole('region', { name: 'Auswahl ist blockiert' })).toBeNull()
       act(() => graphStore.getState().undo())

@@ -12,7 +12,7 @@ const validate = ajv.compile(schema)
 
 const entry = (key: string, value: string) => ({ key, value })
 const base = () => ({
-  version: 3,
+  version: 4,
   nodes: [
     { id: 'g', kind: 'group', position: { x: 0, y: 0 }, size: { width: 300, height: 200 }, metadata: [entry('name', 'G')] },
     { id: 'a', kind: 'node', parentId: 'g', position: { x: 24, y: 56 }, metadata: [entry('name', 'A')] },

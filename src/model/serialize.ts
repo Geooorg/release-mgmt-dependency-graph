@@ -1,8 +1,16 @@
 import { createTranslate, type Translate } from '../i18n/translate'
 import { sortParentsFirst } from './graph'
 import { findDuplicateKeys, normalizeMetadata, tidyEdgeMetadata } from './metadata'
+import { withObjectFields } from './objectFields'
 import { DEFAULT_PROJECT_NAME, isValidProjectName } from './projectName'
-import { HANDLE_SIDES, LEGACY_SCHEMA_VERSION, NAME_KEY, PREVIOUS_SCHEMA_VERSION, SCHEMA_VERSION } from './types'
+import {
+  HANDLE_SIDES,
+  LEGACY_SCHEMA_VERSION,
+  NAME_KEY,
+  PREVIOUS_SCHEMA_VERSION,
+  SCHEMA_VERSION,
+  VERSION_BEFORE_OBJECT_FIELDS,
+} from './types'
 import type {
   ElementKind,
   GraphContent,
@@ -110,15 +118,17 @@ export function parseModelJson(text: string, t: Translate = createTranslate('de'
  * Collects ALL problems as human-readable messages in the language of `t` (German by default, max 20)
  * instead of stopping at the first.
  * Rules:
- *  - top-level object with `version === 3`, or the older `version === 2` (the same without notes) or
- *    `version === 1` whose edge `label` becomes the `name` metadata entry (else error mentioning the
- *    unsupported/missing version)
+ *  - top-level object with `version === 4`, or an older one: `3` (objects without `class`/`entity`),
+ *    `2` (the same without notes) or `1` whose edge `label` becomes the `name` metadata entry (else error
+ *    mentioning the unsupported/missing version)
  *  - `nodes` and `edges` arrays
  *  - node: non-empty string `id` (unique), `kind` 'node'|'group'|'note', `position` with finite x/y,
  *    `size` (optional for nodes, required for groups) with finite width/height > 0,
  *    `metadata` array of `{key: string, value: string}` (missing metadata is tolerated -> []),
  *    optional `parentId` that references an existing node of kind 'group', no parent cycles
  *  - metadata is normalized with `normalizeMetadata`; duplicate keys (after trim) are an error
+ *  - every object (kind 'node') gets the missing `class` (`java.lang.Object`) and `entity` (empty) entries,
+ *    whatever the version; groups and notes keep their metadata
  *  - edge: unique non-empty string `id`, `source`/`target` reference existing nodes (not notes), source !== target,
  *    no duplicate (source,target) pair, optional `metadata` like an element's (duplicate keys are an error)
  *  - unknown extra properties are ignored
@@ -177,7 +187,8 @@ export function parseModel(input: unknown, t: Translate = createTranslate('de'))
 }
 
 function checkVersion(version: unknown, report: Report, t: Translate): void {
-  if (version === SCHEMA_VERSION || version === PREVIOUS_SCHEMA_VERSION || version === LEGACY_SCHEMA_VERSION) return
+  const readable = [SCHEMA_VERSION, VERSION_BEFORE_OBJECT_FIELDS, PREVIOUS_SCHEMA_VERSION, LEGACY_SCHEMA_VERSION]
+  if (readable.includes(version as number)) return
   if (version === undefined) {
     report(t('parse.version.missing', { expected: SCHEMA_VERSION }))
   } else {
@@ -251,10 +262,11 @@ function parseNode(
     fail(t('parse.node.groupSize'))
   }
 
-  const metadata = parseMetadata(value.metadata, fail, t)
-  for (const key of findDuplicateKeys(metadata)) {
+  const parsedMetadata = parseMetadata(value.metadata, fail, t)
+  for (const key of findDuplicateKeys(parsedMetadata)) {
     fail(t('parse.metadata.duplicateKey', { key: quote(key) }))
   }
+  const metadata = kind === 'node' ? [...withObjectFields(parsedMetadata)] : parsedMetadata
 
   let parentId: string | undefined
   if (value.parentId !== undefined) {
