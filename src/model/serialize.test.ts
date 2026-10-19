@@ -95,6 +95,7 @@ const sampleModel: GraphModel = {
         { key: 'name', value: 'A' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
       ],
     },
     {
@@ -106,6 +107,7 @@ const sampleModel: GraphModel = {
         { key: 'name', value: '' },
         { key: 'class', value: 'de.mecom.Release' },
         { key: 'entity', value: 'rel' },
+        { key: 'version', value: '2.1' },
         { key: 'empty', value: '' },
       ],
     },
@@ -171,6 +173,7 @@ describe('parseModel: success', () => {
         { key: 'name', value: 'A' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
         { key: 'owner', value: 'Anna' },
       ],
     })
@@ -191,6 +194,7 @@ describe('parseModel: success', () => {
       { key: 'name', value: '' },
       { key: 'class', value: 'java.lang.Object' },
       { key: 'entity', value: '' },
+      { key: 'version', value: '' },
     ])
   })
 
@@ -205,6 +209,7 @@ describe('parseModel: success', () => {
       { key: 'name', value: 'A' },
       { key: 'class', value: 'java.lang.Object' },
       { key: 'entity', value: '' },
+      { key: 'version', value: '' },
       { key: 'owner', value: 'Anna' },
     ])
   })
@@ -725,6 +730,7 @@ describe('round trip', () => {
             { key: 'name', value: '"quoted" \\ back\tslash' },
             { key: 'class', value: 'java.lang.Object' },
             { key: 'entity', value: '' },
+            { key: 'version', value: '' },
             { key: 'emoji ✓', value: '日本語 \u2028 Ende' },
           ],
         },
@@ -1054,7 +1060,7 @@ describe('notes in the file format', () => {
   })
 })
 
-describe('class and entity of objects (version 4)', () => {
+describe('class, entity and version of objects (version 4)', () => {
   const bare = (extra: Json = {}): Json => ({ id: 'o', kind: 'node', position: { x: 0, y: 0 }, ...extra })
   const keys = (r: ParseResult, id = 'o') => (r.ok ? r.model.nodes.find((n) => n.id === id)?.metadata.map((m) => m.key) : undefined)
   const entries = (r: ParseResult, id = 'o') => (r.ok ? r.model.nodes.find((n) => n.id === id)?.metadata : undefined)
@@ -1066,11 +1072,12 @@ describe('class and entity of objects (version 4)', () => {
       { key: 'name', value: 'A' },
       { key: 'class', value: 'java.lang.Object' },
       { key: 'entity', value: '' },
+      { key: 'version', value: '' },
     ])
   })
 
-  it('gives an object without any metadata a name, class and entity', () => {
-    expect(keys(parseModel({ version: 3, nodes: [bare()], edges: [] }))).toEqual(['name', 'class', 'entity'])
+  it('gives an object without any metadata a name, class, entity and version', () => {
+    expect(keys(parseModel({ version: 3, nodes: [bare()], edges: [] }))).toEqual(['name', 'class', 'entity', 'version'])
   })
 
   it('keeps stored values, also an empty class, and only adds the missing entry', () => {
@@ -1082,8 +1089,16 @@ describe('class and entity of objects (version 4)', () => {
       ],
       edges: [],
     })
-    expect(entries(result)?.slice(1)).toEqual([{ key: 'class', value: 'de.mecom.Release' }, { key: 'entity', value: 'rel' }])
-    expect(entries(result, 'p')?.slice(1)).toEqual([{ key: 'class', value: '' }, { key: 'entity', value: '' }])
+    expect(entries(result)?.slice(1)).toEqual([
+      { key: 'class', value: 'de.mecom.Release' },
+      { key: 'entity', value: 'rel' },
+      { key: 'version', value: '' },
+    ])
+    expect(entries(result, 'p')?.slice(1)).toEqual([
+      { key: 'class', value: '' },
+      { key: 'entity', value: '' },
+      { key: 'version', value: '' },
+    ])
   })
 
   it('puts them behind color, status and blockiert_grund and before free fields', () => {
@@ -1101,6 +1116,7 @@ describe('class and entity of objects (version 4)', () => {
       'blockiert_grund',
       'class',
       'entity',
+      'version',
       'owner',
     ])
   })

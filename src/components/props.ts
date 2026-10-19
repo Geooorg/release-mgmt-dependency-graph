@@ -134,12 +134,13 @@ export interface BulkText {
   onChange: (value: string) => void
 }
 
-/** `class` and `entity` of all selected objects (not groups, not notes), changed together (several elements selected). */
+/** `class`, `entity` and `version` of all selected objects (not groups, not notes), changed together (several elements selected). */
 export interface BulkObjectFields {
   /** Number of selected objects. */
   count: number
   class: BulkText
   entity: BulkText
+  version: BulkText
 }
 
 /** One hit of the metadata filter. */

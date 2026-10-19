@@ -12,12 +12,13 @@ import {
   STATUS_VALUES,
 } from '../model/status'
 import { useT } from '../i18n/react'
-import { CLASS_KEY, DEFAULT_CLASS, DEFAULT_ENTITY, ENTITY_KEY } from '../model/objectFields'
+import { CLASS_KEY, DEFAULT_CLASS, DEFAULT_ENTITY, DEFAULT_VERSION, ENTITY_KEY, VERSION_KEY } from '../model/objectFields'
 import { COLOR_KEY, DEFAULT_COLOR, NAME_KEY, NOTE_DEFAULT_COLOR } from '../model/types'
 import type { MetadataEntry } from '../model/types'
 import type { SidebarElement, SidebarProps } from './props'
 import { SidebarBulkColor } from './SidebarBulkColor'
 import { SidebarBulkFields } from './SidebarBulkFields'
+import { SidebarDetails } from './SidebarDetails'
 import { SidebarBulkStatus } from './SidebarBulkStatus'
 import { SidebarFilterResults } from './SidebarFilterResults'
 import { SidebarEdgeForm } from './SidebarEdgeForm'
@@ -33,7 +34,7 @@ interface Row {
   autoFocus?: boolean
 }
 
-/** Local edit state: the fixed `name`, `color`, `status`, `blockiert_grund`, `class` and `entity` fields plus the free-form rows. */
+/** Local edit state: the fixed `name`, `color`, `status`, `blockiert_grund`, `class`, `entity` and `version` fields plus the free-form rows. */
 interface Draft {
   name: string
   /** `#rrggbb`, or '' = no colour set (default blue). */
@@ -46,6 +47,8 @@ interface Draft {
   objectClass: string
   /** `entity` of an object (default empty); unused for groups and notes. */
   entity: string
+  /** `version` of an object (default empty); unused for groups and notes. */
+  version: string
   rows: Row[]
 }
 
@@ -69,9 +72,10 @@ function toDraft(entries: readonly MetadataEntry[], isObject: boolean): Draft {
   const status = statusIndex >= 0 ? entries[statusIndex].value.trim() : ''
   // Only a blocked object has a reason field; for any other status the key is an ordinary row.
   const reasonIndex = parseStatus(status) === 'blockiert' ? entries.findIndex((entry) => isBlockReasonKey(entry.key)) : -1
-  // Only objects have class and entity; for a group or note the keys are ordinary rows.
+  // Only objects have class, entity and version; for a group or note the keys are ordinary rows.
   const classIndex = isObject ? entries.findIndex((entry) => entry.key === CLASS_KEY) : -1
   const entityIndex = isObject ? entries.findIndex((entry) => entry.key === ENTITY_KEY) : -1
+  const versionIndex = isObject ? entries.findIndex((entry) => entry.key === VERSION_KEY) : -1
   return {
     name: nameIndex >= 0 ? entries[nameIndex].value : '',
     // An unusable colour value counts as "not set" and is dropped on the next edit.
@@ -81,6 +85,7 @@ function toDraft(entries: readonly MetadataEntry[], isObject: boolean): Draft {
     reason: reasonIndex >= 0 ? entries[reasonIndex].value : '',
     objectClass: classIndex >= 0 ? entries[classIndex].value : DEFAULT_CLASS,
     entity: entityIndex >= 0 ? entries[entityIndex].value : DEFAULT_ENTITY,
+    version: versionIndex >= 0 ? entries[versionIndex].value : DEFAULT_VERSION,
     rows: toRows(
       entries.filter(
         (_, index) =>
@@ -89,7 +94,8 @@ function toDraft(entries: readonly MetadataEntry[], isObject: boolean): Draft {
           index !== statusIndex &&
           index !== reasonIndex &&
           index !== classIndex &&
-          index !== entityIndex,
+          index !== entityIndex &&
+          index !== versionIndex,
       ),
     ),
   }
@@ -105,6 +111,7 @@ function toEntries(draft: Draft, isObject: boolean): MetadataEntry[] {
       ? [
           { key: CLASS_KEY, value: draft.objectClass },
           { key: ENTITY_KEY, value: draft.entity },
+          { key: VERSION_KEY, value: draft.version },
         ]
       : []),
     ...draft.rows.map(({ key, value }) => ({ key, value })),
@@ -125,6 +132,8 @@ function entriesOf(draft: Draft, isObject: boolean): MetadataEntry[] {
 
 type SidebarFormProps = Omit<SidebarProps, 'element' | 'selectionCount' | 'hidden' | 'filter'> & {
   element: SidebarElement & { kind: 'node' | 'group' | 'note' }
+  detailsOpen: boolean
+  onDetailsToggle: (open: boolean) => void
 }
 
 /**
@@ -139,6 +148,8 @@ function SidebarForm({
   onEditEnd,
   onClose,
   onInvalidChange,
+  detailsOpen,
+  onDetailsToggle,
 }: SidebarFormProps) {
   const t = useT()
   const formId = useId()
@@ -321,7 +332,7 @@ function SidebarForm({
       )}
 
       {isObject && (
-        <>
+        <SidebarDetails open={detailsOpen} onToggle={onDetailsToggle}>
           <div className="sidebar__field">
             <label className="sidebar__label" htmlFor={`${formId}-class`}>
               {t('sidebar.field.class')}
@@ -346,7 +357,19 @@ function SidebarForm({
               onBlur={gesture.end}
             />
           </div>
-        </>
+          <div className="sidebar__field">
+            <label className="sidebar__label" htmlFor={`${formId}-version`}>
+              {t('sidebar.field.version')}
+            </label>
+            <input
+              id={`${formId}-version`}
+              className="ui-input"
+              value={draft.version}
+              onChange={(event) => edit({ ...draft, version: event.target.value })}
+              onBlur={gesture.end}
+            />
+          </div>
+        </SidebarDetails>
       )}
 
       {element.kind === 'group' && element.progress && (
@@ -419,6 +442,8 @@ function SidebarSelection({
   ...handlers
 }: Omit<SidebarProps, 'filter'>) {
   const t = useT()
+  // Closed until opened; stays as chosen while another element is selected.
+  const [detailsOpen, setDetailsOpen] = useState(false)
   if (element === null) {
     if (selectionCount < 2) return null
     return (
@@ -443,7 +468,9 @@ function SidebarSelection({
           )}
           {bulkStatus && <SidebarBulkStatus {...bulkStatus} />}
           {bulkFields && (
-            <SidebarBulkFields {...bulkFields} onEditStart={handlers.onEditStart} onEditEnd={handlers.onEditEnd} />
+            <SidebarDetails open={detailsOpen} onToggle={setDetailsOpen}>
+              <SidebarBulkFields {...bulkFields} onEditStart={handlers.onEditStart} onEditEnd={handlers.onEditEnd} />
+            </SidebarDetails>
           )}
         </div>
       </aside>
@@ -456,7 +483,13 @@ function SidebarSelection({
       {element.kind === 'edge' ? (
         <SidebarEdgeForm key={element.id} element={element} {...handlers} />
       ) : (
-        <SidebarForm key={element.id} element={{ ...element, kind: element.kind }} {...handlers} />
+        <SidebarForm
+          key={element.id}
+          element={{ ...element, kind: element.kind }}
+          detailsOpen={detailsOpen}
+          onDetailsToggle={setDetailsOpen}
+          {...handlers}
+        />
       )}
     </aside>
   )

@@ -30,7 +30,7 @@ import { findCycles } from './model/cycles'
 import { canGroup, canReverseEdge } from './model/graph'
 import { contentFingerprint } from './model/fingerprint'
 import { displayName, getColor, getEdgeName } from './model/metadata'
-import { getClass, getEntity } from './model/objectFields'
+import { getClass, getEntity, getVersion } from './model/objectFields'
 import { isSoftEdge } from './model/softDependency'
 import { findByMetadata } from './model/filter'
 import { findByName, nextHit, normalizeQuery } from './model/search'
@@ -262,7 +262,7 @@ function AppShell() {
       onChange: (status) => graphStore.getState().setSelectionStatus(status),
     }
   }, [target, nodes, selectedNodeIds])
-  // ... and their class and entity (objects only), both changeable together.
+  // ... and their class, entity and version (objects only), changeable together.
   const bulkFields = useMemo<BulkObjectFields | undefined>(() => {
     if (target.kind !== 'multiple') return undefined
     const objects = nodes.filter((n) => n.kind === 'node' && selectedNodeIds.includes(n.id))
@@ -275,6 +275,7 @@ function AppShell() {
       count: objects.length,
       class: shared(getClass, (value) => graphStore.getState().setSelectionClass(value)),
       entity: shared(getEntity, (value) => graphStore.getState().setSelectionEntity(value)),
+      version: shared(getVersion, (value) => graphStore.getState().setSelectionVersion(value)),
     }
   }, [target, nodes, selectedNodeIds])
   const sidebarEdge = useMemo(

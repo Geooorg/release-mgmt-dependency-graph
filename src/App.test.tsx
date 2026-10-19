@@ -211,7 +211,7 @@ describe('App: changes are applied at once', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
     expect(screen.getAllByLabelText('Feldname')).toHaveLength(1)
-    expect(graphStore.getState().nodes[0].metadata).toHaveLength(3) // name, class, entity
+    expect(graphStore.getState().nodes[0].metadata).toHaveLength(4) // name, class, entity, version
 
     await userEvent.type(screen.getByLabelText('Wert'), 'v')
     await userEvent.type(screen.getByLabelText('Feldname'), 'owner')
@@ -339,6 +339,7 @@ describe('App: invalid sidebar draft', () => {
       { key: 'name', value: 'Projekt A' },
       { key: 'class', value: 'java.lang.Object' },
       { key: 'entity', value: '' },
+      { key: 'version', value: '' },
       { key: 'nam', value: '' },
     ])
   })
@@ -1332,6 +1333,7 @@ describe('App: analysis mode layout', () => {
         { key: 'blockiert_grund', value: 'Freigabe fehlt' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
       ])
       expect(steps()).toBe(2)
       const banner = within(panel()!).getByRole('region', { name: 'Auswahl ist blockiert' })
@@ -1351,6 +1353,7 @@ describe('App: analysis mode layout', () => {
         { key: 'status', value: 'in Arbeit' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
       ])
       expect(within(panel()!).queryByRole('region', { name: 'Auswahl ist blockiert' })).toBeNull()
       act(() => graphStore.getState().undo())

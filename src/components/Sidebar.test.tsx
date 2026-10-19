@@ -319,6 +319,7 @@ describe('Sidebar', () => {
         { key: 'name', value: 'Projekt Ax' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
         { key: 'owner', value: 'Team 1' },
       ])
 
@@ -328,6 +329,7 @@ describe('Sidebar', () => {
         { key: 'name', value: 'Projekt Ax' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
         { key: 'owner', value: 'Team 2' },
       ])
     })
@@ -338,7 +340,7 @@ describe('Sidebar', () => {
 
       await user.type(screen.getByLabelText('Name'), ' B ')
       expect(screen.getByLabelText('Name')).toHaveValue('A B ')
-      expect(onChange).toHaveBeenLastCalledWith([{ key: 'name', value: 'A B' }, { key: 'class', value: 'java.lang.Object' }, { key: 'entity', value: '' }])
+      expect(onChange).toHaveBeenLastCalledWith([{ key: 'name', value: 'A B' }, { key: 'class', value: 'java.lang.Object' }, { key: 'entity', value: '' }, { key: 'version', value: '' }])
 
       await user.clear(screen.getByLabelText('Name'))
       await user.type(screen.getByLabelText('Name'), '  x')
@@ -347,6 +349,7 @@ describe('Sidebar', () => {
         { key: 'name', value: 'x' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
       ])
     })
 
@@ -381,6 +384,7 @@ describe('Sidebar', () => {
         { key: 'name', value: 'A' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
         { key: 'stage', value: 'prod' },
       ])
     })
@@ -394,7 +398,7 @@ describe('Sidebar', () => {
 
       await user.clear(keyInputs()[0])
       expect(keyInputs()).toHaveLength(1)
-      expect(onChange).toHaveBeenLastCalledWith([{ key: 'name', value: 'A' }, { key: 'class', value: 'java.lang.Object' }, { key: 'entity', value: '' }])
+      expect(onChange).toHaveBeenLastCalledWith([{ key: 'name', value: 'A' }, { key: 'class', value: 'java.lang.Object' }, { key: 'entity', value: '' }, { key: 'version', value: '' }])
     })
 
     it('removes a row', async () => {
@@ -407,7 +411,7 @@ describe('Sidebar', () => {
       await user.click(screen.getByRole('button', { name: 'Feld entfernen' }))
 
       expect(keyInputs()).toHaveLength(0)
-      expect(onChange).toHaveBeenCalledWith([{ key: 'name', value: 'A' }, { key: 'class', value: 'java.lang.Object' }, { key: 'entity', value: '' }])
+      expect(onChange).toHaveBeenCalledWith([{ key: 'name', value: 'A' }, { key: 'class', value: 'java.lang.Object' }, { key: 'entity', value: '' }, { key: 'version', value: '' }])
     })
 
     it('does not report a change when nothing differs from what the model holds', async () => {
@@ -484,6 +488,7 @@ describe('Sidebar', () => {
         { key: 'name', value: 'Neu!' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
         { key: 'owner', value: 'T' },
       ])
     })
@@ -530,6 +535,7 @@ describe('Sidebar', () => {
         { key: 'name', value: 'A' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
         { key: 'owner', value: 'T' },
         { key: 'owne', value: '' },
       ])
@@ -545,6 +551,7 @@ describe('Sidebar', () => {
         { key: 'name', value: 'A' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
         { key: 'owner', value: 'T' },
         { key: 'owner2', value: '' },
       ])
@@ -723,6 +730,7 @@ describe('Sidebar', () => {
         { key: 'color', value: '#dc2626' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
         { key: 'owner', value: 'Team 1' },
       ])
       fireEvent.input(colorInput(), { target: { value: '#16a34a' } })
@@ -750,7 +758,7 @@ describe('Sidebar', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Zurücksetzen' }))
 
-      expect(onChange).toHaveBeenCalledWith([{ key: 'name', value: 'A' }, { key: 'class', value: 'java.lang.Object' }, { key: 'entity', value: '' }])
+      expect(onChange).toHaveBeenCalledWith([{ key: 'name', value: 'A' }, { key: 'class', value: 'java.lang.Object' }, { key: 'entity', value: '' }, { key: 'version', value: '' }])
       expect(screen.getByText('Standard')).toBeInTheDocument()
     })
 
@@ -773,7 +781,7 @@ describe('Sidebar', () => {
       expect(screen.getByText('Standard')).toBeInTheDocument()
       expect(onChange).not.toHaveBeenCalled()
       await userEvent.type(screen.getByLabelText('Name'), 'x')
-      expect(onChange).toHaveBeenLastCalledWith([{ key: 'name', value: 'Ax' }, { key: 'class', value: 'java.lang.Object' }, { key: 'entity', value: '' }])
+      expect(onChange).toHaveBeenLastCalledWith([{ key: 'name', value: 'Ax' }, { key: 'class', value: 'java.lang.Object' }, { key: 'entity', value: '' }, { key: 'version', value: '' }])
     })
   })
 
@@ -823,6 +831,7 @@ describe('Sidebar', () => {
         { key: 'status', value: 'in Arbeit' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
         { key: 'owner', value: 'Team 1' },
       ])
       // The colour edit was still open: the status choice ended it first.
@@ -847,6 +856,7 @@ describe('Sidebar', () => {
         { key: 'status', value: 'bald' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
       ])
     })
 
@@ -871,6 +881,7 @@ describe('Sidebar', () => {
         { key: 'status', value: 'in Arbeit' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
         { key: 'owner', value: 'Team 1' },
       ])
     })
@@ -887,6 +898,7 @@ describe('Sidebar', () => {
         { key: 'status', value: 'fertig' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
       ])
       expect(statusSelect().value).toBe('fertig')
       // The row stays while it is being typed; no reload under the cursor.
@@ -928,6 +940,7 @@ describe('Sidebar', () => {
         ...(reason === undefined ? [] : [{ key: 'blockiert_grund', value: reason }]),
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
         { key: 'owner', value: 'Team 1' },
       ]
 
@@ -961,6 +974,7 @@ describe('Sidebar', () => {
           { key: 'status', value: 'blockiert' },
           { key: 'class', value: 'java.lang.Object' },
           { key: 'entity', value: '' },
+          { key: 'version', value: '' },
           { key: 'owner', value: 'Team 1' },
         ])
 
@@ -971,6 +985,7 @@ describe('Sidebar', () => {
           { key: 'blockiert_grund', value: 'Freigabe fehlt' },
           { key: 'class', value: 'java.lang.Object' },
           { key: 'entity', value: '' },
+          { key: 'version', value: '' },
           { key: 'owner', value: 'Team 1' },
         ])
         // typing keeps the blanks the user typed, although the model holds the trimmed text
@@ -1003,6 +1018,7 @@ describe('Sidebar', () => {
           { key: 'status', value: 'in Arbeit' },
           { key: 'class', value: 'java.lang.Object' },
           { key: 'entity', value: '' },
+          { key: 'version', value: '' },
           { key: 'owner', value: 'Team 1' },
         ])
         expect(reasonField()).toBeNull()
@@ -1332,10 +1348,11 @@ describe('Sidebar with a filter', () => {
 })
 
 describe('Sidebar: class and entity of an object', () => {
-  const withFields = (cls: string, entity: string): MetadataEntry[] => [
+  const withFields = (cls: string, entity: string, version = ''): MetadataEntry[] => [
     { key: 'name', value: 'Projekt A' },
     { key: 'class', value: cls },
     { key: 'entity', value: entity },
+    { key: 'version', value: version },
     { key: 'owner', value: 'Team 1' },
   ]
 
@@ -1370,6 +1387,38 @@ describe('Sidebar: class and entity of an object', () => {
     await user.type(screen.getByLabelText('Entity (entity)'), 'rel')
 
     expect(onChange).toHaveBeenLastCalledWith(withFields('java.lang.Object', 'rel'))
+  })
+
+  it('applies an edited version right away, behind the entity', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderControlled(withFields('java.lang.Object', ''))
+
+    await user.type(screen.getByLabelText('Version (version)'), '1.2')
+
+    expect(onChange).toHaveBeenLastCalledWith(withFields('java.lang.Object', '', '1.2'))
+  })
+
+  it('keeps class, entity and version in a box that is closed at first and remembers being opened', async () => {
+    const props = makeProps({ element: makeElement({ metadata: withFields('de.mecom.Release', 'rel', '3') }) })
+    const { container, rerender } = render(<Sidebar {...props} />)
+    const details = container.querySelector('details') as HTMLDetailsElement
+    expect(details).not.toBeNull()
+    expect(details.open).toBe(false)
+    expect(screen.getByText('Technische Angaben')).toBeInTheDocument()
+    expect(details).toContainElement(screen.getByLabelText('Version (version)'))
+    expect(screen.getByLabelText('Version (version)')).toHaveValue('3')
+
+    await userEvent.click(screen.getByText('Technische Angaben'))
+    expect(details.open).toBe(true)
+
+    // Another element: the box stays as chosen.
+    rerender(<Sidebar {...makeProps({ element: makeElement({ id: 'other', metadata: withFields('a.B', '') }) })} />)
+    expect((container.querySelector('details') as HTMLDetailsElement).open).toBe(true)
+  })
+
+  it('has no such box for a group', () => {
+    const { container } = render(<Sidebar {...makeProps({ element: makeElement({ kind: 'group' }) })} />)
+    expect(container.querySelector('details')).toBeNull()
   })
 
   it('bundles typing in a field into one edit', async () => {
@@ -1433,6 +1482,7 @@ describe('Sidebar: class and entity of several selected objects', () => {
     count: 3,
     class: field({ value: 'java.lang.Object' }),
     entity: field(),
+    version: field(),
     ...overrides,
   })
   const renderBulk = (bulkFields = bulk(), props: Partial<SidebarProps> = {}) =>
@@ -1442,6 +1492,11 @@ describe('Sidebar: class and entity of several selected objects', () => {
     renderBulk(bulk({ class: field({ value: 'a.B' }), entity: field({ value: 'e' }) }))
     expect(screen.getByLabelText('Klasse (class) für alle 3 Objekte')).toHaveValue('a.B')
     expect(screen.getByLabelText('Entity (entity) für alle 3 Objekte')).toHaveValue('e')
+  })
+
+  it('offers the version for all selected objects, too', () => {
+    renderBulk(bulk({ version: field({ value: '2.0' }) }))
+    expect(screen.getByLabelText('Version (version) für alle 3 Objekte')).toHaveValue('2.0')
   })
 
   it('uses the singular for one object', () => {

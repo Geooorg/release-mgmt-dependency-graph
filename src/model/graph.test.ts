@@ -32,6 +32,7 @@ import {
   setColor,
   setClasses,
   setEntities,
+  setVersions,
   updateMetadata,
   wouldBreakHierarchy,
 } from './graph'
@@ -131,6 +132,7 @@ describe('createNode', () => {
         { key: 'name', value: 'Neues Objekt' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
       ],
     })
   })
@@ -1688,7 +1690,7 @@ describe('notes', () => {
   })
 })
 
-describe('setClasses / setEntities', () => {
+describe('setClasses / setEntities / setVersions', () => {
   const typed = (id: string) =>
     node(id, 0, 0, {
       metadata: [
@@ -1727,6 +1729,14 @@ describe('setClasses / setEntities', () => {
       { key: 'class', value: 'x.Y' },
       { key: 'entity', value: 'e' },
     ])
+  })
+
+  it('set the version of every listed object, trimmed, right behind the entity', () => {
+    const c = content([typed('a'), group('g', 0, 400, 300, 200)])
+    const result = setVersions(c, ['a', 'g'], ' 1.4 ')
+    expect(find(result, 'a').metadata.map((m) => m.key)).toEqual(['name', 'class', 'entity', 'version', 'owner'])
+    expect(find(result, 'a').metadata[3]).toEqual({ key: 'version', value: '1.4' })
+    expect(find(result, 'g')).toBe(find(c, 'g'))
   })
 
   it('allow an empty value', () => {

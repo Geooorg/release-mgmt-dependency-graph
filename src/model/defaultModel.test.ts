@@ -47,6 +47,7 @@ describe('createDefaultContent', () => {
         { key: 'name', value: getName(n.metadata) },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
       ])
     }
   })

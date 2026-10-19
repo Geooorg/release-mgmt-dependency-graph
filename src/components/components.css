@@ -367,6 +367,26 @@
   font-weight: 600;
 }
 
+.sidebar__details {
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+}
+
+.sidebar__details-summary {
+  padding: 8px 10px;
+  color: var(--gray-600);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sidebar__details-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 10px 12px;
+}
+
 /* Read-only field: clearly grey so nobody tries to edit it. */
 .sidebar .ui-input.sidebar__uuid,
 .sidebar .ui-input.sidebar__uuid:disabled {

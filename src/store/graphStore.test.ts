@@ -100,6 +100,11 @@ describe('graphStore', () => {
       store.getState().setSelectionEntity('rel')
       expect(store.getState().history.past).toHaveLength(2)
 
+      store.getState().setSelectionVersion(' 1.0 ')
+      expect(field('version')).toEqual(['1.0', '1.0', undefined])
+      expect(store.getState().history.past).toHaveLength(3)
+      store.getState().undo()
+
       store.getState().undo()
       expect(field('entity')).toEqual([undefined, undefined, undefined])
       expect(field('class')).toEqual(['de.mecom.Release', 'de.mecom.Release', undefined])
@@ -1029,6 +1034,7 @@ describe('graphStore', () => {
         { key: 'name', value: 'X' },
         { key: 'class', value: 'java.lang.Object' },
         { key: 'entity', value: '' },
+        { key: 'version', value: '' },
       ])
       expect(state.selectedNodeIds).toEqual([])
       expect(state.notice).toMatchObject({ kind: 'success' })

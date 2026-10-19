@@ -1,6 +1,6 @@
 import { createTranslate } from '../i18n/translate'
 import { getEdgeName, getName, isValidColor, normalizeMetadata, tidyEdgeMetadata, withColorEntry } from './metadata'
-import { withClassEntry, withEntityEntry, withObjectFields } from './objectFields'
+import { withClassEntry, withEntityEntry, withObjectFields, withVersionEntry } from './objectFields'
 import {
   BLOCK_REASON_KEY,
   STATUS_KEY,
@@ -614,6 +614,11 @@ export function setClasses(content: GraphContent, ids: readonly string[], value:
 /** Like `setClasses`, for the `entity` field. */
 export function setEntities(content: GraphContent, ids: readonly string[], value: string): GraphContent {
   return setObjectField(content, ids, value, withEntityEntry)
+}
+
+/** Like `setClasses`, for the `version` field. */
+export function setVersions(content: GraphContent, ids: readonly string[], value: string): GraphContent {
+  return setObjectField(content, ids, value, withVersionEntry)
 }
 
 /**

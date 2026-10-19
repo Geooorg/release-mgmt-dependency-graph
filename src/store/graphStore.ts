@@ -124,6 +124,8 @@ export interface GraphState {
   setSelectionClass: (value: string) => void
   /** Sets the `entity` of all selected objects (groups and notes have none); one undo step. */
   setSelectionEntity: (value: string) => void
+  /** Sets the `version` of all selected objects (groups and notes have none); one undo step. */
+  setSelectionVersion: (value: string) => void
   /** Sets the status of an object (also in analysis mode); one undo step. */
   setStatus: (id: string, status: Status) => void
   /** Sets the reason of a blocked object (trimmed, blank removes it); no-op for other objects. Also in analysis mode. */
@@ -396,6 +398,7 @@ export function createGraphStore(
       setSelectionStatus: (status) => apply(graph.setStatuses(content(), get().selectedNodeIds, status)),
       setSelectionClass: (value) => apply(graph.setClasses(content(), get().selectedNodeIds, value)),
       setSelectionEntity: (value) => apply(graph.setEntities(content(), get().selectedNodeIds, value)),
+      setSelectionVersion: (value) => apply(graph.setVersions(content(), get().selectedNodeIds, value)),
       setStatus: (id, status) => apply(graph.setStatus(content(), id, status)),
       setBlockReason: (id, reason) => apply(graph.setBlockReason(content(), id, reason)),
 
