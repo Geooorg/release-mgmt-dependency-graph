@@ -307,3 +307,26 @@ describe('buildSvg: arrow heads by meaning', () => {
     expect(svg).toContain('marker-end="url(#arrow)"')
   })
 })
+
+describe('buildSvg: status marks by meaning', () => {
+  const catalog = {
+    elementTypes: [],
+    edgeTypes: [{ id: 'dep', name: 'Aufruf', roles: ['dependency' as const], fields: [] }],
+  }
+  const typed = edge('e', 'a', 'b', {
+    metadata: [
+      { key: 'name', value: '' },
+      { key: 'type', value: 'dep' },
+    ],
+  })
+  const nodes = [node('a', 'A', 0, 0), node('b', 'B', 300, 0)]
+  const hourglass = (svg: string) => parse(svg).querySelector('[data-id="b"] path[stroke="#4338ca"]')
+
+  it('draws no waiting mark when the only connection is no sequence, like the canvas', () => {
+    expect(hourglass(buildSvg({ nodes, edges: [typed], catalog }))).toBeNull()
+  })
+
+  it('still draws the waiting mark for an untyped connection', () => {
+    expect(hourglass(buildSvg({ nodes, edges: [edge('e', 'a', 'b')], catalog }))).not.toBeNull()
+  })
+})

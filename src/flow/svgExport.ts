@@ -1,5 +1,5 @@
 import { getBezierPath, Position } from '@xyflow/react'
-import { arrowHeadFor, getEdgeRoles, type ArrowHead } from '../model/edgeRoles'
+import { analysisContent, arrowHeadFor, getEdgeRoles, type ArrowHead } from '../model/edgeRoles'
 import { getSize, pickSides, sortParentsFirst } from '../model/graph'
 import { displayName, getColor, getContrastColor, getEdgeName, getName } from '../model/metadata'
 import { DEFAULT_PROJECT_NAME } from '../model/projectName'
@@ -216,7 +216,8 @@ function arrowMarker(color: string, head: ArrowHead): string {
 /** The graph as the text of an SVG file. An empty graph yields a small blank image. */
 export function buildSvg(content: GraphContent): string {
   const rects = absoluteRects(content.nodes)
-  const analysis = analyzeProject(content)
+  // The same connections as the canvas and the panel use for the status marks.
+  const analysis = analyzeProject(analysisContent(content, 'status'))
   const bounds: Bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }
   for (const rect of rects.values()) {
     // The marks overhang the corners of an element.
