@@ -12,7 +12,8 @@ const validate = ajv.compile(schema)
 
 const entry = (key: string, value: string) => ({ key, value })
 const base = () => ({
-  version: 4,
+  version: 5,
+  catalog: { elementTypes: [], edgeTypes: [] },
   nodes: [
     { id: 'g', kind: 'group', position: { x: 0, y: 0 }, size: { width: 300, height: 200 }, metadata: [entry('name', 'G')] },
     { id: 'a', kind: 'node', parentId: 'g', position: { x: 24, y: 56 }, metadata: [entry('name', 'A')] },
@@ -46,7 +47,11 @@ describe('graph.schema.json', () => {
     const cases: [string, (doc: ReturnType<typeof base>) => unknown][] = [
       ['valid', (d) => d],
       ['missing version', ({ version: _version, ...rest }) => rest],
-      ['unknown version', (d) => ({ ...d, version: 4 })],
+      ['unknown version', (d) => ({ ...d, version: 6 })],
+      ['missing catalog', ({ catalog: _catalog, ...rest }) => rest],
+      ['a type with a bad colour', (d) => ({ ...d, catalog: { elementTypes: [{ id: 't', name: 'T', color: 'red', fields: [] }], edgeTypes: [] } })],
+      ['a type with an unknown icon', (d) => ({ ...d, catalog: { elementTypes: [{ id: 't', name: 'T', icon: 'x', fields: [] }], edgeTypes: [] } })],
+      ['a select field with options', (d) => ({ ...d, catalog: { elementTypes: [{ id: 't', name: 'T', fields: [{ key: 'k', kind: 'select', options: ['a'] }] }], edgeTypes: [] } })],
       ['a note', (d) => ({ ...d, nodes: [...d.nodes, { id: 'n', kind: 'note', position: { x: 0, y: 0 }, metadata: [entry('name', 'Text')] }] })],
       ['nodes not a list', (d) => ({ ...d, nodes: {} })],
       ['edges missing', ({ edges: _edges, ...rest }) => rest],
@@ -88,6 +93,15 @@ describe('graph.schema.json', () => {
       expect(validate(changed)).toBe(true)
       expect(parseModel(changed).ok).toBe(false)
     })
+  })
+
+  it('accepts an export with a catalog', () => {
+    const catalog = {
+      elementTypes: [{ id: 't1', name: 'Service', color: '#10b981', icon: 'service' as const, fields: [{ key: 'env', kind: 'select' as const, options: ['prod'] }] }],
+      edgeTypes: [],
+    }
+    const text = serializeModel(toModel({ nodes: [box('a', 0, 0)], edges: [], catalog }))
+    expect(validate(JSON.parse(text)), JSON.stringify(validate.errors)).toBe(true)
   })
 
   it('is stricter than the importer about unknown properties (catches typos)', () => {

@@ -162,8 +162,9 @@ Der Export entspricht exakt dem im `localStorage` abgelegten Modell (Schlüssel 
 
 ```json
 {
-  "version": 4,
+  "version": 5,
   "projectName": "Release-Management",
+  "catalog": { "elementTypes": [], "edgeTypes": [] },
   "nodes": [
     {
       "id": "0b1f6c3e-…",
@@ -202,13 +203,16 @@ Der Export entspricht exakt dem im `localStorage` abgelegten Modell (Schlüssel 
 - `kind`: `node` (blauer Kasten) oder `group` (Gruppe/Sub-Graph).
 - `parentId` (optional) verweist auf eine Gruppe; `position` ist dann relativ zu dieser Gruppe.
 - `metadata` ist eine geordnete Liste; der Eintrag `name` steht immer an erster Stelle.
-- **Version 4** ergänzt bei jedem Objekt (`kind: "node"`, nicht Gruppen und Notizen) die Metadateneinträge `class`, `entity` und `version` (siehe unten; `version` kam später hinzu, die App ergänzt es auch bei Dateien der Version 4). Dateien der Versionen 1 bis 3 werden weiter geladen: Fehlende Einträge werden mit ihren Standardwerten ergänzt, gespeichert und exportiert wird als Version 4.
+- **Version 5** ergänzt `catalog` (Typ-Katalog, siehe „Typen“). Dateien der Version 4 und älter werden mit leerem Katalog geladen; gespeichert und exportiert wird als Version 5.
+- **Version 4** ergänzt bei jedem Objekt (`kind: "node"`, nicht Gruppen und Notizen) die Metadateneinträge `class`, `entity` und `version` (siehe unten; `version` kam später hinzu, die App ergänzt es auch bei Dateien der Version 4). Dateien der Versionen 1 bis 3 werden weiter geladen: Fehlende Einträge werden mit ihren Standardwerten ergänzt, gespeichert und exportiert wird als Version 5.
 - **Version 3** ergänzt `kind: "note"` (Notizzettel, siehe 35.); Dateien der Version 2 werden unverändert weiter geladen.
 - **Version 2** ersetzt das frühere `label` einer Kante durch `metadata` mit dem Eintrag `name`. Dateien und gespeicherte Stände der Version 1 werden weiter geladen: Das `label` wird zum Namen der Verbindung.
 - Kanten sind gerichtet: von `source` nach `target`; „`source` kommt vor `target`" (`target` hängt von `source` ab); bei Gruppen gilt die Kante für alle Mitglieder. Eine Kante hat optional `metadata` wie ein Objekt; der Eintrag `name` ist ihre Beschriftung, der Eintrag `optional` mit dem Wert `ja` kennzeichnet eine optionale Abhängigkeit (ohne Namen und weitere Einträge entfällt das Feld). `sourceHandle`/`targetHandle` (`top`, `right`, `bottom`, `left`) sind optional; fehlen sie (ältere Dateien), werden die einander zugewandten Seiten gezeichnet.
 - `color` ist ein optionaler Metadateneintrag der Form `#rrggbb`; andere Werte werden wie „keine Farbe" behandelt.
 - `status` ist ein optionaler Metadateneintrag mit einem der vier Werte `offen`, `in Arbeit`, `blockiert`, `fertig` (nur bei Objekten); fehlt er, gilt `offen`, ein unbekannter Wert zählt als `offen` und bleibt erhalten. `blockiert_grund` ist ein optionaler Freitext, der nur zusammen mit dem Status `blockiert` gilt (die App entfernt ihn beim Wechsel auf einen anderen Status). Reihenfolge der Sondereinträge: `name`, `color`, `status`, `blockiert_grund`, `class`, `entity`, `version`, danach die freien Felder. Ältere Dateien ohne `color`/`status` bleiben gültig.
 - `class`, `entity` und `version` tragen **alle Objekte** (`kind: "node"`); Gruppen und Notizen haben sie nicht (dort wären es gewöhnliche freie Felder). `class` ist ein Java-Typ (später evtl. durch ein Java-Objekt abgebildet), Standard `java.lang.Object`, editierbar (auch leer); `entity` und `version` sind für später vorgesehen und zunächst leer. Alle drei haben noch **keine Funktion**. Fehlt ein Eintrag (ältere Datei, Version 1–3), ergänzt der Import ihn mit dem Standardwert; vorhandene Werte bleiben unverändert.
+
+**Typen:** `catalog` enthält `elementTypes` (für Objekte und Gruppen) und `edgeTypes` (für Verbindungen). Ein Typ hat `id`, `name`, optional `color` (`#rrggbb`) und `icon` sowie `fields` (`key`, `kind` = `text | select | boolean`, optional `options`, `required`, `default`). Ein Element oder eine Verbindung verweist über den Metadateneintrag `type` (Typ-ID) auf einen Typ des Katalogs; ein unbekannter Verweis bleibt erlaubt. Der Katalog gehört zum Projekt (Export, `localStorage`, Undo).
 
 **Warum JSON statt XML?** Gleiches Format wie im `localStorage`, nativer Parser, und freie
 Feldnamen (z. B. `Release-Datum`) wären als XML-Elementnamen ungültig.

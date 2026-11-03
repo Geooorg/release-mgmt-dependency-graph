@@ -395,6 +395,12 @@ export const en: Catalog = {
   'parse.edge.sourceMissing': 'source {id} does not refer to an existing node.',
   'parse.edge.targetMissing': 'target {id} does not refer to an existing node.',
   'parse.edge.selfLoop': 'source and target are identical.',
+  'parse.catalog.missing': 'The catalog is missing.',
+  'parse.catalog.notObject': 'The catalog must be an object with elementTypes and edgeTypes.',
+  'parse.catalog.notList': '{side} in the catalog must be a list.',
+  'parse.catalog.malformed': '{where}: malformed (expected id, name, fields with key and kind).',
+  'parse.catalog.idTaken': '{where}: the id {id} occurs more than once in the catalog.',
+  'parse.catalog.problem': '{where}: {reason}',
   'parse.edge.note':
     'source or target refers to a note; notes have no connections.',
   'parse.edge.duplicate': 'There is already an edge from {source} to {target} (edge {index}).',

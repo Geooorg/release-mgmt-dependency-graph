@@ -395,6 +395,12 @@ export const de = {
   'parse.edge.sourceMissing': 'source {id} verweist auf keinen vorhandenen Knoten.',
   'parse.edge.targetMissing': 'target {id} verweist auf keinen vorhandenen Knoten.',
   'parse.edge.selfLoop': 'source und target sind identisch.',
+  'parse.catalog.missing': 'Der Katalog (catalog) fehlt.',
+  'parse.catalog.notObject': 'Der Katalog muss ein Objekt mit elementTypes und edgeTypes sein.',
+  'parse.catalog.notList': '{side} im Katalog muss eine Liste sein.',
+  'parse.catalog.malformed': '{where}: falsch aufgebaut (erwartet: id, name, fields mit key und kind).',
+  'parse.catalog.idTaken': '{where}: Die ID {id} kommt mehrfach im Katalog vor.',
+  'parse.catalog.problem': '{where}: {reason}',
   'parse.edge.note':
     'source oder target verweist auf eine Notiz; Notizen haben keine Verbindungen.',
   'parse.edge.duplicate': 'Es gibt bereits eine Kante von {source} nach {target} (Kante {index}).',

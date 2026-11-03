@@ -34,8 +34,8 @@ export function loadStoredContent(
     if (raw === null) return { status: 'empty' }
     const result = parseModelJson(raw, t)
     if (result.ok) {
-      const { nodes, edges, projectName } = result.model
-      return { status: 'loaded', content: { nodes, edges, projectName } }
+      const { nodes, edges, projectName, catalog } = result.model
+      return { status: 'loaded', content: { nodes, edges, projectName, catalog } }
     }
     storage.setItem(CORRUPT_KEY, raw)
     storage.removeItem(STORAGE_KEY)

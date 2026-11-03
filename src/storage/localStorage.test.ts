@@ -30,6 +30,14 @@ describe('localStorage persistence', () => {
     expect(loaded.status === 'loaded' && loaded.content.projectName).toBe('Mein-Projekt')
   })
 
+  it('loads the catalog of the stored project', () => {
+    const storage = memoryStorage()
+    const catalog = { elementTypes: [{ id: 't1', name: 'Service', fields: [] }], edgeTypes: [] }
+    expect(saveContent({ nodes: [], edges: [], catalog }, storage)).toBe(true)
+    const loaded = loadStoredContent(storage)
+    expect(loaded.status === 'loaded' && loaded.content.catalog).toEqual(catalog)
+  })
+
   it('leaves the project name unset when none was stored', () => {
     const storage = memoryStorage()
     saveContent(sample, storage)

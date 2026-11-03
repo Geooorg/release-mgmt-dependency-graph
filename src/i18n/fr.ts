@@ -395,6 +395,12 @@ export const fr: Catalog = {
   'parse.edge.sourceMissing': 'source {id} ne renvoie à aucun nœud existant.',
   'parse.edge.targetMissing': 'target {id} ne renvoie à aucun nœud existant.',
   'parse.edge.selfLoop': 'source et target sont identiques.',
+  'parse.catalog.missing': 'Le catalogue (catalog) est manquant.',
+  'parse.catalog.notObject': 'Le catalogue doit être un objet avec elementTypes et edgeTypes.',
+  'parse.catalog.notList': '{side} dans le catalogue doit être une liste.',
+  'parse.catalog.malformed': '{where} : mal formé (attendu : id, name, fields avec key et kind).',
+  'parse.catalog.idTaken': '{where} : l’identifiant {id} apparaît plusieurs fois dans le catalogue.',
+  'parse.catalog.problem': '{where} : {reason}',
   'parse.edge.note':
     'source ou target désigne une note ; les notes n’ont pas de connexions.',
   'parse.edge.duplicate': 'Il existe déjà une arête de {source} vers {target} (arête {index}).',

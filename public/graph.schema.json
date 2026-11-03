@@ -2,14 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://georgstach.de/release-management/graph.schema.json",
   "title": "Release-Management: Abhängigkeitsgraph",
-  "description": "Austauschformat der App (JSON-Export, localStorage-Schlüssel release-management.graph.v1). Beschreibt die Struktur. Nicht ausdrückbar und erst beim Import der App geprüft: eindeutige ids, existierende parentId (nur Gruppen, keine Zyklen), source/target verweisen auf vorhandene Objekte oder Gruppen (nicht auf Notizen), keine Selbstschleife und kein doppeltes (source, target)-Paar, keine doppelten Metadaten-Schlüssel. Die App trimmt Schlüssel und Werte beim Import und stellt den Eintrag name an die erste Stelle. Pfeil A -> B: A kommt vor B (B hängt von A ab, A wird zuerst released). Kinder müssen im Array nach ihrer Gruppe stehen (die App sortiert beim Import selbst). Dateien der Version 3 (Objekte ohne class, entity und version: die App ergänzt class = java.lang.Object, entity und version = leer), der Version 2 (zusätzlich ohne Notizen) und der Version 1 (Verbindungen mit label statt metadata) importiert die App weiterhin und wandelt label in den Namen um; dieses Schema beschreibt nur die aktuelle Version.",
+  "description": "Austauschformat der App (JSON-Export, localStorage-Schlüssel release-management.graph.v1). Beschreibt die Struktur. Nicht ausdrückbar und erst beim Import der App geprüft: eindeutige ids, existierende parentId (nur Gruppen, keine Zyklen), source/target verweisen auf vorhandene Objekte oder Gruppen (nicht auf Notizen), keine Selbstschleife und kein doppeltes (source, target)-Paar, keine doppelten Metadaten-Schlüssel. Die App trimmt Schlüssel und Werte beim Import und stellt den Eintrag name an die erste Stelle. Pfeil A -> B: A kommt vor B (B hängt von A ab, A wird zuerst released). Kinder müssen im Array nach ihrer Gruppe stehen (die App sortiert beim Import selbst). Dateien der Version 4 (ohne catalog) importiert die App weiterhin mit leerem Katalog. Ein Element verweist über den Metadateneintrag type (Typ-ID) auf einen Typ des Katalogs; ein unbekannter Verweis ist erlaubt. Nicht ausdrückbar: eindeutige Typ-IDs und -Namen, reservierte oder doppelte Feldschlüssel, Auswahl-Standard unter den Optionen. Dateien der Version 3 (Objekte ohne class, entity und version: die App ergänzt class = java.lang.Object, entity und version = leer), der Version 2 (zusätzlich ohne Notizen) und der Version 1 (Verbindungen mit label statt metadata) importiert die App weiterhin und wandelt label in den Namen um; dieses Schema beschreibt nur die aktuelle Version.",
   "type": "object",
-  "required": ["version", "nodes", "edges"],
+  "required": ["version", "catalog", "nodes", "edges"],
   "additionalProperties": false,
   "properties": {
     "version": {
       "description": "Schema-Version dieses Formats.",
-      "const": 4
+      "const": 5
     },
     "projectName": {
       "description": "Projektname; kommt im Namen der Export-Datei vor, daher nur A-Z a-z 0-9 - _ . erlaubt. Fehlt er, gilt „Release-Management“.",
@@ -17,6 +17,16 @@
       "minLength": 1,
       "maxLength": 100,
       "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "catalog": {
+      "description": "Typ-Katalog des Projekts: Elementtypen (für Objekte und Gruppen) und Verbindungstypen.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["elementTypes", "edgeTypes"],
+      "properties": {
+        "elementTypes": { "type": "array", "items": { "$ref": "#/$defs/typeDef" } },
+        "edgeTypes": { "type": "array", "items": { "$ref": "#/$defs/typeDef" } }
+      }
     },
     "nodes": {
       "description": "Objekte, Gruppen und Notizen.",
@@ -30,6 +40,30 @@
     }
   },
   "$defs": {
+    "typeDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "fields"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "icon": { "enum": ["service", "database", "queue", "user", "cloud", "external", "process", "storage"] },
+        "fields": { "type": "array", "items": { "$ref": "#/$defs/fieldDef" } }
+      }
+    },
+    "fieldDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "kind"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["text", "select", "boolean"] },
+        "options": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "required": { "type": "boolean" },
+        "default": { "type": "string" }
+      }
+    },
     "metadataEntry": {
       "description": "Ein Metadatenfeld. Bekannte Schlüssel: name (immer an erster Stelle), color (#rrggbb), status (offen | in Arbeit | blockiert | fertig), blockiert_grund (nur bei blockiert), class (nur Objekte; Java-Typ, Standard java.lang.Object, ohne Funktion), entity (nur Objekte; vorgesehen für später, Standard leer), version (nur Objekte; vorgesehen für später, Standard leer). Weitere Schlüssel sind frei. Jedes Objekt (kind node) trägt class, entity und version; fehlen sie, ergänzt die App sie beim Import.",
       "type": "object",

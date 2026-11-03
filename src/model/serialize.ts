@@ -1,18 +1,23 @@
 import { createTranslate, type Translate } from '../i18n/translate'
 import { sortParentsFirst } from './graph'
+import { parseCatalog } from './catalogParse'
 import { findDuplicateKeys, normalizeMetadata, tidyEdgeMetadata } from './metadata'
 import { withObjectFields } from './objectFields'
 import { DEFAULT_PROJECT_NAME, isValidProjectName } from './projectName'
 import {
+  EMPTY_CATALOG,
   HANDLE_SIDES,
   LEGACY_SCHEMA_VERSION,
   NAME_KEY,
   PREVIOUS_SCHEMA_VERSION,
   SCHEMA_VERSION,
+  VERSION_BEFORE_CATALOG,
   VERSION_BEFORE_OBJECT_FIELDS,
 } from './types'
 import type {
+  Catalog,
   ElementKind,
+  FieldDef,
   GraphContent,
   GraphModel,
   HandleSide,
@@ -21,6 +26,7 @@ import type {
   ModelNode,
   Point,
   Size,
+  TypeDef,
 } from './types'
 
 export type ParseResult = { ok: true; model: GraphModel } | { ok: false; errors: string[] }
@@ -40,16 +46,18 @@ export function toModel(content: GraphContent): GraphModel {
   return {
     version: SCHEMA_VERSION,
     ...(content.projectName !== undefined && { projectName: content.projectName }),
+    catalog: content.catalog ?? EMPTY_CATALOG,
     nodes: sortParentsFirst(content.nodes),
     edges: content.edges,
   }
 }
 
-/** Pretty-printed JSON (2 spaces, trailing newline) with stable key order: version, nodes, edges. */
+/** Pretty-printed JSON (2 spaces, trailing newline) with stable key order: version, projectName, catalog, nodes, edges. */
 export function serializeModel(model: GraphModel): string {
   const canonical = {
     version: model.version,
     ...(model.projectName !== undefined && { projectName: model.projectName }),
+    catalog: canonicalCatalog(model.catalog),
     nodes: model.nodes.map(canonicalNode),
     edges: model.edges.map(canonicalEdge),
   }
@@ -65,6 +73,31 @@ function canonicalEdge(edge: ModelEdge): ModelEdge {
     ...(edge.sourceHandle && { sourceHandle: edge.sourceHandle }),
     ...(edge.targetHandle && { targetHandle: edge.targetHandle }),
     ...(edge.metadata && { metadata: edge.metadata.map((entry) => ({ key: entry.key, value: entry.value })) }),
+  }
+}
+
+function canonicalCatalog(catalog: Catalog): Catalog {
+  return { elementTypes: catalog.elementTypes.map(canonicalType), edgeTypes: catalog.edgeTypes.map(canonicalType) }
+}
+
+/** Fixed key order inside a type and its fields; optional parts only when set. */
+function canonicalType(type: TypeDef): TypeDef {
+  return {
+    id: type.id,
+    name: type.name,
+    ...(type.color !== undefined && { color: type.color }),
+    ...(type.icon !== undefined && { icon: type.icon }),
+    fields: type.fields.map(canonicalField),
+  }
+}
+
+function canonicalField(field: FieldDef): FieldDef {
+  return {
+    key: field.key,
+    kind: field.kind,
+    ...(field.options !== undefined && { options: [...field.options] }),
+    ...(field.required && { required: true }),
+    ...(field.default !== undefined && { default: field.default }),
   }
 }
 
@@ -118,9 +151,11 @@ export function parseModelJson(text: string, t: Translate = createTranslate('de'
  * Collects ALL problems as human-readable messages in the language of `t` (German by default, max 20)
  * instead of stopping at the first.
  * Rules:
- *  - top-level object with `version === 4`, or an older one: `3` (objects without `class`/`entity`),
+ *  - top-level object with `version === 5`, or an older one: `4` (without a catalog), `3` (objects without `class`/`entity`),
  *    `2` (the same without notes) or `1` whose edge `label` becomes the `name` metadata entry (else error
  *    mentioning the unsupported/missing version)
+ *  - `catalog` (`elementTypes`/`edgeTypes`, checked with `checkTypeDef`) is required in version 5 and
+ *    empty for older versions; an element may refer to an unknown type
  *  - `nodes` and `edges` arrays
  *  - node: non-empty string `id` (unique), `kind` 'node'|'group'|'note', `position` with finite x/y,
  *    `size` (optional for nodes, required for groups) with finite width/height > 0,
@@ -155,6 +190,8 @@ export function parseModel(input: unknown, t: Translate = createTranslate('de'))
     }
   }
 
+  const catalog = parseCatalog(input.catalog, input.version === SCHEMA_VERSION, report, t)
+
   let nodes: ModelNode[] = []
   let nodeIds = new Set<string>()
   let noteIds = new Set<string>()
@@ -180,6 +217,7 @@ export function parseModel(input: unknown, t: Translate = createTranslate('de'))
     model: {
       version: SCHEMA_VERSION,
       ...(projectName !== undefined && { projectName }),
+      catalog,
       nodes: sortParentsFirst(nodes),
       edges,
     },
@@ -187,7 +225,7 @@ export function parseModel(input: unknown, t: Translate = createTranslate('de'))
 }
 
 function checkVersion(version: unknown, report: Report, t: Translate): void {
-  const readable = [SCHEMA_VERSION, VERSION_BEFORE_OBJECT_FIELDS, PREVIOUS_SCHEMA_VERSION, LEGACY_SCHEMA_VERSION]
+  const readable = [SCHEMA_VERSION, VERSION_BEFORE_CATALOG, VERSION_BEFORE_OBJECT_FIELDS, PREVIOUS_SCHEMA_VERSION, LEGACY_SCHEMA_VERSION]
   if (readable.includes(version as number)) return
   if (version === undefined) {
     report(t('parse.version.missing', { expected: SCHEMA_VERSION }))
