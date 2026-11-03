@@ -6,7 +6,9 @@ import { describe, expect, it } from 'vitest'
  */
 const PENDING: readonly string[] = []
 
-const CATALOGS = new Set(['i18n/de.ts', 'i18n/en.ts', 'i18n/fr.ts'])
+// Template data (field keys and option values are German data, not UI text, like the status values).
+const DATA_FILES = new Set(['model/catalogTemplates.ts'])
+const CATALOGS = new Set(['i18n/de.ts', 'i18n/en.ts', 'i18n/fr.ts', ...DATA_FILES])
 const GERMAN =
   /[äöüÄÖÜß]|\b(Auswählen|Verbinden|Verbindung|Zwischenablage|Schließen|Abbrechen|Hilfe|Datei|Fehler|Meldung|Wartet|wartet|Kopieren|Einfügen|Speichern|Löschen|Gruppe|Objekt|Abhängigkeit)\b/
 

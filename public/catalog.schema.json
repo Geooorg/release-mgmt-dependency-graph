@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Typkatalog der Release-Management-App",
+  "description": "Eigenständige Katalogdatei (Export/Import im Typen-Dialog). Der Inhalt von catalog entspricht dem Feld catalog im Projektformat (graph.schema.json). Nicht ausdrückbar und erst beim Import geprüft: eindeutige Typ-IDs und -Namen, reservierte oder doppelte Feldschlüssel, Auswahl-Standard unter den Optionen.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "catalogVersion",
+    "catalog"
+  ],
+  "properties": {
+    "catalogVersion": {
+      "const": 1
+    },
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "elementTypes",
+        "edgeTypes"
+      ],
+      "properties": {
+        "elementTypes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/typeDef"
+          }
+        },
+        "edgeTypes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/typeDef"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "typeDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "fields"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "icon": {
+          "enum": [
+            "service",
+            "database",
+            "queue",
+            "user",
+            "cloud",
+            "external",
+            "process",
+            "storage"
+          ]
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fieldDef"
+          }
+        }
+      }
+    },
+    "fieldDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "kind"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "text",
+            "select",
+            "boolean"
+          ]
+        },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "default": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

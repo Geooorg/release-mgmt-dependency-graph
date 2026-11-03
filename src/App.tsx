@@ -6,6 +6,7 @@ import { ConfirmDialog } from './components/ConfirmDialog'
 import { HelpDialog } from './components/HelpDialog'
 import { ImportDialog } from './components/ImportDialog'
 import { ExportDialog } from './components/ExportDialog'
+import type { MessageKey } from './i18n/messages'
 import { TypeCatalogDialog } from './components/TypeCatalogDialog'
 import { JsonImportDialog } from './components/JsonImportDialog'
 import { FilterBar } from './components/FilterBar'
@@ -29,9 +30,17 @@ import type {
 import { Canvas } from './flow/Canvas'
 import { buildSvg } from './flow/svgExport'
 import { useLocale, useT } from './i18n/react'
-import { checkTypeDef, countUsage, TYPE_PROBLEM_KEYS, tidyType } from './model/catalog'
+import { checkTypeDef, countUsage, mergeCatalog, TYPE_PROBLEM_KEYS, tidyType, withFreshIds } from './model/catalog'
+import {
+  catalogFileName,
+  parseCatalogText,
+  serializeCatalog,
+  TEMPLATE_IDS,
+  templateCatalog,
+  type TemplateId,
+} from './model/catalogTemplates'
 import { findCycles } from './model/cycles'
-import { canGroup, canReverseEdge } from './model/graph'
+import { canGroup, canReverseEdge, defaultIdGenerator } from './model/graph'
 import { contentFingerprint } from './model/fingerprint'
 import { displayName, getColor, getEdgeName } from './model/metadata'
 import { getClass, getEntity, getVersion } from './model/objectFields'
@@ -52,7 +61,7 @@ import {
   type SelectionAnalysis,
 } from './model/releaseAnalysis'
 import { exportFileName, parseModelJson, serializeModel, toModel } from './model/serialize'
-import type { GraphContent, MetadataEntry } from './model/types'
+import type { Catalog, GraphContent, MetadataEntry } from './model/types'
 import { copyText } from './storage/clipboard'
 import { downloadTextFile, pickTextFile } from './storage/fileIO'
 import { graphStore, useGraph } from './store/appStore'
@@ -60,6 +69,10 @@ import { setLocale } from './store/localeStore'
 import './App.css'
 
 const NOTICE_AUTO_DISMISS_MS = 5000
+const TEMPLATE_LABEL_KEYS: Record<TemplateId, MessageKey> = {
+  'it-services': 'types.template.it-services',
+  dataflow: 'types.template.dataflow',
+}
 
 // Module-level so the identities are stable: the sidebar form reports through them in effects.
 const reportSidebarInvalid = (invalid: boolean) => graphStore.getState().setSidebarInvalid(invalid)
@@ -142,8 +155,8 @@ function AppShell() {
   const lastSearch = useRef<{ query: string; id: string | null }>({ query: '', id: null })
   const [exportOpen, setExportOpen] = useState(false)
   const [typesOpen, setTypesOpen] = useState(false)
-  // Set by the catalog import (wired up with the templates); nothing sets it yet.
-  const [catalogImportError] = useState<string | null>(null)
+  // Errors of the last catalog file import, shown in the types dialog.
+  const [catalogImportError, setCatalogImportError] = useState<string | null>(null)
   const [jsonImport, setJsonImport] = useState<{ unsaved: boolean; errors: string[] } | null>(null)
 
   const projectName = useGraph((s) => s.projectName)
@@ -516,6 +529,26 @@ function AppShell() {
     graphStore.getState().importText(text)
   }
 
+  const applyCatalogFrom = (incoming: Catalog, mode: 'merge' | 'replace') => {
+    const store = graphStore.getState()
+    store.applyCatalog(
+      mode === 'merge'
+        ? mergeCatalog(store.catalog, incoming, defaultIdGenerator)
+        : withFreshIds(incoming, defaultIdGenerator),
+    )
+  }
+
+  const importCatalogFile = () => {
+    // pickTextFile has to start synchronously in the click handler (browser rule)
+    void pickTextFile().then((text) => {
+      if (text === null) return
+      const result = parseCatalogText(text, t)
+      if (!result.ok) return setCatalogImportError(result.errors.join('\n'))
+      setCatalogImportError(null)
+      applyCatalogFrom(result.catalog, 'replace')
+    })
+  }
+
   const exportAndImport = () => {
     exportModel()
     void pickAndImport()
@@ -690,12 +723,15 @@ function AppShell() {
         problemsOf={(side, type) =>
           checkTypeDef(tidyType(type), catalog[side]).map((problem) => t(TYPE_PROBLEM_KEYS[problem]))
         }
-        templates={[]}
-        onTemplate={() => {}}
-        onImportCatalog={() => {}}
-        onExportCatalog={() => {}}
+        templates={TEMPLATE_IDS.map((id) => ({ id, label: t(TEMPLATE_LABEL_KEYS[id]) }))}
+        onTemplate={(id, mode) => applyCatalogFrom(templateCatalog(id as TemplateId), mode)}
+        onImportCatalog={importCatalogFile}
+        onExportCatalog={() => downloadTextFile(catalogFileName(), serializeCatalog(catalog))}
         importError={catalogImportError}
-        onClose={() => setTypesOpen(false)}
+        onClose={() => {
+          setTypesOpen(false)
+          setCatalogImportError(null)
+        }}
       />
       <JsonImportDialog
         open={jsonImport !== null}
