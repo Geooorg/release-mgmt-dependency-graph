@@ -42,6 +42,7 @@ import {
 import { findCycles } from './model/cycles'
 import { canGroup, canReverseEdge, defaultIdGenerator } from './model/graph'
 import { contentFingerprint } from './model/fingerprint'
+import { analysisContent } from './model/edgeRoles'
 import { displayName, getColor, getEdgeName } from './model/metadata'
 import { getClass, getEntity, getVersion } from './model/objectFields'
 import { getTypeId } from './model/typing'
@@ -208,8 +209,16 @@ function AppShell() {
         : { elementTypes: [], edgeTypes: [] },
     [typesOpen, catalog, nodes, edges],
   )
-  const cycles = useMemo(() => findCycles({ nodes, edges }), [nodes, edges])
-  const analysis = useMemo(() => analyzeProject({ nodes, edges }), [nodes, edges])
+  // The analyses read different connections: the status analysis only follows `sequence` connections, the
+  // highlights also follow `dependency` connections (turned around). The catalog has to be part of the content,
+  // otherwise typed connections would lose their meaning.
+  const statusContent = useMemo(() => analysisContent({ nodes, edges, catalog }, 'status'), [nodes, edges, catalog])
+  const highlightContent = useMemo(
+    () => analysisContent({ nodes, edges, catalog }, 'highlight'),
+    [nodes, edges, catalog],
+  )
+  const cycles = useMemo(() => findCycles(statusContent), [statusContent])
+  const analysis = useMemo(() => analyzeProject(statusContent), [statusContent])
   const analyzing = mode === 'analyze'
   const panelVisible = analyzing && panelShown
   const drawCritical = analyzing && highlight === 'critical'
@@ -217,8 +226,8 @@ function AppShell() {
   const selectedEdgeIds = useGraph((s) => s.selectedEdgeIds)
   // The selection analysis feeds the panel and the critical path highlight; skip it when neither is shown.
   const selection = useMemo(
-    () => (panelVisible || drawCritical ? analyzeSelection({ nodes, edges }, selectedNodeIds) : null),
-    [panelVisible, drawCritical, nodes, edges, selectedNodeIds],
+    () => (panelVisible || drawCritical ? analyzeSelection(statusContent, selectedNodeIds) : null),
+    [panelVisible, drawCritical, statusContent, selectedNodeIds],
   )
   const critical = useMemo(
     () =>
@@ -236,15 +245,15 @@ function AppShell() {
   const dependencies = useMemo(
     () =>
       dependencyDirection
-        ? { direction: dependencyDirection, ...findDependencies({ nodes, edges }, selectedNodeIds, dependencyDirection) }
+        ? { direction: dependencyDirection, ...findDependencies(highlightContent, selectedNodeIds, dependencyDirection) }
         : null,
-    [dependencyDirection, nodes, edges, selectedNodeIds],
+    [dependencyDirection, highlightContent, selectedNodeIds],
   )
   // One highlight at a time: the critical path, a dependency direction, or none.
   const highlighted = critical ?? dependencies
   const panelProps = useMemo(
-    () => (panelVisible && selection ? toPanelProps({ nodes, edges }, analysis, selection, dependencies) : null),
-    [panelVisible, selection, nodes, edges, analysis, dependencies],
+    () => (panelVisible && selection ? toPanelProps(statusContent, analysis, selection, dependencies) : null),
+    [panelVisible, selection, statusContent, analysis, dependencies],
   )
   const nextCycle = useRef(0)
   // The sidebar follows the selection: one element is edited, several only get a hint.

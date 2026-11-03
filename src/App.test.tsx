@@ -1400,6 +1400,39 @@ describe('App: analysis mode layout', () => {
     expect(within(panel()!).queryByRole('heading', { name: /Transitive Hülle/ })).toBeNull()
   })
 
+  describe('connection roles in the analyses', () => {
+    const box = (id: string) => ({ id, kind: 'node' as const, position: { x: 0, y: 0 }, metadata: [{ key: 'name', value: id }] })
+    const mutual = (metadata: { key: string; value: string }[]) => [
+      { id: 'e1', source: 'a', target: 'b', metadata },
+      { id: 'e2', source: 'b', target: 'a', metadata },
+    ]
+    const cycleButton = () => screen.queryByRole('button', { name: /Zyklus|Zyklen/ })
+
+    it('does not report a dependency cycle for mutual calls whose type is only a dependency', async () => {
+      const catalog = {
+        elementTypes: [],
+        edgeTypes: [{ id: 'call', name: 'Aufruf', roles: ['dependency' as const, 'flow' as const], fields: [] }],
+      }
+      act(() =>
+        graphStore.getState().replaceContent({
+          nodes: [box('a'), box('b')],
+          edges: mutual([{ key: 'type', value: 'call' }]),
+          catalog,
+        }),
+      )
+      render(<App />)
+      await switchTo('Analysieren')
+      expect(cycleButton()).toBeNull()
+    })
+
+    it('still reports the cycle when the same mutual connections are untyped', async () => {
+      act(() => graphStore.getState().replaceContent({ nodes: [box('a'), box('b')], edges: mutual([]) }))
+      render(<App />)
+      await switchTo('Analysieren')
+      expect(cycleButton()).not.toBeNull()
+    })
+  })
+
   describe('finished is final', () => {
     it('shows no mark on or above a finished object and says so for a finished selection', async () => {
       render(<App />)
