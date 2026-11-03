@@ -55,6 +55,21 @@ describe('withTypeEntry', () => {
 })
 
 describe('withTypeDefaults / withFieldValue', () => {
+  it('restores catalog order when an existing field is later in the catalog than a missing one', () => {
+    const result = withTypeDefaults([e('name', 'A'), e('env', 'prod'), e('frei', '1')], service)
+    expect(result).toEqual([e('name', 'A'), e('owner', ''), e('env', 'prod'), e('frei', '1')])
+  })
+
+  it('leaves the content unchanged when nothing is missing and the order is right', () => {
+    const entries = [e('name', 'A'), e('owner', 'Anna'), e('env', 'prod'), e('frei', '1')]
+    expect(withTypeDefaults(entries, service)).toEqual(entries)
+  })
+
+  it('pulls a field that sits behind a free entry into the field block, keeping its value', () => {
+    const result = withTypeDefaults([e('name', 'A'), e('frei', '1'), e('owner', 'Anna')], service)
+    expect(result).toEqual([e('name', 'A'), e('owner', 'Anna'), e('env', 'test'), e('frei', '1')])
+  })
+
   it('adds missing fields with their default behind the version, keeps existing values', () => {
     const entries = withTypeDefaults([...withTypeEntry(objectEntries, 't1').slice(0, 6), e('owner', 'Anna')], service)
     expect(entries.map((x) => x.key)).toEqual(['name', 'status', 'type', 'class', 'entity', 'version', 'owner', 'env'])

@@ -64,16 +64,19 @@ export function withTypeEntry(entries: readonly MetadataEntry[], typeId: string 
   return [...entries.slice(0, at), { key: TYPE_KEY, value: typeId }, ...entries.slice(at)]
 }
 
-/** The entries plus every field of `def` that is missing, with its default (empty without one). Existing values stay. */
+/**
+ * The fixed leading entries, then every field of `def` in catalog order (existing value kept, else the default,
+ * empty without one), then the remaining entries in their order. Values are never changed or dropped.
+ */
 export function withTypeDefaults(entries: readonly MetadataEntry[], def: TypeDef): MetadataEntry[] {
-  const missing = def.fields
-    .filter((field) => !entries.some((entry) => entry.key === field.key))
-    .map((field) => ({ key: field.key, value: field.default ?? '' }))
-  if (missing.length === 0) return [...entries]
-  // Behind the type's own fields that already follow the fixed entries, so the field order stays stable.
-  let at = leadingEnd(entries)
-  while (at < entries.length && def.fields.some((field) => field.key === entries[at].key)) at += 1
-  return [...entries.slice(0, at), ...missing, ...entries.slice(at)]
+  const run = leadingEnd(entries)
+  const fieldKeys = new Set(def.fields.map((field) => field.key))
+  const fields = def.fields.map((field) => ({
+    key: field.key,
+    value: entries.find((entry) => entry.key === field.key)?.value ?? field.default ?? '',
+  }))
+  const rest = entries.slice(run).filter((entry) => !fieldKeys.has(entry.key))
+  return [...entries.slice(0, run), ...fields, ...rest]
 }
 
 /** The entries with the field `key` set (in place, or behind the fixed entries). Not normalized. */
