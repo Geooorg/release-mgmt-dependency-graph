@@ -1760,6 +1760,45 @@ describe('type catalog', () => {
     expect(store.getState().nodes[0].metadata).toContainEqual({ key: 'type', value: id })
   })
 
+  it('keeps edge typing and the catalog actions consistent in analysis mode', () => {
+    const store = createGraphStore(content([box('a', 0, 0), box('b', 300, 0)], [edge('e', 'a', 'b')]), counterIds())
+    const typeId = store.getState().addType('edgeTypes', 'Calls')!
+    const elementId = store.getState().addType('elementTypes', 'Service')!
+    store.getState().setMode('analyze')
+    store.getState().setEdgeType('e', typeId)
+    expect(store.getState().edges[0].metadata).toContainEqual({ key: 'type', value: typeId })
+    store.getState().setEdgeField('e', 'owner', 'team')
+    expect(store.getState().edges[0].metadata).toContainEqual({ key: 'owner', value: 'team' })
+
+    const { catalog, history } = store.getState()
+    store.getState().updateType('elementTypes', { id: elementId, name: 'Renamed', fields: [] })
+    store.getState().applyCatalog({ elementTypes: [], edgeTypes: [] })
+    expect(store.getState().catalog).toBe(catalog)
+    expect(store.getState().history.past).toHaveLength(history.past.length)
+  })
+
+  it('keeps a catalog change inside a gesture as one undo step', () => {
+    const store = start()
+    store.getState().beginGesture()
+    store.getState().addType('elementTypes', 'Service')
+    store.getState().endGesture()
+    expect(store.getState().history.past).toHaveLength(1)
+    store.getState().undo()
+    expect(store.getState().catalog.elementTypes).toHaveLength(0)
+  })
+
+  it('types the selection as exactly one undo step', () => {
+    const store = start()
+    const id = store.getState().addType('elementTypes', 'Service')!
+    const before = store.getState().nodes[0].metadata
+    const steps = store.getState().history.past.length
+    store.getState().applyNodeSelection([{ id: 'a', selected: true }])
+    store.getState().setSelectionType(id)
+    expect(store.getState().history.past).toHaveLength(steps + 1)
+    store.getState().undo()
+    expect(store.getState().nodes[0].metadata).toEqual(before)
+  })
+
   it('replaces the catalog as one undo step and keeps the elements', () => {
     const store = start()
     store.getState().applyCatalog({ elementTypes: [{ id: 'x', name: 'DB', fields: [] }], edgeTypes: [] })

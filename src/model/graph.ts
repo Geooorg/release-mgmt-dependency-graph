@@ -706,18 +706,7 @@ export function renameEdge(content: GraphContent, id: string, name: string): Gra
  * Unknown edge or no actual change -> the same `content` reference.
  */
 export function setEdgeSoft(content: GraphContent, id: string, soft: boolean): GraphContent {
-  const edge = content.edges.find((e) => e.id === id)
-  if (edge === undefined) return content
-  const metadata = tidyEdgeMetadata(withSoftEntry(edge.metadata ?? [], soft))
-  const same =
-    metadata === undefined
-      ? edge.metadata === undefined
-      : metadata.length === edge.metadata?.length &&
-        metadata.every((entry, i) => entry.key === edge.metadata?.[i].key && entry.value === edge.metadata[i].value)
-  if (same) return content
-  const { metadata: _old, ...rest } = edge
-  const updated: ModelEdge = metadata === undefined ? rest : { ...rest, metadata }
-  return { ...content, edges: content.edges.map((e) => (e.id === id ? updated : e)) }
+  return withEdgeMetadata(content, id, (entries) => withSoftEntry(entries, soft))
 }
 
 /**

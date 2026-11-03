@@ -4,7 +4,13 @@ import { createTranslate } from '../i18n/translate'
 import { contentFingerprint } from '../model/fingerprint'
 import { copyElements, pasteElements, type ElementClipboard } from '../model/clipboard'
 import * as graph from '../model/graph'
-import { addType as addCatalogType, removeType as removeCatalogType, replaceType, uniqueName, type CatalogSide } from '../model/catalog'
+import {
+  addType as addCatalogType,
+  removeType as removeCatalogType,
+  replaceType,
+  uniqueName,
+  type CatalogSide,
+} from '../model/catalog'
 import { growGroupsToFit } from '../model/groupGrowth'
 import {
   discardLastRecord,
@@ -272,7 +278,9 @@ export function createGraphStore(
     const apply = (next: GraphContent, extra: Partial<GraphState> = {}) => {
       const current = content()
       const renamed = next.projectName !== undefined && next.projectName !== current.projectName
-      const changed = renamed || next.nodes !== current.nodes ||
+      const changed =
+        renamed ||
+        next.nodes !== current.nodes ||
         next.edges !== current.edges ||
         next.catalog !== current.catalog
       const history =
@@ -745,10 +753,12 @@ export function createGraphStore(
 
 /** Same model, ignoring object identity (a "move" onto the same spot is no change). */
 function sameContent(a: GraphContent, b: GraphContent): boolean {
-  if (a.edges !== b.edges ||
+  if (
+    a.edges !== b.edges ||
     a.projectName !== b.projectName ||
     a.catalog !== b.catalog ||
-    a.nodes.length !== b.nodes.length) {
+    a.nodes.length !== b.nodes.length
+  ) {
     return false
   }
   return a.nodes.every((n, i) => {
