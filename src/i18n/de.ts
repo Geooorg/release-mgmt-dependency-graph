@@ -31,6 +31,9 @@ export const de = {
   'help.filter.title': 'Filter',
   'help.filter.body':
     'Der Trichter in der Toolbar (vor der Lupe, in beiden Modi) öffnet die Filterleiste: Schlüssel und Wert eines Metadateneintrags eingeben.\n- Gefunden werden Objekte und Gruppen, bei denen es einen Eintrag mit genau diesem Schlüssel und genau diesem Wert gibt – vollständig, ohne Beachtung der Groß-/Kleinschreibung (kein Teilstring). Notizen und Verbindungen werden nicht durchsucht.\n- Die Treffer stehen live in der Seitenleiste (im Analysemodus wird sie dafür eingeblendet). Ein Klick auf einen Treffer wählt ihn aus und zeigt ihn im Graph.\n- Esc oder × schließt den Filter; danach zeigt die Seitenleiste wieder das Formular der Auswahl. Suche und Filter schließen sich gegenseitig.\n- Mehrere Elemente auswählen: Werkzeug „Rahmen“ (R), dann auf der freien Fläche einen Rahmen aufziehen.',
+  'help.types.title': 'Typen',
+  'help.types.body':
+    'Mit dem Button „Typen verwalten“ legst du pro Projekt fest, welche Typen es für Objekte und Verbindungen gibt: Name, Farbe, Symbol und eigene Felder (Text, Auswahl, Ja/Nein, optional als Pflichtfeld).\n- In der Sidebar wählst du den Typ eines Objekts oder einer Verbindung; seine Felder erscheinen darunter. Bei mehreren markierten Objekten setzt das Typfeld den Typ für alle.\n- Die Typfarbe färbt das Element, eine eigene Farbe hat Vorrang. Fehlende Pflichtfelder werden nur markiert, nie erzwungen.\n- Wird ein Typ gelöscht, behalten Elemente den Eintrag und zeigen ihn mit „?“ an.\n- Der Katalog gehört zum Projekt (Export, Import, Rückgängig). Vorlagen („IT-Services“, „Datenfluss-Diagramm“) kopieren Typen in den Katalog; der Katalog lässt sich auch als eigene Datei ex- und importieren.\n- Im Analysemodus ist der Katalog nur lesbar; der Typ von Objekten bleibt änderbar.',
   'help.clipboard.title': 'Kopieren, Einfügen, Rückgängig',
   'help.clipboard.body':
     '- Strg/Cmd + C kopiert die markierten Objekte und Gruppen samt dem Inhalt der Gruppen, aber ohne Verbindungen. Strg/Cmd + V fügt sie als neue Elemente mit neuen IDs ein. Beides geht nur im Editiermodus; im Analysemodus ist Einfügen gesperrt.\n- Strg/Cmd + Z macht die letzte Änderung rückgängig, Strg/Cmd + Umschalt + Z oder Strg/Cmd + Y stellt sie wieder her. Diese Kürzel gelten in beiden Modi.\n- Die Schaltflächen für diese Aktionen stehen nur im Editiermodus zur Verfügung.',
@@ -438,6 +441,16 @@ export const de = {
   'agent.schema.title': 'JSON-Schema',
   'agent.schema.body':
     'Das Format ist als JSON Schema (Draft 2020-12) beschrieben: <l>graph.schema.json</l>. Damit lässt sich ein gebautes JSON vorab prüfen (Struktur, Typen, Pflichtfelder, Größe der Gruppen, Connector-Seiten). Nicht im Schema prüfbar und erst beim Import der App kontrolliert: eindeutige ids, existierende <c>parentId</c> (nur Gruppen, keine Zyklen), Kanten zu vorhandenen Elementen ohne Selbstschleife oder Duplikat, keine doppelten Metadaten-Schlüssel. Unbekannte Eigenschaften lehnt das Schema ab (die App ignoriert sie).',
+  'agent.types.title':
+    'Typen (Katalog)',
+  'agent.types.catalog':
+    'Seit <c>version: 5</c> hat das Projekt das Feld <c>catalog</c> (<c>{skeleton}</c>). Ein Typ: <c>{typeShape}</c>; <c>kind</c> ist <c>text</c>, <c>select</c> (mit <c>options</c>) oder <c>boolean</c> (Werte <c>ja</c>/<c>nein</c>). <c>icon</c> ist einer von <c>service</c>, <c>database</c>, <c>queue</c>, <c>user</c>, <c>cloud</c>, <c>external</c>, <c>process</c>, <c>storage</c>. Dateien der Version 4 und älter werden mit leerem Katalog geladen.',
+  'agent.types.entry':
+    'Zuordnung: Objekte (<c>kind: "node"</c>) und Verbindungen tragen den Metadateneintrag <c>{entry}</c> mit der Typ-ID (Gruppen und Notizen haben keinen Typ). Reihenfolge der Einträge bei Objekten: <c>name</c>, <c>color</c>, <c>status</c>, <c>blockiert_grund</c>, <c>type</c>, <c>class</c>, <c>entity</c>, <c>version</c>, Typfelder, freie Felder; bei Verbindungen: <c>name</c>, <c>optional</c>, <c>type</c>, Typfelder. Ein unbekannter Typ bleibt erhalten und wird mit „?“ angezeigt; Pflichtfelder werden nur markiert. Eigene <c>color</c> geht vor der Typfarbe.',
+  'agent.types.ui':
+    'Oberfläche: Button <c>aria-label="{open}"</c> in der Werkzeugleiste öffnet den Dialog „{title}“ (Reiter „{tabElements}“ und „{tabEdges}“, Button „{newType}“, Auswahl „{template}“ mit „{tplIt}“ und „{tplFlow}“, Buttons „{importCatalog}“ und „{exportCatalog}“). Im Analysemodus ist der Katalog nur lesbar. In der Sidebar steht das Auswahlfeld „{typeLabel}“ (bei mehreren Objekten „{bulkType}“).',
+  'agent.types.file':
+    'Katalogdatei: <c>{fileShape}</c>, beschrieben in <l>catalog.schema.json</l>. Vorlagen und importierte Typen erhalten beim Übernehmen neue IDs; vorhandene Kataloge lassen sich ergänzen oder ersetzen.',
   'agent.bulk.title': 'Schnellster Weg für Massenänderungen',
   'agent.bulk.build': 'JSON bauen (UUIDs per <c>crypto.randomUUID()</c>).',
   'agent.bulk.store': '<c>{code}</c> Die App lädt den Stand und überschreibt ihn nicht.',

@@ -8,6 +8,7 @@ import './AgentHelp.css'
 
 /** Served from `public/`, so it follows the base path the app is hosted under. */
 const SCHEMA_URL = `${import.meta.env.BASE_URL}graph.schema.json`
+const CATALOG_SCHEMA_URL = `${import.meta.env.BASE_URL}catalog.schema.json`
 
 const { width: W, height: H } = NODE_SIZE
 const GAP = GROUP_PADDING
@@ -22,7 +23,32 @@ const NOTE_SHAPE = '{ id, kind: "note", position:{x,y}, size?:{width,height}, me
 const EDGE_SHAPE = '{ id, source, target, metadata? }'
 const AGENT_HELP_ROUTE = '#/agent-hilfe'
 const PAIR = '{ source, target }'
-const MODEL_SKELETON = `{ version: ${SCHEMA_VERSION}, projectName, nodes: [...], edges: [...] }`
+const MODEL_SKELETON = `{ version: ${SCHEMA_VERSION}, projectName, catalog, nodes: [...], edges: [...] }`
+const CATALOG_SKELETON = '{ elementTypes: [...], edgeTypes: [...] }'
+const TYPE_SHAPE =
+  '{ id, name, color?:"#rrggbb", icon?, fields:[{ key, kind:"text"|"select"|"boolean", options?, required?, default? }] }'
+const TYPE_ENTRY = '{"key":"type","value":"<type id>"}'
+const CATALOG_FILE_SHAPE = '{ "catalogVersion": 1, "catalog": { "elementTypes": [...], "edgeTypes": [...] } }'
+const CATALOG_EXAMPLE = JSON.stringify(
+  {
+    elementTypes: [
+      {
+        id: '3f0c…',
+        name: 'Service',
+        color: '#2563eb',
+        icon: 'service',
+        fields: [
+          { key: 'owner', kind: 'text', required: true },
+          { key: 'tier', kind: 'select', options: ['1', '2', '3'], default: '2' },
+          { key: 'public', kind: 'boolean', default: 'nein' },
+        ],
+      },
+    ],
+    edgeTypes: [],
+  },
+  null,
+  2,
+)
 const STORE_JSON = `localStorage.setItem('${STORAGE_KEY}', json); location.reload();`
 const SET_LOCALE = `localStorage.setItem('${UI_KEY}', JSON.stringify({ ...JSON.parse(localStorage.getItem('${UI_KEY}') ?? '{}'), locale: 'en' })); location.reload();`
 
@@ -99,6 +125,41 @@ export function AgentHelp() {
       <p>
         <RichText text={t('agent.schema.body')} href={SCHEMA_URL} />
       </p>
+
+      <h2>{t('agent.types.title')}</h2>
+      <ul>
+        <li>
+          <RichText text={t('agent.types.catalog', { skeleton: CATALOG_SKELETON, typeShape: TYPE_SHAPE })} />
+        </li>
+        <li>
+          <RichText text={t('agent.types.entry', { entry: TYPE_ENTRY })} />
+        </li>
+        <li>
+          <RichText
+            text={t('agent.types.ui', {
+              open: t('types.open'),
+              title: t('types.title'),
+              tabElements: t('types.tab.elements'),
+              tabEdges: t('types.tab.edges'),
+              newType: t('types.new'),
+              template: t('types.template'),
+              tplIt: t('types.template.it-services'),
+              tplFlow: t('types.template.dataflow'),
+              importCatalog: t('types.import'),
+              exportCatalog: t('types.export'),
+              typeLabel: t('sidebar.type.label'),
+              bulkType: t('sidebar.bulkType'),
+            })}
+          />
+        </li>
+        <li>
+          <RichText
+            text={t('agent.types.file', { fileShape: CATALOG_FILE_SHAPE })}
+            href={CATALOG_SCHEMA_URL}
+          />
+        </li>
+      </ul>
+      <pre>{CATALOG_EXAMPLE}</pre>
 
       <h2>{t('agent.bulk.title')}</h2>
       <ol>

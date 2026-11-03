@@ -7,6 +7,7 @@ export const HELP_SECTIONS = [
   'analysis',
   'search',
   'filter',
+  'types',
   'clipboard',
   'file',
   'shortcuts',

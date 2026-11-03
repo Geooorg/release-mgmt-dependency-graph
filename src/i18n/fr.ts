@@ -32,6 +32,9 @@ export const fr: Catalog = {
   'help.filter.title': 'Filtre',
   'help.filter.body':
     'L’entonnoir de la barre d’outils (avant la loupe, dans les deux modes) ouvre la barre de filtre : saisissez la clé et la valeur d’une entrée de métadonnées.\n- Elle trouve les objets et groupes qui ont une entrée avec exactement cette clé et exactement cette valeur – correspondance complète, sans tenir compte de la casse (pas de sous-chaîne). Les notes et les liens ne sont pas parcourus.\n- Les résultats sont listés en direct dans le panneau latéral (en mode analyse, il est affiché pour cela). Un clic sur un résultat le sélectionne et l’affiche dans le graphe.\n- Échap ou × ferme le filtre ; le panneau latéral montre alors de nouveau le formulaire de la sélection. La recherche et le filtre se ferment mutuellement.\n- Pour sélectionner plusieurs éléments : outil « Cadre » (R), puis tracez un cadre sur la zone libre.',
+  'help.types.title': 'Types',
+  'help.types.body':
+    'Avec le bouton « Gérer les types », vous définissez par projet les types d’objets et de liaisons : nom, couleur, icône et champs propres (texte, choix, oui/non, éventuellement obligatoires).\n- Dans la barre latérale, vous choisissez le type d’un objet ou d’une liaison ; ses champs apparaissent en dessous. Avec plusieurs objets sélectionnés, le champ de type s’applique à tous.\n- La couleur du type teinte l’élément ; une couleur propre a la priorité. Les champs obligatoires manquants sont seulement signalés, jamais imposés.\n- Si un type est supprimé, les éléments gardent l’entrée et l’affichent avec « ? ».\n- Le catalogue appartient au projet (export, import, annulation). Les modèles (« Services informatiques », « Diagramme de flux de données ») copient des types dans le catalogue ; le catalogue peut aussi être exporté et importé comme fichier séparé.\n- En mode analyse, le catalogue est en lecture seule ; le type des objets reste modifiable.',
   'help.clipboard.title': 'Copier, coller, annuler',
   'help.clipboard.body':
     '- Ctrl/Cmd + C copie les objets et groupes sélectionnés avec le contenu des groupes, mais sans les liaisons. Ctrl/Cmd + V les colle comme nouveaux éléments avec de nouveaux ID. Les deux ne fonctionnent qu’en mode édition ; le collage est verrouillé en mode analyse.\n- Ctrl/Cmd + Z annule la dernière modification, Ctrl/Cmd + Maj + Z ou Ctrl/Cmd + Y la rétablit. Ces raccourcis fonctionnent dans les deux modes.\n- Les boutons correspondants ne sont disponibles qu’en mode édition.',
@@ -438,6 +441,16 @@ export const fr: Catalog = {
   'agent.schema.title': 'Schéma JSON',
   'agent.schema.body':
     'Le format est décrit sous forme de schéma JSON (draft 2020-12) : <l>graph.schema.json</l>. Il permet de vérifier à l’avance un JSON généré (structure, types, champs obligatoires, taille des groupes, côtés des connecteurs). Non vérifiable dans le schéma et contrôlé seulement lors de l’import par l’application : ids uniques, <c>parentId</c> existant (groupes uniquement, sans cycle), liaisons entre éléments existants sans boucle ni doublon, pas de clés de métadonnées en double. Le schéma rejette les propriétés inconnues (l’application les ignore).',
+  'agent.types.title':
+    'Types (catalogue)',
+  'agent.types.catalog':
+    'Depuis <c>version: 5</c>, le projet a le champ <c>catalog</c> (<c>{skeleton}</c>). Un type : <c>{typeShape}</c> ; <c>kind</c> vaut <c>text</c>, <c>select</c> (avec <c>options</c>) ou <c>boolean</c> (valeurs <c>ja</c>/<c>nein</c>). <c>icon</c> est l’un de <c>service</c>, <c>database</c>, <c>queue</c>, <c>user</c>, <c>cloud</c>, <c>external</c>, <c>process</c>, <c>storage</c>. Les fichiers de version 4 et antérieure sont chargés avec un catalogue vide.',
+  'agent.types.entry':
+    'Affectation : les objets (<c>kind: "node"</c>) et les liaisons portent l’entrée de métadonnées <c>{entry}</c> avec l’id du type (groupes et notes n’ont pas de type). Ordre des entrées pour les objets : <c>name</c>, <c>color</c>, <c>status</c>, <c>blockiert_grund</c>, <c>type</c>, <c>class</c>, <c>entity</c>, <c>version</c>, champs du type, champs libres ; pour les liaisons : <c>name</c>, <c>optional</c>, <c>type</c>, champs du type. Un type inconnu est conservé et affiché avec « ? » ; les champs obligatoires sont seulement signalés. Une <c>color</c> propre prime sur la couleur du type.',
+  'agent.types.ui':
+    'Interface : le bouton de la barre d’outils <c>aria-label="{open}"</c> ouvre la boîte « {title} » (onglets « {tabElements} » et « {tabEdges} », bouton « {newType} », liste « {template} » avec « {tplIt} » et « {tplFlow} », boutons « {importCatalog} » et « {exportCatalog} »). En mode analyse, le catalogue est en lecture seule. La barre latérale contient la liste « {typeLabel} » (« {bulkType} » pour plusieurs objets).',
+  'agent.types.file':
+    'Fichier de catalogue : <c>{fileShape}</c>, décrit dans <l>catalog.schema.json</l>. Les modèles et types importés reçoivent de nouveaux ids à l’application ; un catalogue existant peut être complété ou remplacé.',
   'agent.bulk.title': 'La voie la plus rapide pour les modifications en masse',
   'agent.bulk.build': 'Construire le JSON (UUID via <c>crypto.randomUUID()</c>).',
   'agent.bulk.store': '<c>{code}</c> L’application charge cet état et ne l’écrase pas.',

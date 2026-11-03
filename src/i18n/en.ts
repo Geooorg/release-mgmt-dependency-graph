@@ -32,6 +32,9 @@ export const en: Catalog = {
   'help.filter.title': 'Filter',
   'help.filter.body':
     'The funnel in the toolbar (before the magnifier, in both modes) opens the filter bar: enter the key and the value of a metadata entry.\n- It finds objects and groups that have an entry with exactly this key and exactly this value – a complete match, case-insensitive (no substring). Notes and connections are not searched.\n- The hits are listed live in the sidebar (in the analysis mode it is shown for that). Clicking a hit selects it and shows it in the graph.\n- Esc or × closes the filter; the sidebar then shows the form of the selection again. Search and filter close each other.\n- To select several elements: tool “Frame” (R), then drag a frame on the empty canvas.',
+  'help.types.title': 'Types',
+  'help.types.body':
+    'With the “Manage types” button you define per project which types exist for objects and connections: name, colour, icon and custom fields (text, choice, yes/no, optionally required).\n- In the sidebar you pick the type of an object or connection; its fields appear below. With several objects selected the type field sets the type for all of them.\n- The type colour tints the element; an own colour takes precedence. Missing required fields are only marked, never enforced.\n- If a type is deleted, elements keep the entry and show it with “?”.\n- The catalog belongs to the project (export, import, undo). Templates (“IT services”, “Data flow diagram”) copy types into the catalog; the catalog can also be exported and imported as a separate file.\n- In analysis mode the catalog is read-only; the type of objects can still be changed.',
   'help.clipboard.title': 'Copy, paste, undo',
   'help.clipboard.body':
     '- Ctrl/Cmd + C copies the selected objects and groups including the content of groups, but without connections. Ctrl/Cmd + V pastes them as new elements with new IDs. Both only work in edit mode; pasting is locked in analysis mode.\n- Ctrl/Cmd + Z undoes the last change, Ctrl/Cmd + Shift + Z or Ctrl/Cmd + Y restores it. These shortcuts work in both modes.\n- The buttons for these actions are only available in edit mode.',
@@ -438,6 +441,16 @@ export const en: Catalog = {
   'agent.schema.title': 'JSON schema',
   'agent.schema.body':
     'The format is described as a JSON Schema (draft 2020-12): <l>graph.schema.json</l>. It lets you check a generated JSON up front (structure, types, required fields, size of the groups, connector sides). Not verifiable in the schema and only checked when the app imports: unique ids, existing <c>parentId</c> (groups only, no cycles), edges between existing elements without self-loops or duplicates, no duplicate metadata keys. The schema rejects unknown properties (the app ignores them).',
+  'agent.types.title':
+    'Types (catalog)',
+  'agent.types.catalog':
+    'Since <c>version: 5</c> the project has the field <c>catalog</c> (<c>{skeleton}</c>). A type: <c>{typeShape}</c>; <c>kind</c> is <c>text</c>, <c>select</c> (with <c>options</c>) or <c>boolean</c> (values <c>ja</c>/<c>nein</c>). <c>icon</c> is one of <c>service</c>, <c>database</c>, <c>queue</c>, <c>user</c>, <c>cloud</c>, <c>external</c>, <c>process</c>, <c>storage</c>. Files of version 4 and older are loaded with an empty catalog.',
+  'agent.types.entry':
+    'Assignment: objects (<c>kind: "node"</c>) and connections carry the metadata entry <c>{entry}</c> with the type id (groups and notes have no type). Order of entries for objects: <c>name</c>, <c>color</c>, <c>status</c>, <c>blockiert_grund</c>, <c>type</c>, <c>class</c>, <c>entity</c>, <c>version</c>, type fields, free fields; for connections: <c>name</c>, <c>optional</c>, <c>type</c>, type fields. An unknown type is kept and shown with “?”; required fields are only marked. An own <c>color</c> takes precedence over the type colour.',
+  'agent.types.ui':
+    'Interface: the toolbar button <c>aria-label="{open}"</c> opens the dialog “{title}” (tabs “{tabElements}” and “{tabEdges}”, button “{newType}”, select “{template}” with “{tplIt}” and “{tplFlow}”, buttons “{importCatalog}” and “{exportCatalog}”). In analysis mode the catalog is read-only. The sidebar has the select “{typeLabel}” (“{bulkType}” for several objects).',
+  'agent.types.file':
+    'Catalog file: <c>{fileShape}</c>, described in <l>catalog.schema.json</l>. Templates and imported types get new ids when applied; an existing catalog can be extended or replaced.',
   'agent.bulk.title': 'Fastest way for bulk changes',
   'agent.bulk.build': 'Build the JSON (UUIDs via <c>crypto.randomUUID()</c>).',
   'agent.bulk.store': '<c>{code}</c> The app loads this state and does not overwrite it.',
