@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { TypeCatalogDialog } from './TypeCatalogDialog'
@@ -19,6 +19,8 @@ function makeProps(over: Partial<TypeCatalogDialogProps> = {}): TypeCatalogDialo
     onImportCatalog: vi.fn(),
     onExportCatalog: vi.fn(),
     importError: null,
+    onEditStart: vi.fn(),
+    onEditEnd: vi.fn(),
     onClose: vi.fn(),
     ...over,
   }
@@ -105,5 +107,77 @@ describe('TypeCatalogDialog', () => {
   it('shows an import error', () => {
     render(<TypeCatalogDialog {...makeProps({ importError: 'kaputt' })} />)
     expect(screen.getByRole('alert')).toHaveTextContent('Der Katalog konnte nicht gelesen werden: kaputt')
+  })
+
+  it('does not close the type dialog when Esc cancels the delete confirmation', async () => {
+    const props = makeProps()
+    render(<TypeCatalogDialog {...props} />)
+    await userEvent.click(screen.getByText('Service'))
+    await userEvent.click(screen.getByRole('button', { name: 'Typ löschen' }))
+    const confirm = screen.getByRole('dialog', { name: 'Typ löschen?' })
+    fireEvent(confirm, new Event('cancel', { bubbles: true, cancelable: true }))
+    expect(props.onClose).not.toHaveBeenCalled()
+    expect(props.onRemove).not.toHaveBeenCalled()
+  })
+
+  it('closes on the native cancel event of the type dialog', () => {
+    const props = makeProps()
+    const { container } = render(<TypeCatalogDialog {...props} />)
+    const dialog = container.querySelector('dialog.types-dialog')!
+    fireEvent(dialog, new Event('cancel', { cancelable: true }))
+    expect(props.onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('brackets a typing session as one edit and ends it on blur', async () => {
+    const props = makeProps()
+    render(<TypeCatalogDialog {...props} />)
+    await userEvent.click(screen.getByText('Service'))
+    await userEvent.type(screen.getByLabelText('Name'), 'abc')
+    expect(props.onEditStart).toHaveBeenCalled()
+    expect(props.onEditEnd).not.toHaveBeenCalled()
+    await userEvent.tab()
+    expect(props.onEditEnd).toHaveBeenCalledTimes(1)
+  })
+
+  it('ends a running edit when the dialog closes', async () => {
+    const props = makeProps()
+    render(<TypeCatalogDialog {...props} />)
+    await userEvent.click(screen.getByText('Service'))
+    await userEvent.type(screen.getByLabelText('Name'), 'x')
+    await userEvent.click(screen.getByRole('button', { name: 'Schließen' }))
+    expect(props.onEditEnd).toHaveBeenCalledTimes(1)
+    expect(props.onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('treats a checkbox toggle as a step of its own', async () => {
+    const props = makeProps({
+      elementTypes: [{ id: 't1', name: 'Service', fields: [{ key: 'k', kind: 'text' }], usage: 0 }],
+    })
+    render(<TypeCatalogDialog {...props} />)
+    await userEvent.click(screen.getByText('Service'))
+    await userEvent.click(screen.getByLabelText('Pflicht'))
+    expect(props.onUpdate).toHaveBeenCalledTimes(1)
+    expect(props.onEditStart).not.toHaveBeenCalled()
+  })
+
+  it('keeps a trailing comma and space while typing select options', async () => {
+    const props = makeProps({
+      elementTypes: [{ id: 't1', name: 'Service', fields: [{ key: 'k', kind: 'select', options: [] }], usage: 0 }],
+    })
+    render(<TypeCatalogDialog {...props} />)
+    await userEvent.click(screen.getByText('Service'))
+    const options = screen.getByLabelText('Optionen (durch Komma getrennt)')
+    await userEvent.type(options, 'a, ')
+    expect(options).toHaveValue('a, ')
+  })
+
+  it('adds and removes a field', async () => {
+    const props = makeProps()
+    render(<TypeCatalogDialog {...props} />)
+    await userEvent.click(screen.getByText('Service'))
+    await userEvent.click(screen.getByRole('button', { name: 'Feld hinzufügen' }))
+    expect(screen.getByLabelText('Schlüssel')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Feld entfernen' }))
+    expect(screen.queryByLabelText('Schlüssel')).not.toBeInTheDocument()
   })
 })

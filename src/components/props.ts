@@ -433,5 +433,8 @@ export interface TypeCatalogDialogProps {
   onExportCatalog: () => void
   /** Error message of the last failed catalog import, shown in the dialog. */
   importError: string | null
+  /** Bracket a text or colour edit so that it becomes one undo step. */
+  onEditStart: () => void
+  onEditEnd: () => void
   onClose: () => void
 }

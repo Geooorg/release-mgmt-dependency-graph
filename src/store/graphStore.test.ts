@@ -1742,6 +1742,18 @@ describe('type catalog', () => {
     expect(store.getState().catalog.elementTypes).toHaveLength(1)
   })
 
+  it('makes several updates inside one gesture a single undo step', () => {
+    const store = start()
+    const id = store.getState().addType('elementTypes', 'Service')!
+    store.getState().beginGesture()
+    store.getState().updateType('elementTypes', { id, name: 'D', fields: [] })
+    store.getState().updateType('elementTypes', { id, name: 'Di', fields: [] })
+    store.getState().endGesture()
+    expect(store.getState().catalog.elementTypes[0].name).toBe('Di')
+    store.getState().undo()
+    expect(store.getState().catalog.elementTypes[0].name).toBe('Service')
+  })
+
   it('refuses an invalid type', () => {
     const store = start()
     store.getState().addType('elementTypes', 'Service')

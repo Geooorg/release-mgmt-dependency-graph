@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import type { SyntheticEvent } from 'react'
 import { useT } from '../i18n/react'
 import type { CatalogSide } from '../model/catalog'
@@ -6,6 +6,7 @@ import { ICON_KEYS } from '../model/types'
 import type { FieldDef, FieldKind, TypeDef } from '../model/types'
 import { ConfirmDialog } from './ConfirmDialog'
 import type { TypeCatalogDialogProps, TypeDialogType } from './props'
+import { useEditGesture } from './useSidebarEffects'
 import { useNativeDialog } from './useNativeDialog'
 import './components.css'
 
@@ -35,6 +36,13 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [pendingDelete, setPendingDelete] = useState<TypeDialogType | null>(null)
   const [pendingTemplate, setPendingTemplate] = useState<string | null>(null)
+  const gesture = useEditGesture(props.onEditStart, props.onEditEnd)
+  const endEdit = gesture.end
+
+  // The owner may close the dialog without going through onClose; never leave an edit open.
+  useEffect(() => {
+    if (!open) endEdit()
+  }, [open, endEdit])
 
   const types = side === 'elementTypes' ? props.elementTypes : props.edgeTypes
   const selected = types.find((type) => type.id === selectedId)
@@ -42,23 +50,39 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
   const shown: TypeDef | undefined = draftIsCurrent ? draft.value : selected
   const problems = shown === undefined ? [] : props.problemsOf(side, shown)
 
-  function handleCancel(event: SyntheticEvent<HTMLDialogElement>) {
-    event.preventDefault()
+  function close() {
+    endEdit()
+    setPendingDelete(null)
+    setPendingTemplate(null)
+    setDraft(null)
     onClose()
   }
 
+  function handleCancel(event: SyntheticEvent<HTMLDialogElement>) {
+    event.preventDefault()
+    close()
+  }
+
   function select(type: TypeDialogType) {
+    endEdit()
     setSelectedId(type.id)
     setDraft(null)
   }
 
-  /** Every edit changes the draft; it goes to the owner only while it has no problems. */
-  function edit(next: TypeDef) {
+  /**
+   * Every edit changes the draft; it goes to the owner only while it has no problems. Typing and
+   * picking a colour stay in one running edit (one undo step) until the field loses focus; discrete
+   * changes end a running edit and are a step of their own.
+   */
+  function edit(next: TypeDef, discrete = false) {
+    if (discrete) endEdit()
+    else gesture.start()
     setDraft({ value: next, base: snapshot(selected) })
     if (props.problemsOf(side, next).length === 0) props.onUpdate(side, next)
   }
 
   function addType() {
+    endEdit()
     const id = props.onAdd(side)
     if (id !== undefined) {
       setSelectedId(id)
@@ -66,9 +90,9 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
     }
   }
 
-  function patchField(index: number, patch: Partial<FieldDef>) {
+  function patchField(index: number, patch: Partial<FieldDef>, discrete = false) {
     if (shown === undefined) return
-    edit({ ...shown, fields: shown.fields.map((field, i) => (i === index ? { ...field, ...patch } : field)) })
+    edit({ ...shown, fields: shown.fields.map((field, i) => (i === index ? { ...field, ...patch } : field)) }, discrete)
   }
 
   function handleTemplate(templateId: string) {
@@ -82,10 +106,11 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
   }
 
   return (
+    <>
     <dialog ref={dialogRef} className="types-dialog" aria-labelledby={titleId} onCancel={handleCancel}>
       <div className="types-dialog__header">
         <h2 id={titleId}>{t('types.title')}</h2>
-        <button type="button" className="ui-button ui-button--secondary" onClick={onClose}>
+        <button type="button" className="ui-button ui-button--secondary" onClick={close}>
           {t('common.close')}
         </button>
       </div>
@@ -100,6 +125,7 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
             aria-selected={side === value}
             className="ui-button ui-button--secondary"
             onClick={() => {
+              endEdit()
               setSide(value)
               setSelectedId(null)
               setDraft(null)
@@ -142,6 +168,7 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
                 className="ui-input"
                 value={shown.name}
                 onChange={(event) => edit({ ...shown, name: event.target.value })}
+                onBlur={gesture.end}
               />
             </label>
             <div className="types-dialog__row">
@@ -151,13 +178,14 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
                   type="color"
                   value={shown.color ?? '#2563eb'}
                   onChange={(event) => edit({ ...shown, color: event.target.value })}
+                  onBlur={gesture.end}
                 />
               </label>
               <button
                 type="button"
                 className="ui-button ui-button--secondary"
                 disabled={shown.color === undefined}
-                onClick={() => edit({ ...shown, color: undefined })}
+                onClick={() => edit({ ...shown, color: undefined }, true)}
               >
                 {t('types.color.reset')}
               </button>
@@ -167,7 +195,7 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
               <select
                 className="ui-input"
                 value={shown.icon ?? ''}
-                onChange={(event) => edit({ ...shown, icon: ICON_KEYS.find((key) => key === event.target.value) })}
+                onChange={(event) => edit({ ...shown, icon: ICON_KEYS.find((key) => key === event.target.value) }, true)}
               >
                 <option value="">{t('types.icon.none')}</option>
                 {ICON_KEYS.map((icon) => (
@@ -188,6 +216,7 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
                   className="ui-input"
                   value={field.key}
                   onChange={(event) => patchField(index, { key: event.target.value })}
+                  onBlur={gesture.end}
                 />
                 <select
                   aria-label={t('types.field.kind')}
@@ -195,7 +224,7 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
                   value={field.kind}
                   onChange={(event) => {
                     const kind = KINDS.find((value) => value === event.target.value)
-                    if (kind !== undefined) patchField(index, { kind })
+                    if (kind !== undefined) patchField(index, { kind }, true)
                   }}
                 >
                   {KINDS.map((kind) => (
@@ -211,6 +240,7 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
                     className="ui-input"
                     value={(field.options ?? []).join(',')}
                     onChange={(event) => patchField(index, { options: event.target.value.split(',') })}
+                    onBlur={gesture.end}
                   />
                 )}
                 <input
@@ -219,19 +249,20 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
                   className="ui-input"
                   value={field.default ?? ''}
                   onChange={(event) => patchField(index, { default: event.target.value })}
+                  onBlur={gesture.end}
                 />
                 <label>
                   <input
                     type="checkbox"
                     checked={field.required === true}
-                    onChange={(event) => patchField(index, { required: event.target.checked })}
+                    onChange={(event) => patchField(index, { required: event.target.checked }, true)}
                   />
                   {t('types.field.required')}
                 </label>
                 <button
                   type="button"
                   className="ui-button ui-button--secondary"
-                  onClick={() => edit({ ...shown, fields: shown.fields.filter((_, i) => i !== index) })}
+                  onClick={() => edit({ ...shown, fields: shown.fields.filter((_, i) => i !== index) }, true)}
                 >
                   {t('types.field.remove')}
                 </button>
@@ -240,7 +271,7 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
             <button
               type="button"
               className="ui-button ui-button--secondary"
-              onClick={() => edit({ ...shown, fields: [...shown.fields, { key: '', kind: 'text' }] })}
+              onClick={() => edit({ ...shown, fields: [...shown.fields, { key: '', kind: 'text' }] }, true)}
             >
               {t('types.field.add')}
             </button>
@@ -305,12 +336,15 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
         )}
       </div>
 
+    </dialog>
+    {/* Outside the dialog above: React's cancel event bubbles through the tree and Esc here must not close it. */}
       <ConfirmDialog
         open={pendingDelete !== null}
         title={t('types.delete.title')}
         message={t('types.delete.message', { count: pendingDelete?.usage ?? 0 })}
         confirmLabel={t('types.delete')}
         onConfirm={() => {
+          endEdit()
           if (pendingDelete) props.onRemove(side, pendingDelete.id)
           setPendingDelete(null)
           setSelectedId(null)
@@ -318,6 +352,6 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
         }}
         onCancel={() => setPendingDelete(null)}
       />
-    </dialog>
+    </>
   )
 }

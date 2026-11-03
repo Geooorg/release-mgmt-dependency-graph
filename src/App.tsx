@@ -167,6 +167,16 @@ function AppShell() {
   const nodes = useGraph((s) => s.nodes)
   const edges = useGraph((s) => s.edges)
   // Derived on demand, never stored in the model.
+  const dialogTypes = useMemo(
+    () =>
+      typesOpen
+        ? {
+            elementTypes: catalog.elementTypes.map((type) => ({ ...type, usage: countUsage({ nodes, edges }, 'elementTypes', type.id) })),
+            edgeTypes: catalog.edgeTypes.map((type) => ({ ...type, usage: countUsage({ nodes, edges }, 'edgeTypes', type.id) })),
+          }
+        : { elementTypes: [], edgeTypes: [] },
+    [typesOpen, catalog, nodes, edges],
+  )
   const cycles = useMemo(() => findCycles({ nodes, edges }), [nodes, edges])
   const analysis = useMemo(() => analyzeProject({ nodes, edges }), [nodes, edges])
   const analyzing = mode === 'analyze'
@@ -670,8 +680,10 @@ function AppShell() {
       <TypeCatalogDialog
         open={typesOpen}
         readOnly={mode === 'analyze'}
-        elementTypes={catalog.elementTypes.map((type) => ({ ...type, usage: countUsage({ nodes, edges }, 'elementTypes', type.id) }))}
-        edgeTypes={catalog.edgeTypes.map((type) => ({ ...type, usage: countUsage({ nodes, edges }, 'edgeTypes', type.id) }))}
+        elementTypes={dialogTypes.elementTypes}
+        edgeTypes={dialogTypes.edgeTypes}
+        onEditStart={beginSidebarEdit}
+        onEditEnd={endSidebarEdit}
         onAdd={(side) => graphStore.getState().addType(side)}
         onUpdate={(side, type) => graphStore.getState().updateType(side, type)}
         onRemove={(side, id) => graphStore.getState().removeType(side, id)}
