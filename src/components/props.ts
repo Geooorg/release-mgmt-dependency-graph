@@ -1,7 +1,8 @@
 import type { Locale } from '../i18n/locale'
+import type { CatalogSide } from '../model/catalog'
 import type { DependencyDirection } from '../model/dependency'
 import type { Status } from '../model/status'
-import type { ElementKind, FieldKind, MetadataEntry } from '../model/types'
+import type { ElementKind, FieldKind, MetadataEntry, TypeDef } from '../model/types'
 import type { Highlight, Tool, WorkMode } from '../model/workMode'
 
 export interface ToolbarProps {
@@ -57,6 +58,8 @@ export interface ToolbarProps {
   onLocaleChange: (locale: Locale) => void
   /** Open the help overlay. */
   onHelp: () => void
+  /** Opens the type catalog dialog. */
+  onTypes: () => void
 }
 
 /** Result of one search step: how many elements match and which one (1-based) was jumped to; 0 of 0 = none. */
@@ -404,5 +407,31 @@ export interface AnalysisPanelProps {
   /** Bring the object into view without changing the selection. */
   onReveal: (id: string) => void
   onCopy: () => void
+  onClose: () => void
+}
+
+export interface TypeDialogType extends TypeDef {
+  usage: number
+}
+
+export interface TypeCatalogDialogProps {
+  open: boolean
+  /** Analysis mode: everything is shown, nothing can be changed. */
+  readOnly: boolean
+  elementTypes: TypeDialogType[]
+  edgeTypes: TypeDialogType[]
+  onAdd: (side: CatalogSide) => string | undefined
+  /** Gets a draft without problems; the dialog checks first and shows the problems itself. */
+  onUpdate: (side: CatalogSide, type: TypeDef) => void
+  onRemove: (side: CatalogSide, id: string) => void
+  /** Translated problems of a draft (the owner knows the rules). */
+  problemsOf: (side: CatalogSide, type: TypeDef) => string[]
+  /** Templates, import and export of the catalog; the owner implements them. */
+  templates: { id: string; label: string }[]
+  onTemplate: (templateId: string, mode: 'merge' | 'replace') => void
+  onImportCatalog: () => void
+  onExportCatalog: () => void
+  /** Error message of the last failed catalog import, shown in the dialog. */
+  importError: string | null
   onClose: () => void
 }

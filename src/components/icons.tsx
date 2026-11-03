@@ -282,3 +282,14 @@ export function HelpIcon({ size }: { size?: number }) {
     </Icon>
   )
 }
+
+/** Two linked boxes: open the type catalog. */
+export function TypesIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <rect x="3" y="4" width="8" height="6" rx="1" />
+      <rect x="13" y="14" width="8" height="6" rx="1" />
+      <path d="M7 10v4h6" />
+    </Icon>
+  )
+}

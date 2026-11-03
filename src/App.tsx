@@ -6,6 +6,7 @@ import { ConfirmDialog } from './components/ConfirmDialog'
 import { HelpDialog } from './components/HelpDialog'
 import { ImportDialog } from './components/ImportDialog'
 import { ExportDialog } from './components/ExportDialog'
+import { TypeCatalogDialog } from './components/TypeCatalogDialog'
 import { JsonImportDialog } from './components/JsonImportDialog'
 import { FilterBar } from './components/FilterBar'
 import { SearchBar } from './components/SearchBar'
@@ -28,6 +29,7 @@ import type {
 import { Canvas } from './flow/Canvas'
 import { buildSvg } from './flow/svgExport'
 import { useLocale, useT } from './i18n/react'
+import { checkTypeDef, countUsage, TYPE_PROBLEM_KEYS, tidyType } from './model/catalog'
 import { findCycles } from './model/cycles'
 import { canGroup, canReverseEdge } from './model/graph'
 import { contentFingerprint } from './model/fingerprint'
@@ -139,6 +141,9 @@ function AppShell() {
   const t = useT()
   const lastSearch = useRef<{ query: string; id: string | null }>({ query: '', id: null })
   const [exportOpen, setExportOpen] = useState(false)
+  const [typesOpen, setTypesOpen] = useState(false)
+  // Set by the catalog import (wired up with the templates); nothing sets it yet.
+  const [catalogImportError] = useState<string | null>(null)
   const [jsonImport, setJsonImport] = useState<{ unsaved: boolean; errors: string[] } | null>(null)
 
   const projectName = useGraph((s) => s.projectName)
@@ -555,6 +560,7 @@ function AppShell() {
         locale={locale}
         onLocaleChange={setLocale}
         onHelp={() => setHelpOpen(true)}
+        onTypes={() => setTypesOpen(true)}
       />
       <div className="workspace">
         <main className="canvas">
@@ -660,6 +666,24 @@ function AppShell() {
         svgDisabled={nodes.length === 0}
         onExport={runExport}
         onClose={() => setExportOpen(false)}
+      />
+      <TypeCatalogDialog
+        open={typesOpen}
+        readOnly={mode === 'analyze'}
+        elementTypes={catalog.elementTypes.map((type) => ({ ...type, usage: countUsage({ nodes, edges }, 'elementTypes', type.id) }))}
+        edgeTypes={catalog.edgeTypes.map((type) => ({ ...type, usage: countUsage({ nodes, edges }, 'edgeTypes', type.id) }))}
+        onAdd={(side) => graphStore.getState().addType(side)}
+        onUpdate={(side, type) => graphStore.getState().updateType(side, type)}
+        onRemove={(side, id) => graphStore.getState().removeType(side, id)}
+        problemsOf={(side, type) =>
+          checkTypeDef(tidyType(type), catalog[side]).map((problem) => t(TYPE_PROBLEM_KEYS[problem]))
+        }
+        templates={[]}
+        onTemplate={() => {}}
+        onImportCatalog={() => {}}
+        onExportCatalog={() => {}}
+        importError={catalogImportError}
+        onClose={() => setTypesOpen(false)}
       />
       <JsonImportDialog
         open={jsonImport !== null}

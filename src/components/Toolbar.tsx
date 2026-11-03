@@ -16,6 +16,7 @@ import {
   GroupIcon,
   NoteIcon,
   HelpIcon,
+  TypesIcon,
   PasteIcon,
   SearchIcon,
   RedoIcon,
@@ -155,6 +156,7 @@ export function Toolbar({
   locale,
   onLocaleChange,
   onHelp,
+  onTypes,
 }: ToolbarProps) {
   const t = useT()
   const dependencyHighlight = highlight === 'prerequisites' || highlight === 'dependents' || highlight === 'closure'
@@ -437,6 +439,16 @@ export function Toolbar({
                   </option>
                 ))}
               </select>
+            </Tooltip>
+            <Tooltip text={t('types.open')}>
+              <button
+                type="button"
+                className="ui-button ui-button--tool"
+                aria-label={t('types.open')}
+                onClick={onTypes}
+              >
+                <TypesIcon />
+              </button>
             </Tooltip>
             <Tooltip text={t('toolbar.help.title')}>
               <button

@@ -44,6 +44,7 @@ function makeProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
     locale: 'de',
     onLocaleChange: vi.fn(),
     onHelp: vi.fn(),
+    onTypes: vi.fn(),
     ...overrides,
   }
 }
@@ -89,12 +90,12 @@ describe('Toolbar', () => {
     expect(screen.getByRole('button', { name: 'Hilfe' }).closest('.toolbar__file-extra')).not.toBeNull()
   })
 
-  it('puts the language switch left of the help button, which is last', () => {
+  it('puts language and type catalog left of the help button, which is last', () => {
     render(<Toolbar {...makeProps()} />)
 
     const extra = screen.getByRole('button', { name: 'Hilfe' }).closest('.toolbar__file-extra') as HTMLElement
     const controls = within(extra).getAllByRole('combobox').concat(within(extra).getAllByRole('button'))
-    expect(controls.map((el) => el.getAttribute('aria-label'))).toEqual(['Sprache', 'Hilfe'])
+    expect(controls.map((el) => el.getAttribute('aria-label'))).toEqual(['Sprache', 'Typen verwalten', 'Hilfe'])
     expect(extra.lastElementChild).toContainElement(screen.getByRole('button', { name: 'Hilfe' }))
   })
 
@@ -125,6 +126,13 @@ describe('Toolbar', () => {
     expect(within(select).getAllByRole('option').map((option) => option.getAttribute('lang'))).toEqual(['de', 'en', 'fr'])
     await userEvent.setup().selectOptions(select, 'fr')
     expect(props.onLocaleChange).toHaveBeenCalledWith('fr')
+  })
+
+  it('opens the type catalog', async () => {
+    const props = makeProps()
+    render(<Toolbar {...props} />)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Typen verwalten' }))
+    expect(props.onTypes).toHaveBeenCalledTimes(1)
   })
 
   it('opens the help', async () => {
