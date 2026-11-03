@@ -450,7 +450,7 @@ export const en: Catalog = {
   'agent.types.ui':
     'Interface: the toolbar button <c>aria-label="{open}"</c> opens the dialog “{title}” (tabs “{tabElements}” and “{tabEdges}”, button “{newType}”, select “{template}” with “{tplIt}” and “{tplFlow}”, buttons “{importCatalog}” and “{exportCatalog}”). In analysis mode the catalog is read-only. The sidebar has the select “{typeLabel}” (“{bulkType}” for several objects).',
   'agent.types.file':
-    'Catalog file: <c>{fileShape}</c>, described in <l>catalog.schema.json</l>. Templates and imported types get new ids when applied; an existing catalog can be extended or replaced.',
+    'Catalog file: <c>{fileShape}</c>, described in <l>catalog.schema.json</l>. Templates get new ids when applied (an existing catalog can be extended or replaced); an imported catalog file replaces the catalog and keeps its ids.',
   'agent.bulk.title': 'Fastest way for bulk changes',
   'agent.bulk.build': 'Build the JSON (UUIDs via <c>crypto.randomUUID()</c>).',
   'agent.bulk.store': '<c>{code}</c> The app loads this state and does not overwrite it.',
@@ -503,7 +503,8 @@ export const en: Catalog = {
   'types.tab.edges': 'Connections',
   'types.new': 'New type',
   'types.empty': 'No types yet. Add one or pick a template.',
-  'types.usage': '{count} in use',
+  'types.usage_one': '{count} in use',
+  'types.usage_other': '{count} in use',
   'types.name': 'Name',
   'types.color': 'Colour',
   'types.color.reset': 'No colour',
@@ -531,7 +532,8 @@ export const en: Catalog = {
   'types.renameHint': 'Values already stored under the old key stay as free fields.',
   'types.delete': 'Delete type',
   'types.delete.title': 'Delete type?',
-  'types.delete.message': '{count} element(s) use this type. They keep the entry and show it as unknown.',
+  'types.delete.message_one': '{count} element uses this type. It keeps the entry and shows it as unknown.',
+  'types.delete.message_other': '{count} elements use this type. They keep the entry and show it as unknown.',
   'types.readOnly': 'Read-only in analysis mode.',
   'types.template': 'Template',
   'types.template.it-services': 'IT services',

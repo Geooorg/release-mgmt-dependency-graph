@@ -1,6 +1,9 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
+import { tidyType } from '../model/catalog'
+import type { TypeDef } from '../model/types'
 import { TypeCatalogDialog } from './TypeCatalogDialog'
 import type { TypeCatalogDialogProps } from './props'
 
@@ -71,9 +74,17 @@ describe('TypeCatalogDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Typ löschen' }))
     expect(props.onRemove).not.toHaveBeenCalled()
     const confirm = screen.getByRole('dialog', { name: 'Typ löschen?' })
-    expect(within(confirm).getByText(/2 Element\(e\) verwenden/)).toBeInTheDocument()
+    expect(within(confirm).getByText(/2 Elemente verwenden/)).toBeInTheDocument()
     await userEvent.click(within(confirm).getByRole('button', { name: 'Typ löschen' }))
     expect(props.onRemove).toHaveBeenCalledWith('elementTypes', 't1')
+  })
+
+  it('uses the singular for one element in use', async () => {
+    render(<TypeCatalogDialog {...makeProps({ elementTypes: [{ id: 't1', name: 'Service', fields: [], usage: 1 }] })} />)
+    expect(screen.getByText('1 in Verwendung')).toBeInTheDocument()
+    await userEvent.click(screen.getByText('Service'))
+    await userEvent.click(screen.getByRole('button', { name: 'Typ löschen' }))
+    expect(within(screen.getByRole('dialog', { name: 'Typ löschen?' })).getByText(/1 Element verwendet/)).toBeInTheDocument()
   })
 
   it('is read-only in analysis mode', () => {
@@ -179,5 +190,52 @@ describe('TypeCatalogDialog', () => {
     expect(screen.getByLabelText('Schlüssel')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Feld entfernen' }))
     expect(screen.queryByLabelText('Schlüssel')).not.toBeInTheDocument()
+  })
+
+  describe('typing in a dialog whose owner stores the tidied type', () => {
+    function Harness({ onEditStart = vi.fn(), onEditEnd = vi.fn() }: { onEditStart?: () => void; onEditEnd?: () => void }) {
+      const [types, setTypes] = useState<TypeDef[]>([
+        { id: 't1', name: 'Service', fields: [{ key: 'k', kind: 'select', options: ['x'] }] },
+      ])
+      return (
+        <TypeCatalogDialog
+          {...makeProps({
+            elementTypes: types.map((type) => ({ ...type, usage: 0 })),
+            onUpdate: (_side, type) => setTypes([tidyType(type)]),
+            onEditStart,
+            onEditEnd,
+          })}
+        />
+      )
+    }
+
+    it('keeps the raw text of the options while typing', async () => {
+      render(<Harness />)
+      await userEvent.click(screen.getByText('Service'))
+      const options = screen.getByLabelText('Optionen (durch Komma getrennt)')
+      await userEvent.clear(options)
+      await userEvent.type(options, 'a, b,')
+      expect(options).toHaveValue('a, b,')
+    })
+
+    it('keeps a space typed inside the name', async () => {
+      render(<Harness />)
+      await userEvent.click(screen.getByText('Service'))
+      const name = screen.getByLabelText('Name')
+      await userEvent.type(name, ' Neu')
+      expect(name).toHaveValue('Service Neu')
+    })
+
+    it('ends a running edit before a discrete change even without a blur', async () => {
+      const onEditStart = vi.fn()
+      const onEditEnd = vi.fn()
+      render(<Harness onEditStart={onEditStart} onEditEnd={onEditEnd} />)
+      await userEvent.click(screen.getByText('Service'))
+      await userEvent.type(screen.getByLabelText('Name'), 'X')
+      expect(onEditEnd).not.toHaveBeenCalled()
+      // fireEvent does not move the focus, so no blur precedes the click
+      fireEvent.click(screen.getByLabelText('Pflicht'))
+      expect(onEditEnd).toHaveBeenCalledTimes(1)
+    })
   })
 })

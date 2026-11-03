@@ -450,7 +450,7 @@ export const de = {
   'agent.types.ui':
     'Oberfläche: Button <c>aria-label="{open}"</c> in der Werkzeugleiste öffnet den Dialog „{title}“ (Reiter „{tabElements}“ und „{tabEdges}“, Button „{newType}“, Auswahl „{template}“ mit „{tplIt}“ und „{tplFlow}“, Buttons „{importCatalog}“ und „{exportCatalog}“). Im Analysemodus ist der Katalog nur lesbar. In der Sidebar steht das Auswahlfeld „{typeLabel}“ (bei mehreren Objekten „{bulkType}“).',
   'agent.types.file':
-    'Katalogdatei: <c>{fileShape}</c>, beschrieben in <l>catalog.schema.json</l>. Vorlagen und importierte Typen erhalten beim Übernehmen neue IDs; vorhandene Kataloge lassen sich ergänzen oder ersetzen.',
+    'Katalogdatei: <c>{fileShape}</c>, beschrieben in <l>catalog.schema.json</l>. Vorlagen erhalten beim Übernehmen neue IDs (vorhandene Kataloge lassen sich ergänzen oder ersetzen); eine importierte Katalogdatei ersetzt den Katalog und behält ihre IDs.',
   'agent.bulk.title': 'Schnellster Weg für Massenänderungen',
   'agent.bulk.build': 'JSON bauen (UUIDs per <c>crypto.randomUUID()</c>).',
   'agent.bulk.store': '<c>{code}</c> Die App lädt den Stand und überschreibt ihn nicht.',
@@ -503,7 +503,8 @@ export const de = {
   'types.tab.edges': 'Verbindungen',
   'types.new': 'Neuer Typ',
   'types.empty': 'Noch keine Typen. Lege einen an oder wähle eine Vorlage.',
-  'types.usage': '{count} in Verwendung',
+  'types.usage_one': '{count} in Verwendung',
+  'types.usage_other': '{count} in Verwendung',
   'types.name': 'Name',
   'types.color': 'Farbe',
   'types.color.reset': 'Keine Farbe',
@@ -531,7 +532,8 @@ export const de = {
   'types.renameHint': 'Werte, die bereits unter dem alten Schlüssel stehen, bleiben als freie Felder erhalten.',
   'types.delete': 'Typ löschen',
   'types.delete.title': 'Typ löschen?',
-  'types.delete.message': '{count} Element(e) verwenden diesen Typ. Sie behalten den Eintrag und zeigen ihn als unbekannt an.',
+  'types.delete.message_one': '{count} Element verwendet diesen Typ. Es behält den Eintrag und zeigt ihn als unbekannt an.',
+  'types.delete.message_other': '{count} Elemente verwenden diesen Typ. Sie behalten den Eintrag und zeigen ihn als unbekannt an.',
   'types.readOnly': 'Im Analysemodus nur lesbar.',
   'types.template': 'Vorlage',
   'types.template.it-services': 'IT-Services',

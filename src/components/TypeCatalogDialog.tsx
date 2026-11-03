@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react'
 import type { SyntheticEvent } from 'react'
 import { useT } from '../i18n/react'
+import { tidyType } from '../model/catalog'
 import type { CatalogSide } from '../model/catalog'
 import { ICON_KEYS } from '../model/types'
 import type { FieldDef, FieldKind, TypeDef } from '../model/types'
@@ -13,9 +14,9 @@ import './components.css'
 const KINDS: readonly FieldKind[] = ['text', 'select', 'boolean']
 
 /** Comparable form of a type without the usage count, to notice changes made behind the draft. */
-function snapshot(type: TypeDialogType | undefined): string {
+function snapshot(type: TypeDef | TypeDialogType | undefined): string {
   if (type === undefined) return ''
-  const { usage: _usage, ...def } = type
+  const { usage: _usage, ...def } = type as TypeDialogType
   return JSON.stringify(def)
 }
 
@@ -46,7 +47,13 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
 
   const types = side === 'elementTypes' ? props.elementTypes : props.edgeTypes
   const selected = types.find((type) => type.id === selectedId)
-  const draftIsCurrent = draft !== null && draft.value.id === selectedId && draft.base === snapshot(selected)
+  const storedSnapshot = snapshot(selected)
+  const draftOfSelected = draft !== null && draft.value.id === selectedId
+  // The owner stores the tidied type (trimmed, no empty options). That is the echo of our own edit, not news
+  // from outside: keep the raw draft, otherwise typing "a, b" would be rewritten under the cursor.
+  const echoed = draftOfSelected && draft.base !== storedSnapshot && storedSnapshot === snapshot(tidyType(draft.value))
+  if (echoed) setDraft({ value: draft.value, base: storedSnapshot })
+  const draftIsCurrent = draftOfSelected && (draft.base === storedSnapshot || echoed)
   const shown: TypeDef | undefined = draftIsCurrent ? draft.value : selected
   const problems = shown === undefined ? [] : props.problemsOf(side, shown)
 
@@ -148,7 +155,7 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
               >
                 <span className="types-dialog__swatch" style={{ background: type.color ?? 'transparent' }} />
                 <span>{type.name}</span>
-                <small>{t('types.usage', { count: type.usage })}</small>
+                <small>{t.plural('types.usage', type.usage)}</small>
               </button>
             </li>
           ))}
@@ -162,17 +169,26 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
 
         {shown !== undefined && (
           <fieldset className="types-dialog__details" disabled={readOnly}>
-            <label className="types-dialog__row">
-              {t('types.name')}
-              <input
-                className="ui-input"
-                value={shown.name}
-                onChange={(event) => edit({ ...shown, name: event.target.value })}
-                onBlur={gesture.end}
-              />
-            </label>
             <div className="types-dialog__row">
-              <label>
+              <label className="types-dialog__label">
+                {t('types.name')}
+                <input
+                  className="ui-input"
+                  value={shown.name}
+                  onChange={(event) => edit({ ...shown, name: event.target.value })}
+                  onBlur={gesture.end}
+                />
+              </label>
+              <button
+                type="button"
+                className="ui-button ui-button--danger"
+                onClick={() => selected && setPendingDelete(selected)}
+              >
+                {t('types.delete')}
+              </button>
+            </div>
+            <div className="types-dialog__row">
+              <label className="types-dialog__label types-dialog__label--color">
                 {t('types.color')}
                 <input
                   type="color"
@@ -283,13 +299,6 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
                 ))}
               </ul>
             )}
-            <button
-              type="button"
-              className="ui-button ui-button--danger"
-              onClick={() => selected && setPendingDelete(selected)}
-            >
-              {t('types.delete')}
-            </button>
           </fieldset>
         )}
       </div>
@@ -341,7 +350,7 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
       <ConfirmDialog
         open={pendingDelete !== null}
         title={t('types.delete.title')}
-        message={t('types.delete.message', { count: pendingDelete?.usage ?? 0 })}
+        message={t.plural('types.delete.message', pendingDelete?.usage ?? 0)}
         confirmLabel={t('types.delete')}
         onConfirm={() => {
           endEdit()

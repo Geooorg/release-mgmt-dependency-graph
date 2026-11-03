@@ -254,7 +254,7 @@
   gap: 10px;
 }
 
-/* Second row below Export: language, then help at the far right. */
+/* Second row below Export, narrower than the first: language, then help at the far right. */
 .toolbar__file-extra {
   display: flex;
   align-items: center;
@@ -1473,8 +1473,9 @@ ol.analysis-list > li::before {
     gap: 4px;
   }
 
+  /* Four buttons in the first file row: tight, the second row has to stay narrower than this one. */
   .toolbar__file-body .toolbar__section {
-    gap: 8px;
+    gap: 6px;
   }
 
   .toolbar__edit {
@@ -1487,7 +1488,7 @@ ol.analysis-list > li::before {
 
   /* Export / Import: the text buttons of the sticky file section. */
   .toolbar__file .ui-button:not(.ui-button--tool) {
-    padding: 0 8px;
+    padding: 0 6px;
   }
 
   /* The words say it already; the icons make room for the cycle button. */
@@ -1987,6 +1988,22 @@ ol.analysis-list > li::before {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.types-dialog__label {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+}
+
+.types-dialog__label--color {
+  flex: none;
+}
+
+.types-dialog__label .ui-input {
+  flex: 1;
+  min-width: 0;
 }
 
 .types-dialog__field {

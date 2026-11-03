@@ -450,7 +450,7 @@ export const fr: Catalog = {
   'agent.types.ui':
     'Interface : le bouton de la barre d’outils <c>aria-label="{open}"</c> ouvre la boîte « {title} » (onglets « {tabElements} » et « {tabEdges} », bouton « {newType} », liste « {template} » avec « {tplIt} » et « {tplFlow} », boutons « {importCatalog} » et « {exportCatalog} »). En mode analyse, le catalogue est en lecture seule. La barre latérale contient la liste « {typeLabel} » (« {bulkType} » pour plusieurs objets).',
   'agent.types.file':
-    'Fichier de catalogue : <c>{fileShape}</c>, décrit dans <l>catalog.schema.json</l>. Les modèles et types importés reçoivent de nouveaux ids à l’application ; un catalogue existant peut être complété ou remplacé.',
+    'Fichier de catalogue : <c>{fileShape}</c>, décrit dans <l>catalog.schema.json</l>. Les modèles reçoivent de nouveaux ids à l’application (un catalogue existant peut être complété ou remplacé) ; un fichier de catalogue importé remplace le catalogue et conserve ses ids.',
   'agent.bulk.title': 'La voie la plus rapide pour les modifications en masse',
   'agent.bulk.build': 'Construire le JSON (UUID via <c>crypto.randomUUID()</c>).',
   'agent.bulk.store': '<c>{code}</c> L’application charge cet état et ne l’écrase pas.',
@@ -503,7 +503,8 @@ export const fr: Catalog = {
   'types.tab.edges': 'Liaisons',
   'types.new': 'Nouveau type',
   'types.empty': 'Aucun type pour l’instant. Ajoutez-en un ou choisissez un modèle.',
-  'types.usage': '{count} utilisé(s)',
+  'types.usage_one': '{count} utilisé',
+  'types.usage_other': '{count} utilisés',
   'types.name': 'Nom',
   'types.color': 'Couleur',
   'types.color.reset': 'Sans couleur',
@@ -531,7 +532,8 @@ export const fr: Catalog = {
   'types.renameHint': 'Les valeurs déjà enregistrées sous l’ancienne clé restent comme champs libres.',
   'types.delete': 'Supprimer le type',
   'types.delete.title': 'Supprimer le type ?',
-  'types.delete.message': '{count} élément(s) utilisent ce type. Ils conservent l’entrée et l’affichent comme inconnue.',
+  'types.delete.message_one': '{count} élément utilise ce type. Il conserve l’entrée et l’affiche comme inconnue.',
+  'types.delete.message_other': '{count} éléments utilisent ce type. Ils conservent l’entrée et l’affichent comme inconnue.',
   'types.readOnly': 'Lecture seule en mode analyse.',
   'types.template': 'Modèle',
   'types.template.it-services': 'Services informatiques',
