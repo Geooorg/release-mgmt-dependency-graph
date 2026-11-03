@@ -4,6 +4,7 @@ import { createTranslate } from '../i18n/translate'
 import { contentFingerprint } from '../model/fingerprint'
 import { copyElements, pasteElements, type ElementClipboard } from '../model/clipboard'
 import * as graph from '../model/graph'
+import { addType as addCatalogType, removeType as removeCatalogType, replaceType, uniqueName, type CatalogSide } from '../model/catalog'
 import { growGroupsToFit } from '../model/groupGrowth'
 import {
   discardLastRecord,
@@ -27,7 +28,9 @@ import {
 } from '../model/workMode'
 import type { ConnectionCheck } from '../model/graph'
 import type { Status } from '../model/status'
+import { EMPTY_CATALOG } from '../model/types'
 import type {
+  Catalog,
   GraphContent,
   HandleSide,
   IdGenerator,
@@ -36,6 +39,7 @@ import type {
   ModelNode,
   Point,
   Size,
+  TypeDef,
 } from '../model/types'
 import { getLocale } from './localeStore'
 
@@ -69,6 +73,8 @@ export interface GraphState {
   edges: ModelEdge[]
   /** Always set; `A-Z a-z 0-9 - _ .` only. */
   projectName: string
+  /** Types of objects and connections; part of the project (undo, export). */
+  catalog: Catalog
 
   // --- UI state (never persisted, never triggers a save) ---
   selectedNodeIds: string[]
@@ -126,6 +132,20 @@ export interface GraphState {
   setSelectionEntity: (value: string) => void
   /** Sets the `version` of all selected objects (groups and notes have none); one undo step. */
   setSelectionVersion: (value: string) => void
+  /** Adds an empty type (default name unless given); returns its id, or undefined if refused (analysis mode, taken name). */
+  addType: (side: CatalogSide, name?: string) => string | undefined
+  /** Replaces the type with the same id; invalid input is ignored. */
+  updateType: (side: CatalogSide, type: TypeDef) => void
+  /** Removes a type; elements keep their (now unknown) type entry. */
+  removeType: (side: CatalogSide, id: string) => void
+  /** Replaces the whole catalog (template or file); one undo step. */
+  applyCatalog: (next: Catalog) => void
+  /** Sets (or with undefined removes) the type of all selected objects; one undo step, also in analysis mode. */
+  setSelectionType: (typeId: string | undefined) => void
+  /** Sets (or removes) the type of a connection; also in analysis mode. */
+  setEdgeType: (edgeId: string, typeId: string | undefined) => void
+  /** Sets the value of a type field of a connection; also in analysis mode. */
+  setEdgeField: (edgeId: string, key: string, value: string) => void
   /** Sets the status of an object (also in analysis mode); one undo step. */
   setStatus: (id: string, status: Status) => void
   /** Sets the reason of a blocked object (trimmed, blank removes it); no-op for other objects. Also in analysis mode. */
@@ -241,6 +261,7 @@ export function createGraphStore(
       nodes: get().nodes,
       edges: get().edges,
       projectName: get().projectName,
+      catalog: get().catalog,
     })
 
     /**
@@ -251,13 +272,16 @@ export function createGraphStore(
     const apply = (next: GraphContent, extra: Partial<GraphState> = {}) => {
       const current = content()
       const renamed = next.projectName !== undefined && next.projectName !== current.projectName
-      const changed = renamed || next.nodes !== current.nodes || next.edges !== current.edges
+      const changed = renamed || next.nodes !== current.nodes ||
+        next.edges !== current.edges ||
+        next.catalog !== current.catalog
       const history =
         changed && !get().gesture ? recordHistory(get().history, current) : get().history
       set({
         nodes: next.nodes,
         edges: next.edges,
         projectName: next.projectName ?? current.projectName ?? DEFAULT_PROJECT_NAME,
+        catalog: next.catalog ?? current.catalog ?? EMPTY_CATALOG,
         history,
         ...extra,
       })
@@ -284,6 +308,7 @@ export function createGraphStore(
         nodes: result.content.nodes,
         edges: result.content.edges,
         projectName: result.content.projectName ?? DEFAULT_PROJECT_NAME,
+        catalog: result.content.catalog ?? EMPTY_CATALOG,
         history: result.history,
         gesture: false,
         ...pruneUi(result.content),
@@ -355,6 +380,7 @@ export function createGraphStore(
       nodes: initial.nodes,
       edges: initial.edges,
       projectName: initial.projectName ?? DEFAULT_PROJECT_NAME,
+      catalog: initial.catalog ?? EMPTY_CATALOG,
       selectedNodeIds: [],
       selectedEdgeIds: [],
       sidebarInvalid: false,
@@ -399,6 +425,29 @@ export function createGraphStore(
       setSelectionClass: (value) => apply(graph.setClasses(content(), get().selectedNodeIds, value)),
       setSelectionEntity: (value) => apply(graph.setEntities(content(), get().selectedNodeIds, value)),
       setSelectionVersion: (value) => apply(graph.setVersions(content(), get().selectedNodeIds, value)),
+      addType: (side, name) => {
+        if (structureLocked()) return undefined
+        const catalog = get().catalog
+        const added = addCatalogType(catalog, side, name ?? uniqueName(catalog[side], currentT()('types.defaultName')), newId)
+        if (added === undefined) return undefined
+        apply({ ...content(), catalog: added.catalog })
+        return added.id
+      },
+      updateType: (side, type) => {
+        if (structureLocked()) return
+        apply({ ...content(), catalog: replaceType(get().catalog, side, type) })
+      },
+      removeType: (side, id) => {
+        if (structureLocked()) return
+        apply({ ...content(), catalog: removeCatalogType(get().catalog, side, id) })
+      },
+      applyCatalog: (next) => {
+        if (structureLocked()) return
+        apply({ ...content(), catalog: next })
+      },
+      setSelectionType: (typeId) => apply(graph.setTypes(content(), get().selectedNodeIds, typeId)),
+      setEdgeType: (edgeId, typeId) => apply(graph.setEdgeType(content(), edgeId, typeId)),
+      setEdgeField: (edgeId, key, value) => apply(graph.setEdgeField(content(), edgeId, key, value)),
       setStatus: (id, status) => apply(graph.setStatus(content(), id, status)),
       setBlockReason: (id, reason) => apply(graph.setBlockReason(content(), id, reason)),
 
@@ -657,6 +706,7 @@ export function createGraphStore(
           nodes: next.nodes,
           edges: next.edges,
           projectName: next.projectName ?? DEFAULT_PROJECT_NAME,
+          catalog: next.catalog ?? EMPTY_CATALOG,
           history: recordHistory(get().history, content()),
           ...withSelection([], []),
           tool: DEFAULT_TOOL,
@@ -680,6 +730,7 @@ export function createGraphStore(
           nodes: result.model.nodes,
           edges: result.model.edges,
           projectName: result.model.projectName,
+          catalog: result.model.catalog,
         })
         // The project now equals the file: nothing is lost by replacing it again.
         get().markExported()
@@ -694,7 +745,10 @@ export function createGraphStore(
 
 /** Same model, ignoring object identity (a "move" onto the same spot is no change). */
 function sameContent(a: GraphContent, b: GraphContent): boolean {
-  if (a.edges !== b.edges || a.projectName !== b.projectName || a.nodes.length !== b.nodes.length) {
+  if (a.edges !== b.edges ||
+    a.projectName !== b.projectName ||
+    a.catalog !== b.catalog ||
+    a.nodes.length !== b.nodes.length) {
     return false
   }
   return a.nodes.every((n, i) => {

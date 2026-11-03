@@ -9,7 +9,7 @@ export interface PersistenceOptions {
 }
 
 /**
- * Saves the model whenever `nodes` or `edges` change (debounced), and once more when the page
+ * Saves the model whenever `nodes`, `edges`, the project name or the catalog change (debounced), and once more when the page
  * is hidden/closed. Pure UI-state changes (selection, sidebar, …) never trigger a save.
  * Returns a disposer that flushes pending changes and detaches everything.
  */
@@ -23,8 +23,8 @@ export function connectPersistence(store: GraphStore, options: PersistenceOption
     clearTimeout(timer)
     if (!dirty) return
     dirty = false
-    const { nodes, edges, projectName } = store.getState()
-    if (save({ nodes, edges, projectName })) {
+    const { nodes, edges, projectName, catalog } = store.getState()
+    if (save({ nodes, edges, projectName, catalog })) {
       failureReported = false
     } else if (!failureReported) {
       failureReported = true
@@ -36,7 +36,8 @@ export function connectPersistence(store: GraphStore, options: PersistenceOption
     if (
       state.nodes === previous.nodes &&
       state.edges === previous.edges &&
-      state.projectName === previous.projectName
+      state.projectName === previous.projectName &&
+      state.catalog === previous.catalog
     ) {
       return
     }

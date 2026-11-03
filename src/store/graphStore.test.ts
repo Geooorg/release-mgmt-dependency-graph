@@ -1726,3 +1726,57 @@ describe('graphStore', () => {
     })
   })
 })
+
+describe('type catalog', () => {
+  const start = () => createGraphStore(content([box('a', 0, 0)]), counterIds())
+
+  it('adds, updates and removes a type as undo steps', () => {
+    const store = start()
+    const id = store.getState().addType('elementTypes', 'Service')!
+    expect(store.getState().catalog.elementTypes.map((t) => t.name)).toEqual(['Service'])
+    store.getState().updateType('elementTypes', { id, name: 'Dienst', fields: [] })
+    expect(store.getState().catalog.elementTypes[0].name).toBe('Dienst')
+    store.getState().removeType('elementTypes', id)
+    expect(store.getState().catalog.elementTypes).toHaveLength(0)
+    store.getState().undo()
+    expect(store.getState().catalog.elementTypes).toHaveLength(1)
+  })
+
+  it('refuses an invalid type', () => {
+    const store = start()
+    store.getState().addType('elementTypes', 'Service')
+    expect(store.getState().addType('elementTypes', 'service')).toBeUndefined()
+  })
+
+  it('is locked in analysis mode, but typing objects is not', () => {
+    const store = start()
+    const id = store.getState().addType('elementTypes', 'Service')!
+    store.getState().setMode('analyze')
+    expect(store.getState().addType('elementTypes', 'Other')).toBeUndefined()
+    store.getState().removeType('elementTypes', id)
+    expect(store.getState().catalog.elementTypes).toHaveLength(1)
+    store.getState().applyNodeSelection([{ id: 'a', selected: true }])
+    store.getState().setSelectionType(id)
+    expect(store.getState().nodes[0].metadata).toContainEqual({ key: 'type', value: id })
+  })
+
+  it('replaces the catalog as one undo step and keeps the elements', () => {
+    const store = start()
+    store.getState().applyCatalog({ elementTypes: [{ id: 'x', name: 'DB', fields: [] }], edgeTypes: [] })
+    expect(store.getState().catalog.elementTypes[0].name).toBe('DB')
+    store.getState().undo()
+    expect(store.getState().catalog.elementTypes).toHaveLength(0)
+  })
+
+  it('takes over the catalog of an imported file', () => {
+    const store = start()
+    const text = JSON.stringify({
+      version: 5,
+      catalog: { elementTypes: [{ id: 't', name: 'Queue', fields: [] }], edgeTypes: [] },
+      nodes: [],
+      edges: [],
+    })
+    expect(store.getState().importText(text)).toBe(true)
+    expect(store.getState().catalog.elementTypes[0].name).toBe('Queue')
+  })
+})

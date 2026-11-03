@@ -341,6 +341,7 @@ export const fr: Catalog = {
   'app.discard.confirm': 'Abandonner',
   'node.defaultName': 'Nouvel objet',
   'group.defaultName': 'Nouveau groupe',
+  'types.defaultName': 'Nouveau type',
   'starter.projectA': 'Projet A',
   'starter.projectB': 'Projet B',
   'node.blockedMembers': 'Contient des objets bloqués : {names}',

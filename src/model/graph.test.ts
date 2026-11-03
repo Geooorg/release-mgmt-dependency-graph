@@ -33,6 +33,9 @@ import {
   setClasses,
   setEntities,
   setVersions,
+  setEdgeField,
+  setEdgeType,
+  setTypes,
   updateMetadata,
   wouldBreakHierarchy,
 } from './graph'
@@ -43,7 +46,7 @@ import {
   GROUP_PADDING,
   NODE_SIZE,
 } from './types'
-import type { GraphContent, IdGenerator, ModelEdge, ModelNode } from './types'
+import type { Catalog, GraphContent, IdGenerator, ModelEdge, ModelNode } from './types'
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -1755,5 +1758,64 @@ describe('setClasses / setEntities / setVersions', () => {
     expect(setEntities(c, ['a'], ' ')).toBe(c)
     expect(setClasses(c, ['g'], 'x.Y')).toBe(c)
     expect(setClasses(c, [], 'x.Y')).toBe(c)
+  })
+})
+
+describe('types on elements', () => {
+  const catalog: Catalog = {
+    elementTypes: [{ id: 't1', name: 'Service', fields: [{ key: 'owner', kind: 'text', default: 'n/a' }] }],
+    edgeTypes: [{ id: 'e1', name: 'Datenfluss', fields: [{ key: 'port', kind: 'text' }] }],
+  }
+  const full: ModelNode = {
+    ...node('a', 0, 0),
+    metadata: [
+      { key: 'name', value: 'a' },
+      { key: 'class', value: 'java.lang.Object' },
+      { key: 'entity', value: '' },
+      { key: 'version', value: '' },
+    ],
+  }
+  const typedContent = () => ({
+    nodes: [full, group('g', 0, 100, 300, 200)],
+    edges: [{ id: 'x', source: 'a', target: 'g' }],
+    catalog,
+  })
+
+  it('sets the type of objects and adds the missing fields with their defaults', () => {
+    const next = setTypes(typedContent(), ['a'], 't1')
+    expect(next.nodes[0].metadata).toEqual([
+      { key: 'name', value: 'a' },
+      { key: 'type', value: 't1' },
+      { key: 'class', value: 'java.lang.Object' },
+      { key: 'entity', value: '' },
+      { key: 'version', value: '' },
+      { key: 'owner', value: 'n/a' },
+    ])
+  })
+
+  it('skips groups, unknown types and no-ops', () => {
+    const start = typedContent()
+    expect(setTypes(start, ['g'], 't1')).toBe(start)
+    expect(setTypes(start, ['a'], 'unknown')).toBe(start)
+    const typed = setTypes(start, ['a'], 't1')
+    expect(setTypes(typed, ['a'], 't1')).toBe(typed)
+  })
+
+  it('removing the type keeps the field values as free fields', () => {
+    const removed = setTypes(setTypes(typedContent(), ['a'], 't1'), ['a'], undefined)
+    expect(removed.nodes[0].metadata.some((e) => e.key === 'type')).toBe(false)
+    expect(removed.nodes[0].metadata).toContainEqual({ key: 'owner', value: 'n/a' })
+  })
+
+  it('types a connection and edits its field', () => {
+    const typed = setEdgeType(typedContent(), 'x', 'e1')
+    expect(typed.edges[0].metadata).toEqual([
+      { key: 'name', value: '' },
+      { key: 'type', value: 'e1' },
+      { key: 'port', value: '' },
+    ])
+    const edited = setEdgeField(typed, 'x', 'port', '443')
+    expect(edited.edges[0].metadata?.find((e) => e.key === 'port')?.value).toBe('443')
+    expect(setEdgeField(edited, 'x', 'port', '443')).toBe(edited)
   })
 })

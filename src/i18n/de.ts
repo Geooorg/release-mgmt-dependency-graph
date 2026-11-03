@@ -341,6 +341,7 @@ export const de = {
   'app.discard.confirm': 'Verwerfen',
   'node.defaultName': 'Neues Objekt',
   'group.defaultName': 'Neue Gruppe',
+  'types.defaultName': 'Neuer Typ',
   'starter.projectA': 'Projekt A',
   'starter.projectB': 'Projekt B',
   'node.blockedMembers': 'Enthält blockierte Objekte: {names}',

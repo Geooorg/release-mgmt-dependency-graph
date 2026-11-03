@@ -341,6 +341,7 @@ export const en: Catalog = {
   'app.discard.confirm': 'Discard',
   'node.defaultName': 'New object',
   'group.defaultName': 'New group',
+  'types.defaultName': 'New type',
   'starter.projectA': 'Project A',
   'starter.projectB': 'Project B',
   'node.blockedMembers': 'Contains blocked objects: {names}',

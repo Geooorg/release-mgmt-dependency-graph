@@ -31,7 +31,15 @@ describe('connectPersistence', () => {
       nodes: [expect.objectContaining({ id: 'a', position: { x: 3, y: 3 } })],
       edges: [],
       projectName: 'Release-Management',
+      catalog: { elementTypes: [], edgeTypes: [] },
     })
+  })
+
+  it('saves when only the catalog changes', () => {
+    const { store, save } = setup()
+    store.getState().addType('elementTypes', 'Service')
+    vi.advanceTimersByTime(100)
+    expect(save).toHaveBeenCalledTimes(1)
   })
 
   it('saves when only the project name changes, and includes it', () => {

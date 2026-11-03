@@ -12,6 +12,7 @@ import {
   type Status,
 } from './status'
 import { withSoftEntry } from './softDependency'
+import { withFieldValue, withTypeDefaults, withTypeEntry } from './typing'
 import {
   GROUP_DEFAULT_SIZE,
   GROUP_HEADER_HEIGHT,
@@ -717,4 +718,61 @@ export function setEdgeSoft(content: GraphContent, id: string, soft: boolean): G
   const { metadata: _old, ...rest } = edge
   const updated: ModelEdge = metadata === undefined ? rest : { ...rest, metadata }
   return { ...content, edges: content.edges.map((e) => (e.id === id ? updated : e)) }
+}
+
+/**
+ * Sets (or with `undefined` removes) the type of the listed objects. Only a known type can be chosen;
+ * missing fields of the type are added with their defaults, existing values stay (also those of the
+ * old type, as free fields). Groups, notes, unknown ids and unknown types are skipped; nothing to
+ * change -> the content itself.
+ */
+export function setTypes(content: GraphContent, ids: readonly string[], typeId: string | undefined): GraphContent {
+  const def = typeId === undefined ? undefined : content.catalog?.elementTypes.find((type) => type.id === typeId)
+  if (typeId !== undefined && def === undefined) return content
+  const targets = new Set(ids)
+  let changed = false
+  const nodes = content.nodes.map((node) => {
+    if (!targets.has(node.id) || node.kind !== 'node') return node
+    const typed = withTypeEntry(node.metadata, typeId)
+    const metadata = normalizeMetadata(def === undefined ? typed : withTypeDefaults(typed, def))
+    if (JSON.stringify(metadata) === JSON.stringify(node.metadata)) return node
+    changed = true
+    return { ...node, metadata }
+  })
+  return changed ? { ...content, nodes } : content
+}
+
+function withEdgeMetadata(
+  content: GraphContent,
+  edgeId: string,
+  write: (entries: readonly MetadataEntry[]) => MetadataEntry[],
+): GraphContent {
+  const edge = content.edges.find((e) => e.id === edgeId)
+  if (edge === undefined) return content
+  const metadata = tidyEdgeMetadata(write(edge.metadata ?? []))
+  const same =
+    metadata === undefined
+      ? edge.metadata === undefined
+      : metadata.length === edge.metadata?.length &&
+        metadata.every((entry, i) => entry.key === edge.metadata?.[i].key && entry.value === edge.metadata[i].value)
+  if (same) return content
+  const { metadata: _old, ...rest } = edge
+  const updated: ModelEdge = metadata === undefined ? rest : { ...rest, metadata }
+  return { ...content, edges: content.edges.map((e) => (e.id === edgeId ? updated : e)) }
+}
+
+/** Like `setTypes`, for one connection (its type list is `catalog.edgeTypes`). */
+export function setEdgeType(content: GraphContent, edgeId: string, typeId: string | undefined): GraphContent {
+  const def = typeId === undefined ? undefined : content.catalog?.edgeTypes.find((type) => type.id === typeId)
+  if (typeId !== undefined && def === undefined) return content
+  return withEdgeMetadata(content, edgeId, (entries) => {
+    const named = normalizeMetadata(entries)
+    const typed = withTypeEntry(named, typeId)
+    return def === undefined ? typed : withTypeDefaults(typed, def)
+  })
+}
+
+/** Sets the value of a type field on a connection (in place, or behind the fixed entries). */
+export function setEdgeField(content: GraphContent, edgeId: string, key: string, value: string): GraphContent {
+  return withEdgeMetadata(content, edgeId, (entries) => withFieldValue(normalizeMetadata(entries), key, value))
 }
