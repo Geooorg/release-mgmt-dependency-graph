@@ -1852,3 +1852,15 @@ ol.analysis-list > li::before {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.sidebar__type-fields {
+  border: 1px solid var(--gray-400);
+  border-radius: 6px;
+  padding: 8px;
+  margin: 0 0 12px;
+}
+
+.sidebar__warn {
+  color: #b45309;
+  font-size: 12px;
+}

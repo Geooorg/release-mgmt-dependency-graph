@@ -13,13 +13,16 @@ import {
 } from '../model/status'
 import { useT } from '../i18n/react'
 import { CLASS_KEY, DEFAULT_CLASS, DEFAULT_ENTITY, DEFAULT_VERSION, ENTITY_KEY, VERSION_KEY } from '../model/objectFields'
-import { COLOR_KEY, DEFAULT_COLOR, NAME_KEY, NOTE_DEFAULT_COLOR } from '../model/types'
+import { COLOR_KEY, DEFAULT_COLOR, NAME_KEY, NOTE_DEFAULT_COLOR, TYPE_KEY } from '../model/types'
 import type { MetadataEntry } from '../model/types'
-import type { SidebarElement, SidebarProps } from './props'
+import type { SidebarElement, SidebarProps, SidebarTyping } from './props'
 import { SidebarBulkColor } from './SidebarBulkColor'
 import { SidebarBulkFields } from './SidebarBulkFields'
 import { SidebarDetails } from './SidebarDetails'
 import { SidebarBulkStatus } from './SidebarBulkStatus'
+import { SidebarBulkType } from './SidebarBulkType'
+import { SidebarTypeFields } from './SidebarTypeFields'
+import { switchType } from './typedDraft'
 import { SidebarFilterResults } from './SidebarFilterResults'
 import { SidebarEdgeForm } from './SidebarEdgeForm'
 import { useEditGesture, useReportInvalid } from './useSidebarEffects'
@@ -49,6 +52,10 @@ interface Draft {
   entity: string
   /** `version` of an object (default empty); unused for groups and notes. */
   version: string
+  /** Id of the object's type ('' = none); unused for groups and notes. */
+  typeId: string
+  /** Values of the fields of that type by key. */
+  typed: Record<string, string>
   rows: Row[]
 }
 
@@ -63,7 +70,7 @@ function toRows(entries: readonly MetadataEntry[]): Row[] {
   return entries.map((entry) => ({ rid: newRowId(), key: entry.key, value: entry.value }))
 }
 
-function toDraft(entries: readonly MetadataEntry[], isObject: boolean): Draft {
+function toDraft(entries: readonly MetadataEntry[], isObject: boolean, typing?: SidebarTyping): Draft {
   const nameIndex = entries.findIndex((entry) => entry.key === NAME_KEY)
   const colorIndex = entries.findIndex((entry) => entry.key === COLOR_KEY)
   // The status key is matched trimmed and case-insensitively; it is written back as `status`.
@@ -76,6 +83,14 @@ function toDraft(entries: readonly MetadataEntry[], isObject: boolean): Draft {
   const classIndex = isObject ? entries.findIndex((entry) => entry.key === CLASS_KEY) : -1
   const entityIndex = isObject ? entries.findIndex((entry) => entry.key === ENTITY_KEY) : -1
   const versionIndex = isObject ? entries.findIndex((entry) => entry.key === VERSION_KEY) : -1
+  const typeIndex = isObject ? entries.findIndex((entry) => entry.key === TYPE_KEY) : -1
+  const typeId = typeIndex >= 0 ? entries[typeIndex].value.trim() : ''
+  const fieldKeys = new Set((typeId === '' ? [] : (typing?.fieldsOf(typeId) ?? [])).map((field) => field.key))
+  // The first entry per field key is the field; the model has no duplicates (the importer rejects them).
+  const typed: Record<string, string> = {}
+  entries.forEach((entry, index) => {
+    if (fieldKeys.has(entry.key) && index !== nameIndex && index !== typeIndex) typed[entry.key] ??= entry.value
+  })
   return {
     name: nameIndex >= 0 ? entries[nameIndex].value : '',
     // An unusable colour value counts as "not set" and is dropped on the next edit.
@@ -86,33 +101,41 @@ function toDraft(entries: readonly MetadataEntry[], isObject: boolean): Draft {
     objectClass: classIndex >= 0 ? entries[classIndex].value : DEFAULT_CLASS,
     entity: entityIndex >= 0 ? entries[entityIndex].value : DEFAULT_ENTITY,
     version: versionIndex >= 0 ? entries[versionIndex].value : DEFAULT_VERSION,
+    typeId,
+    typed,
     rows: toRows(
       entries.filter(
-        (_, index) =>
+        (entry, index) =>
           index !== nameIndex &&
           index !== colorIndex &&
           index !== statusIndex &&
           index !== reasonIndex &&
           index !== classIndex &&
           index !== entityIndex &&
-          index !== versionIndex,
+          index !== versionIndex &&
+          index !== typeIndex &&
+          !fieldKeys.has(entry.key),
       ),
     ),
   }
 }
 
-function toEntries(draft: Draft, isObject: boolean): MetadataEntry[] {
+function toEntries(draft: Draft, isObject: boolean, typing?: SidebarTyping): MetadataEntry[] {
   return [
     { key: NAME_KEY, value: draft.name },
     ...(draft.color ? [{ key: COLOR_KEY, value: draft.color }] : []),
     ...(draft.status ? [{ key: STATUS_KEY, value: draft.status }] : []),
     ...(draft.reason.trim() ? [{ key: BLOCK_REASON_KEY, value: draft.reason }] : []),
+    ...(isObject && draft.typeId !== '' ? [{ key: TYPE_KEY, value: draft.typeId }] : []),
     ...(isObject
       ? [
           { key: CLASS_KEY, value: draft.objectClass },
           { key: ENTITY_KEY, value: draft.entity },
           { key: VERSION_KEY, value: draft.version },
         ]
+      : []),
+    ...(isObject && draft.typeId !== ''
+      ? (typing?.fieldsOf(draft.typeId) ?? []).map((field) => ({ key: field.key, value: draft.typed[field.key] ?? '' }))
       : []),
     ...draft.rows.map(({ key, value }) => ({ key, value })),
   ]
@@ -126,8 +149,10 @@ function sameEntries(a: readonly MetadataEntry[], b: readonly MetadataEntry[]): 
  * What the draft stands for in the model. A free row typed as "Status" takes the place of the
  * status field, so the stored entry is canonical; empty keys are dropped, values trimmed.
  */
-function entriesOf(draft: Draft, isObject: boolean): MetadataEntry[] {
-  return normalizeMetadata(toEntries(toDraft(toEntries(draft, isObject), isObject), isObject))
+function entriesOf(draft: Draft, isObject: boolean, typing?: SidebarTyping): MetadataEntry[] {
+  return normalizeMetadata(
+    toEntries(toDraft(toEntries(draft, isObject, typing), isObject, typing), isObject, typing),
+  )
 }
 
 type SidebarFormProps = Omit<SidebarProps, 'element' | 'selectionCount' | 'hidden' | 'filter'> & {
@@ -148,6 +173,7 @@ function SidebarForm({
   onEditEnd,
   onClose,
   onInvalidChange,
+  typing,
   detailsOpen,
   onDetailsToggle,
 }: SidebarFormProps) {
@@ -157,30 +183,30 @@ function SidebarForm({
   // A note has only its text and a colour: no status, no free fields.
   const isNote = element.kind === 'note'
   const [received, setReceived] = useState(element.metadata)
-  const [applied, setApplied] = useState(() => entriesOf(toDraft(element.metadata, isObject), isObject))
-  const [draft, setDraft] = useState(() => toDraft(element.metadata, isObject))
+  const [applied, setApplied] = useState(() => entriesOf(toDraft(element.metadata, isObject, typing), isObject, typing))
+  const [draft, setDraft] = useState(() => toDraft(element.metadata, isObject, typing))
   const gesture = useEditGesture(onEditStart, onEditEnd)
 
   if (received !== element.metadata) {
     setReceived(element.metadata)
-    const incoming = entriesOf(toDraft(element.metadata, isObject), isObject)
+    const incoming = entriesOf(toDraft(element.metadata, isObject, typing), isObject, typing)
     // Our own change coming back is equal to `applied`; anything else is news from outside.
     if (!sameEntries(incoming, applied)) {
       setApplied(incoming)
-      setDraft(toDraft(element.metadata, isObject))
+      setDraft(toDraft(element.metadata, isObject, typing))
     }
   }
 
-  const duplicates = findDuplicateKeys(entriesOf(draft, isObject))
+  const duplicates = findDuplicateKeys(entriesOf(draft, isObject, typing))
   useReportInvalid(duplicates.length > 0, onInvalidChange)
   // The fixed fields show what the model will hold, e.g. also for a free row typed as "Status".
-  const shown = toDraft(toEntries(draft, isObject), isObject)
+  const shown = toDraft(toEntries(draft, isObject, typing), isObject, typing)
   const blocked = parseStatus(shown.status) === 'blockiert'
 
   /** `discrete`: a click or choice that is one undo step of its own; otherwise typing, bundled until the field is left. */
   function edit(next: Draft, discrete = false) {
     setDraft(next)
-    const entries = entriesOf(next, isObject)
+    const entries = entriesOf(next, isObject, typing)
     // Invalid or nothing new (e.g. a freshly added row without a key): the model keeps its state.
     if (findDuplicateKeys(entries).length > 0 || sameEntries(entries, applied)) return
     if (discrete) gesture.end()
@@ -197,6 +223,16 @@ function SidebarForm({
   function chooseStatus(status: string) {
     const rows = status === 'blockiert' ? draft.rows : draft.rows.filter((row) => !isBlockReasonKey(row.key))
     edit({ ...draft, status, reason: status === 'blockiert' ? shown.reason : '', rows }, true)
+  }
+
+  function chooseType(typeId: string) {
+    if (typing === undefined) return
+    const part = switchType(
+      { typeId: draft.typeId, typed: draft.typed, rows: draft.rows.map(({ key, value }) => ({ key, value })) },
+      typeId,
+      typing,
+    )
+    edit({ ...draft, typeId: part.typeId, typed: part.typed, rows: toRows(part.rows) }, true)
   }
 
   function removeRow(rid: string) {
@@ -331,6 +367,20 @@ function SidebarForm({
         </div>
       )}
 
+      {isObject && typing !== undefined && (
+        <SidebarTypeFields
+          typing={typing}
+          typeId={draft.typeId}
+          values={draft.typed}
+          onTypeChange={chooseType}
+          onValueChange={(key, value, discrete) =>
+            edit({ ...draft, typed: { ...draft.typed, [key]: value } }, discrete)
+          }
+          onEditStart={onEditStart}
+          onEditEnd={onEditEnd}
+        />
+      )}
+
       {isObject && (
         <SidebarDetails open={detailsOpen} onToggle={onDetailsToggle}>
           <div className="sidebar__field">
@@ -438,6 +488,7 @@ function SidebarSelection({
   bulkColor,
   bulkStatus,
   bulkFields,
+  bulkType,
   hidden,
   ...handlers
 }: Omit<SidebarProps, 'filter'>) {
@@ -467,6 +518,7 @@ function SidebarSelection({
             <SidebarBulkColor {...bulkColor} onEditStart={handlers.onEditStart} onEditEnd={handlers.onEditEnd} />
           )}
           {bulkStatus && <SidebarBulkStatus {...bulkStatus} />}
+          {bulkType && <SidebarBulkType {...bulkType} />}
           {bulkFields && (
             <SidebarDetails open={detailsOpen} onToggle={setDetailsOpen}>
               <SidebarBulkFields {...bulkFields} onEditStart={handlers.onEditStart} onEditEnd={handlers.onEditEnd} />

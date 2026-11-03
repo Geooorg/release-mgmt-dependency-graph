@@ -19,9 +19,11 @@ import type {
   BulkColor,
   BulkObjectFields,
   BulkStatus,
+  BulkType,
   ExportFormat,
   SearchOutcome,
   SidebarFilterProps,
+  SidebarTyping,
 } from './components/props'
 import { Canvas } from './flow/Canvas'
 import { buildSvg } from './flow/svgExport'
@@ -31,6 +33,7 @@ import { canGroup, canReverseEdge } from './model/graph'
 import { contentFingerprint } from './model/fingerprint'
 import { displayName, getColor, getEdgeName } from './model/metadata'
 import { getClass, getEntity, getVersion } from './model/objectFields'
+import { getTypeId } from './model/typing'
 import { isSoftEdge } from './model/softDependency'
 import { findByMetadata } from './model/filter'
 import { findByName, nextHit, normalizeQuery } from './model/search'
@@ -139,6 +142,7 @@ function AppShell() {
   const [jsonImport, setJsonImport] = useState<{ unsaved: boolean; errors: string[] } | null>(null)
 
   const projectName = useGraph((s) => s.projectName)
+  const catalog = useGraph((s) => s.catalog)
   const tool = useGraph((s) => s.tool)
   const connectSourcePicked = useGraph((s) => s.connectSourceId !== null)
   const groupable = useGraph((s) => canGroup(s.nodes, s.selectedNodeIds))
@@ -278,6 +282,32 @@ function AppShell() {
       version: shared(getVersion, (value) => graphStore.getState().setSelectionVersion(value)),
     }
   }, [target, nodes, selectedNodeIds])
+  // ... and their type (objects only); available in analysis mode too, it is no structural change.
+  const bulkType = useMemo<BulkType | undefined>(() => {
+    if (target.kind !== 'multiple') return undefined
+    const objects = nodes.filter((n) => n.kind === 'node' && selectedNodeIds.includes(n.id))
+    if (objects.length === 0) return undefined
+    const values = new Set(objects.map((n) => getTypeId(n.metadata) ?? ''))
+    return {
+      choices: catalog.elementTypes.map((type) => ({ id: type.id, name: type.name })),
+      typeId: values.size === 1 ? [...values][0] : '',
+      mixed: values.size > 1,
+      onChange: (typeId) => graphStore.getState().setSelectionType(typeId),
+    }
+  }, [target, nodes, selectedNodeIds, catalog])
+  const typingFor = (side: 'elementTypes' | 'edgeTypes'): SidebarTyping => ({
+    choices: catalog[side].map((type) => ({ id: type.id, name: type.name })),
+    fieldsOf: (typeId) =>
+      catalog[side]
+        .find((candidate) => candidate.id === typeId)
+        ?.fields.map((field) => ({
+          key: field.key,
+          kind: field.kind,
+          options: field.options ?? [],
+          required: field.required === true,
+          default: field.default ?? '',
+        })),
+  })
   const sidebarEdge = useMemo(
     () => (target.kind === 'edge' ? (edges.find((e) => e.id === target.id) ?? null) : null),
     [target, edges],
@@ -312,7 +342,8 @@ function AppShell() {
       return {
         id: sidebarEdge.id,
         kind: 'edge' as const,
-        metadata: [{ key: 'name', value: getEdgeName(sidebarEdge) }],
+        metadata: sidebarEdge.metadata ?? [{ key: 'name', value: getEdgeName(sidebarEdge) }],
+        typeId: getTypeId(sidebarEdge.metadata ?? []) ?? '',
         soft: isSoftEdge(sidebarEdge),
         ends: { source: nameOf(sidebarEdge.source), target: nameOf(sidebarEdge.target) },
         canReverse: canReverseEdge({ nodes, edges }, sidebarEdge.id),
@@ -576,6 +607,8 @@ function AppShell() {
           bulkColor={bulkColor}
           bulkStatus={bulkStatus}
           bulkFields={bulkFields}
+          bulkType={bulkType}
+          typing={typingFor(sidebarElement?.kind === 'edge' ? 'edgeTypes' : 'elementTypes')}
           onChange={(metadata) => {
             if (!sidebarElement) return
             const state = graphStore.getState()
@@ -590,6 +623,12 @@ function AppShell() {
           onClose={() => graphStore.getState().closeSidebar()}
           onSoftChange={(soft) => {
             if (sidebarElement?.kind === 'edge') graphStore.getState().setEdgeSoft(sidebarElement.id, soft)
+          }}
+          onEdgeTypeChange={(typeId) => {
+            if (sidebarElement?.kind === 'edge') graphStore.getState().setEdgeType(sidebarElement.id, typeId)
+          }}
+          onEdgeFieldChange={(key, value) => {
+            if (sidebarElement?.kind === 'edge') graphStore.getState().setEdgeField(sidebarElement.id, key, value)
           }}
           onReverse={() => {
             if (sidebarElement?.kind === 'edge') graphStore.getState().reverseEdge(sidebarElement.id)

@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { useT } from '../i18n/react'
 import { NAME_KEY } from '../model/types'
 import type { SidebarElement, SidebarProps } from './props'
+import { SidebarTypeFields } from './SidebarTypeFields'
 import { useEditGesture } from './useSidebarEffects'
 import './components.css'
 
@@ -28,6 +29,9 @@ export function SidebarEdgeForm({
   onClose,
   onSoftChange,
   onReverse,
+  typing,
+  onEdgeTypeChange,
+  onEdgeFieldChange,
 }: SidebarEdgeFormProps) {
   const t = useT()
   const formId = useId()
@@ -142,6 +146,18 @@ export function SidebarEdgeForm({
           {t('sidebar.soft.hint')}
         </span>
       </div>
+
+      {typing !== undefined && onEdgeTypeChange && onEdgeFieldChange && (
+        <SidebarTypeFields
+          typing={typing}
+          typeId={element.typeId ?? ''}
+          values={Object.fromEntries(element.metadata.map((entry) => [entry.key, entry.value]))}
+          onTypeChange={(id) => onEdgeTypeChange(id === '' ? undefined : id)}
+          onValueChange={(key, value) => onEdgeFieldChange(key, value)}
+          onEditStart={onEditStart}
+          onEditEnd={onEditEnd}
+        />
+      )}
     </form>
   )
 }

@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { MetadataEntry } from '../model/types'
 import { setTestLocale } from '../test/locale'
 import { Sidebar } from './Sidebar'
-import type { SidebarElement, SidebarProps } from './props'
+import type { SidebarElement, SidebarProps, SidebarTyping } from './props'
 
 // Small faithful fakes so these tests do not depend on the real model/metadata implementation.
 vi.mock('../model/metadata', () => {
@@ -1540,5 +1540,117 @@ describe('Sidebar: class and entity of several selected objects', () => {
   it('is absent when no fields are offered (selection without objects)', () => {
     render(<Sidebar {...makeProps({ element: null, selectionCount: 3 })} />)
     expect(screen.queryByLabelText(/Klasse \(class\)/)).not.toBeInTheDocument()
+  })
+})
+
+describe('Sidebar: type and type fields', () => {
+  const typing: SidebarTyping = {
+    choices: [
+      { id: 't1', name: 'Service' },
+      { id: 't2', name: 'Datenbank' },
+    ],
+    fieldsOf: (id) =>
+      id === 't1'
+        ? [{ key: 'owner', kind: 'text', options: [], required: true, default: '' }]
+        : id === 't2'
+          ? [{ key: 'env', kind: 'select', options: ['prod', 'test'], required: false, default: 'prod' }]
+          : undefined,
+  }
+  const initial = [{ key: 'name', value: 'A' }]
+
+  it('writes the type before class and the fields behind version, and warns about an empty required field', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderControlled(initial, { typing })
+    await user.selectOptions(screen.getByLabelText('Typ'), 'Service')
+    expect(onChange).toHaveBeenLastCalledWith([
+      { key: 'name', value: 'A' },
+      { key: 'type', value: 't1' },
+      { key: 'class', value: 'java.lang.Object' },
+      { key: 'entity', value: '' },
+      { key: 'version', value: '' },
+      { key: 'owner', value: '' },
+    ])
+    expect(screen.getByText('Pflichtfeld ist leer')).toBeInTheDocument()
+  })
+
+  it('applies a field value, and switching the type keeps the old value as a free row', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderControlled(
+      [
+        { key: 'name', value: 'A' },
+        { key: 'type', value: 't1' },
+        { key: 'owner', value: 'Anna' },
+      ],
+      { typing },
+    )
+    expect(screen.getByLabelText('owner *')).toHaveValue('Anna')
+    expect(keyInputs()).toHaveLength(0)
+    await user.type(screen.getByLabelText('owner *'), '!')
+    expect(onChange.mock.lastCall?.[0]).toContainEqual({ key: 'owner', value: 'Anna!' })
+    await user.selectOptions(screen.getByLabelText('Typ'), 'Datenbank')
+    const last = onChange.mock.lastCall?.[0]
+    expect(last).toContainEqual({ key: 'type', value: 't2' })
+    expect(last).toContainEqual({ key: 'env', value: 'prod' })
+    expect(last).toContainEqual({ key: 'owner', value: 'Anna!' })
+    expect(keyInputs().map((i) => i.value)).toEqual(['owner'])
+  })
+
+  it('keeps an unknown type visible', () => {
+    render(
+      <Sidebar
+        {...makeProps({
+          element: makeElement({ metadata: [{ key: 'name', value: 'A' }, { key: 'type', value: 'gone' }] }),
+          typing,
+        })}
+      />,
+    )
+    expect(screen.getByRole('option', { name: '? gone (nicht im Katalog)' })).toBeInTheDocument()
+  })
+
+  it('offers no type for a group', () => {
+    render(<Sidebar {...makeProps({ element: makeElement({ kind: 'group' }), typing })} />)
+    expect(screen.queryByLabelText('Typ')).not.toBeInTheDocument()
+  })
+
+  it('edge: the type and its field values go to the edge callbacks', async () => {
+    const user = userEvent.setup()
+    const onEdgeTypeChange = vi.fn()
+    const onEdgeFieldChange = vi.fn()
+    const edge: SidebarElement = {
+      id: ID_B,
+      kind: 'edge',
+      metadata: [
+        { key: 'name', value: '' },
+        { key: 'type', value: 't1' },
+        { key: 'owner', value: 'Anna' },
+      ],
+      typeId: 't1',
+    }
+    render(<Sidebar {...makeProps({ element: edge, typing, onEdgeTypeChange, onEdgeFieldChange })} />)
+    expect(screen.getByLabelText('owner *')).toHaveValue('Anna')
+    await user.type(screen.getByLabelText('owner *'), 'x')
+    expect(onEdgeFieldChange).toHaveBeenLastCalledWith('owner', 'Annax')
+    await user.selectOptions(screen.getByLabelText('Typ'), '– ohne Typ –')
+    expect(onEdgeTypeChange).toHaveBeenLastCalledWith(undefined)
+  })
+
+  it('bulk: sets one type for the selected objects and shows "verschieden" for differing ones', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(
+      <Sidebar
+        {...makeProps({
+          element: null,
+          selectionCount: 2,
+          bulkType: { choices: typing.choices, typeId: '', mixed: true, onChange },
+        })}
+      />,
+    )
+    const select = screen.getByLabelText('Typ der markierten Objekte')
+    expect(within(select).getByRole('option', { name: 'verschieden' })).toBeInTheDocument()
+    await user.selectOptions(select, 'Service')
+    expect(onChange).toHaveBeenCalledWith('t1')
+    await user.selectOptions(select, '– ohne Typ –')
+    expect(onChange).toHaveBeenLastCalledWith(undefined)
   })
 })

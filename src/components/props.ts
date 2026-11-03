@@ -1,7 +1,7 @@
 import type { Locale } from '../i18n/locale'
 import type { DependencyDirection } from '../model/dependency'
 import type { Status } from '../model/status'
-import type { ElementKind, MetadataEntry } from '../model/types'
+import type { ElementKind, FieldKind, MetadataEntry } from '../model/types'
 import type { Highlight, Tool, WorkMode } from '../model/workMode'
 
 export interface ToolbarProps {
@@ -101,6 +101,37 @@ export interface SidebarElement {
   ends?: { source: string; target: string }
   /** Edges only: the connection can be turned around (the opposite one does not exist yet). */
   canReverse?: boolean
+  /** Edges only: id of the connection's type ('' or absent = none). */
+  typeId?: string
+}
+
+export interface TypeChoice {
+  id: string
+  name: string
+}
+
+export interface TypeFieldView {
+  key: string
+  kind: FieldKind
+  options: string[]
+  required: boolean
+  default: string
+}
+
+/** What the sidebar needs to know about the catalog of the element kind it shows. */
+export interface SidebarTyping {
+  choices: TypeChoice[]
+  /** Fields of a type in catalog order; undefined = the id is not in the catalog. */
+  fieldsOf: (typeId: string) => TypeFieldView[] | undefined
+}
+
+/** The type of all selected objects, set in one go (several elements selected). */
+export interface BulkType {
+  choices: TypeChoice[]
+  /** Type id they share ('' = none). Ignored when `mixed`. */
+  typeId: string
+  mixed: boolean
+  onChange: (typeId: string | undefined) => void
 }
 
 /** The colour of all selected objects and groups, set in one go (several elements selected). */
@@ -180,6 +211,14 @@ export interface SidebarProps {
   bulkStatus?: BulkStatus
   /** With several elements selected: the shared class and entity controls; absent when the selection has no object. */
   bulkFields?: BulkObjectFields
+  /** Objects and connections: the types to choose from and their fields; absent = typing is not offered. */
+  typing?: SidebarTyping
+  /** With several objects selected: the shared type control; absent when the selection has no object. */
+  bulkType?: BulkType
+  /** Edges only: the type was chosen (applied at once, one undo step). */
+  onEdgeTypeChange?: (typeId: string | undefined) => void
+  /** Edges only: a type field was edited; `onEditStart`/`onEditEnd` bracket the typing like for other fields. */
+  onEdgeFieldChange?: (key: string, value: string) => void
   /**
    * Live edit: called with every valid draft, already normalized (trimmed, empty keys dropped, `name`
    * first). An invalid draft (duplicate field names) is not reported; the owner keeps the last valid state.
