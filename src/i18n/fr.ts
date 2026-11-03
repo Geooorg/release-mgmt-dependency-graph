@@ -457,4 +457,13 @@ export const fr: Catalog = {
   'agent.direction.title': 'Sens des liaisons',
   'agent.direction.body':
     'La flèche <c>A -> B</c> signifie « A vient avant B » (B dépend de A, A est livré avant B). Convention pour <c>{pair}</c> : source = le prérequis (vient en premier), target = l’unité dépendante.',
+  'catalog.problem.name.empty': '`Le nom ne doit pas être vide.`',
+  'catalog.problem.name.taken': '`Ce nom est déjà utilisé.`',
+  'catalog.problem.color.invalid': '`La couleur doit avoir la forme #rrggbb.`',
+  'catalog.problem.field.keyEmpty': '`Un champ n’a pas de clé.`',
+  'catalog.problem.field.keyReserved': '`Une clé de champ est réservée (name, color, status, blockiert_grund, type, class, entity, version, optional).`',
+  'catalog.problem.field.keyDuplicate': '`Une clé de champ apparaît deux fois.`',
+  'catalog.problem.field.optionsEmpty': '`Un choix a besoin d’au moins une option.`',
+  'catalog.problem.field.optionsDuplicate': '`Une option apparaît deux fois.`',
+  'catalog.problem.field.defaultInvalid': '`La valeur par défaut ne correspond pas au type de champ.`',
 }

@@ -5,7 +5,10 @@
  * Positions of nodes with a `parentId` are relative to that parent group.
  */
 
-export const SCHEMA_VERSION = 4
+export const SCHEMA_VERSION = 5
+
+/** Version 4 had no type catalog; it is read as an empty catalog. */
+export const VERSION_BEFORE_CATALOG = 4
 
 /** Older format that is still imported: an edge had a plain `label` instead of `metadata`. */
 export const LEGACY_SCHEMA_VERSION = 1
@@ -75,11 +78,14 @@ export interface GraphContent {
   edges: ModelEdge[]
   /** Name of the project, `A-Z a-z 0-9 - _ .` only; undefined = default ("Release-Management"). */
   projectName?: string
+  /** Types of objects and connections; undefined = no types defined (same as the empty catalog). */
+  catalog?: Catalog
 }
 
 /** Persisted / exported document. */
 export interface GraphModel extends GraphContent {
   version: typeof SCHEMA_VERSION
+  catalog: Catalog
 }
 
 export type IdGenerator = () => string
@@ -99,3 +105,45 @@ export const NAME_KEY = 'name'
 /** Optional metadata field holding the element colour as `#rrggbb`. */
 export const COLOR_KEY = 'color'
 export const DEFAULT_COLOR = '#2563eb'
+
+/** Fixed icon set for types (drawn as inline SVG, see components/TypeIcon.tsx). */
+export const ICON_KEYS = ['service', 'database', 'queue', 'user', 'cloud', 'external', 'process', 'storage'] as const
+export type IconKey = (typeof ICON_KEYS)[number]
+
+export const FIELD_KINDS = ['text', 'select', 'boolean'] as const
+export type FieldKind = (typeof FIELD_KINDS)[number]
+
+/** One field a type defines; its value is an ordinary metadata entry under `key`. */
+export interface FieldDef {
+  /** Metadata key; trimmed, unique within the type, never a reserved key. */
+  key: string
+  kind: FieldKind
+  /** `select` only: at least one, no duplicates. */
+  options?: string[]
+  required?: boolean
+  /** `boolean`: 'ja' | 'nein'; `select`: one of the options; `text`: any. Absent = empty. */
+  default?: string
+}
+
+export interface TypeDef {
+  /** UUID, generated once, never editable; elements refer to a type by it. */
+  id: string
+  /** Display name, unique within its list (trimmed, case-insensitive). */
+  name: string
+  /** `#rrggbb` default colour of elements of this type. */
+  color?: string
+  icon?: IconKey
+  fields: FieldDef[]
+}
+
+export interface Catalog {
+  /** Types of objects (`kind: 'node'`). */
+  elementTypes: TypeDef[]
+  /** Types of connections. */
+  edgeTypes: TypeDef[]
+}
+
+export const EMPTY_CATALOG: Catalog = { elementTypes: [], edgeTypes: [] }
+
+/** Metadata entry holding the id of the element's type. */
+export const TYPE_KEY = 'type'

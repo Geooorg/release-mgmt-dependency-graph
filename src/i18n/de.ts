@@ -457,4 +457,13 @@ export const de = {
   'agent.direction.title': 'Kantenrichtung',
   'agent.direction.body':
     'Pfeil <c>A -> B</c> heißt „A kommt vor B“ (B hängt von A ab, A wird vor B released). Konvention für <c>{pair}</c>: source = Voraussetzung (kommt zuerst), target = abhängige Einheit.',
+  'catalog.problem.name.empty': '`Der Name darf nicht leer sein.`',
+  'catalog.problem.name.taken': '`Dieser Name wird schon verwendet.`',
+  'catalog.problem.color.invalid': '`Die Farbe muss die Form #rrggbb haben.`',
+  'catalog.problem.field.keyEmpty': '`Ein Feld hat keinen Schlüssel.`',
+  'catalog.problem.field.keyReserved': '`Ein Feldschlüssel ist reserviert (name, color, status, blockiert_grund, type, class, entity, version, optional).`',
+  'catalog.problem.field.keyDuplicate': '`Ein Feldschlüssel kommt doppelt vor.`',
+  'catalog.problem.field.optionsEmpty': '`Eine Auswahl braucht mindestens eine Option.`',
+  'catalog.problem.field.optionsDuplicate': '`Eine Option kommt doppelt vor.`',
+  'catalog.problem.field.defaultInvalid': '`Der Standardwert passt nicht zur Feldart.`',
 } as const
