@@ -373,3 +373,54 @@ describe('toFlowNodes and notes', () => {
     expect(flow.data.color).toBeUndefined()
   })
 })
+
+describe('types', () => {
+  const ui = {
+    selectedIds: none,
+    connectSourceId: null,
+    dropTargetId: null,
+    dependencyNodeIds: none,
+    dependencyEdgeIds: none,
+    cycleNodeIds: none,
+  }
+  const typedBox = (typeId: string, extra: { key: string; value: string }[] = []) => ({
+    ...box('a', 0, 0),
+    metadata: [{ key: 'name', value: 'A' }, ...extra, { key: 'type', value: typeId }],
+  })
+  const catalog = {
+    elementTypes: [{ id: 't1', name: 'Service', color: '#10b981', icon: 'service' as const, fields: [] }],
+    edgeTypes: [{ id: 'e1', name: 'Datenfluss', color: '#f59e0b', fields: [] }],
+  }
+  const typedEdge = { ...edge('x', 'a', 'b'), metadata: [{ key: 'name', value: '' }, { key: 'type', value: 'e1' }] }
+
+  it('colours a typed object with the type colour and shows the type name and icon', () => {
+    const [flow] = toFlowNodes([typedBox('t1')], { ...ui, catalog })
+    expect(flow.data.color).toBe('#10b981')
+    expect(flow.data.typeName).toBe('Service')
+    expect(flow.data.icon).toBe('service')
+  })
+
+  it('lets an own colour win over the type colour', () => {
+    const [flow] = toFlowNodes([typedBox('t1', [{ key: 'color', value: '#112233' }])], { ...ui, catalog })
+    expect(flow.data.color).toBe('#112233')
+  })
+
+  it('marks an unknown type and keeps the default colour', () => {
+    const [flow] = toFlowNodes([typedBox('gone')], ui)
+    expect(flow.data.typeUnknown).toBe(true)
+    expect(flow.data.color).toBeUndefined()
+  })
+
+  it('draws a typed connection in the colour of its type, selection and cycles win', () => {
+    const t = createTranslate('de')
+    const [flow] = toFlowEdges([typedEdge], none, none, nodes, none, t, catalog)
+    expect(flow.style?.stroke).toBe('#f59e0b')
+    expect((flow.markerEnd as { color: string }).color).toBe('#f59e0b')
+    const [selected] = toFlowEdges([typedEdge], new Set(['x']), none, nodes, none, t, catalog)
+    expect(selected.style?.stroke).toBe('#1e3a8a')
+    const [cyclic] = toFlowEdges([typedEdge], none, none, nodes, new Set(['x']), t, catalog)
+    expect(cyclic.style?.stroke).toBe('#9333ea')
+    const [plain] = toFlowEdges([typedEdge], none, none, nodes)
+    expect(plain.style?.stroke).toBe('#2563eb')
+  })
+})

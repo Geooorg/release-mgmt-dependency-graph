@@ -1864,3 +1864,20 @@ ol.analysis-list > li::before {
   color: #b45309;
   font-size: 12px;
 }
+
+.box-node__type {
+  position: absolute;
+  left: 6px;
+  bottom: 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: calc(100% - 32px);
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}

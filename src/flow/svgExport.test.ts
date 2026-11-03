@@ -239,3 +239,23 @@ describe('buildSvg', () => {
     expect(doc.querySelector('title')?.textContent).toBe('Release-Management')
   })
 })
+
+describe('buildSvg: types', () => {
+  const catalog = {
+    elementTypes: [{ id: 't1', name: 'Service', color: '#10b981', fields: [] }],
+    edgeTypes: [{ id: 'e1', name: 'Datenfluss', color: '#f59e0b', fields: [] }],
+  }
+  it('draws a typed object in the type colour with the type name', () => {
+    const typed = node('a', 'A', 0, 0, { metadata: [{ key: 'name', value: 'A' }, { key: 'type', value: 't1' }] })
+    const svg = buildSvg({ nodes: [typed], edges: [], catalog })
+    expect(svg).toContain('#10b981')
+    expect(svg).toContain('>Service<')
+    expect(buildSvg({ nodes: [typed], edges: [] })).not.toContain('>Service<')
+  })
+  it('draws a typed connection in the type colour', () => {
+    const typed = edge('e', 'a', 'b', { metadata: [{ key: 'name', value: '' }, { key: 'type', value: 'e1' }] })
+    const svg = buildSvg({ nodes: [node('a', 'A', 0, 0), node('b', 'B', 300, 0)], edges: [typed], catalog })
+    expect(svg).toContain('stroke="#f59e0b"')
+    expect(svg).toContain('fill="#f59e0b"')
+  })
+})

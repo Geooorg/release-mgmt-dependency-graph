@@ -44,3 +44,13 @@ describe('findByMetadata', () => {
     expect(findByMetadata(nodes, 'name', 'b')).toEqual([{ id: 'b', key: 'name', value: 'B' }])
   })
 })
+
+describe('findByMetadata with types', () => {
+  it('finds objects by the name of their type, not by its id', () => {
+    const types = [{ id: 't1', name: 'Service', fields: [] }]
+    const typed = withMeta(box('a', 0, 0), 'A', ['type', 't1'])
+    const hits = findByMetadata([typed, box('b', 100, 0)], 'type', ' service ', types)
+    expect(hits.map((hit) => hit.id)).toEqual(['a'])
+    expect(findByMetadata([typed], 'type', 't1', types)).toEqual([])
+  })
+})

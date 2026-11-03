@@ -68,6 +68,7 @@ export function Canvas({ cycles, analysis, highlighted }: CanvasProps) {
   const contentRevision = useGraph((s) => s.contentRevision)
   const focusRequest = useGraph((s) => s.focusRequest)
   const revealedId = useGraph((s) => s.revealedId)
+  const catalog = useGraph((s) => s.catalog)
   const { fitView, getInternalNode, getNodesBounds, getViewport, screenToFlowPosition, setViewport } = useReactFlow()
   const flowStore = useStoreApi()
   const paneWidth = useStore((s) => s.width)
@@ -89,14 +90,15 @@ export function Canvas({ cycles, analysis, highlighted }: CanvasProps) {
           cycleNodeIds: cycles.nodeIds,
           analysis,
           revealedId,
+          catalog,
         },
         t,
       ),
-    [nodes, selectedNodeIds, connectSourceId, dropTargetId, highlight, cycles, analysis, revealedId, t],
+    [nodes, selectedNodeIds, connectSourceId, dropTargetId, highlight, cycles, analysis, revealedId, catalog, t],
   )
   const flowEdges = useMemo(
-    () => toFlowEdges(edges, new Set(selectedEdgeIds), highlight.edgeIds, nodes, cycles.edgeIds, t),
-    [edges, nodes, selectedEdgeIds, highlight, cycles, t],
+    () => toFlowEdges(edges, new Set(selectedEdgeIds), highlight.edgeIds, nodes, cycles.edgeIds, t, catalog),
+    [edges, nodes, selectedEdgeIds, highlight, cycles, t, catalog],
   )
 
   // After an import the new graph may be anywhere: bring it into view.

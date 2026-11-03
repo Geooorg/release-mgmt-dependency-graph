@@ -1,5 +1,6 @@
 import type { Node } from '@xyflow/react'
 import type { Status } from '../model/status'
+import type { IconKey } from '../model/types'
 
 /** Data handed to the custom React Flow node components. */
 export interface FlowNodeData extends Record<string, unknown> {
@@ -27,6 +28,12 @@ export interface FlowNodeData extends Record<string, unknown> {
   blockedTitle?: string
   /** Tooltip text of the hourglass; set = the element (a group: one of its members) waits for an unfinished prerequisite. */
   waitingTitle?: string
+  /** Name of the object's type (a known one); undefined = no type or an unknown one. */
+  typeName?: string
+  /** The object refers to a type that is not in the catalog. */
+  typeUnknown?: boolean
+  /** Icon of the object's type. */
+  icon?: IconKey
   /** `#rrggbb` from the `color` metadata field; undefined = default blue. */
   color?: string
   /** Readable text colour for `color`. */

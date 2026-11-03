@@ -5,6 +5,7 @@ import { NODE_SIZE } from '../model/types'
 import { CycleBadge } from './CycleBadge'
 import { NodeHandles } from './NodeHandles'
 import { NodeName } from './NodeName'
+import { TypeIcon } from './TypeIcon'
 import { BlockedFlag, StatusMark, WaitingMark } from './StatusMarks'
 import './components.css'
 
@@ -32,6 +33,12 @@ export function BoxNode({ data, selected }: NodeProps<BoxFlowNode>) {
       {data.waitingTitle && <WaitingMark title={data.waitingTitle} />}
       {data.isInCycle && <CycleBadge />}
       <StatusMark status={data.status} raw={data.statusRaw} known={data.statusKnown} />
+      {(data.icon || data.typeName || data.typeUnknown) && (
+        <span className="box-node__type" title={data.typeName}>
+          {data.icon && <TypeIcon icon={data.icon} />}
+          {data.typeName ?? (data.typeUnknown ? '?' : '')}
+        </span>
+      )}
       <NodeName id={data.id} name={data.name} className="box-node__label" />
     </div>
   )

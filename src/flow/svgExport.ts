@@ -3,7 +3,9 @@ import { getSize, pickSides, sortParentsFirst } from '../model/graph'
 import { displayName, getColor, getContrastColor, getEdgeName, getName } from '../model/metadata'
 import { DEFAULT_PROJECT_NAME } from '../model/projectName'
 import { analyzeProject } from '../model/releaseAnalysis'
+import { edgeTypeColor } from './mapping'
 import { isSoftEdge } from '../model/softDependency'
+import { resolveColor, resolveType } from '../model/typing'
 import { DEFAULT_COLOR, GROUP_HEADER_HEIGHT, NOTE_DEFAULT_COLOR } from '../model/types'
 import type { GraphContent, HandleSide, ModelNode, Point } from '../model/types'
 
@@ -196,6 +198,13 @@ function statusMark(cx: number, cy: number, status: string, known: boolean): str
   return base('#ffffff') + `<circle cx="${num(cx)}" cy="${num(cy)}" r="5" fill="none" stroke="${OPEN}" stroke-width="1.8"/>`
 }
 
+const arrowId = (color: string): string => (color === EDGE_COLOR ? 'arrow' : `arrow-${color.slice(1)}`)
+
+/** Arrow head in one colour; the marker follows the colour of its line. */
+function arrowMarker(color: string): string {
+  return `<marker id="${arrowId(color)}" viewBox="-10 -10 20 20" markerWidth="20" markerHeight="20" markerUnits="userSpaceOnUse" orient="auto" refX="0" refY="0"><polygon points="-10,-8 0,0 -10,8" fill="${color}" stroke="${color}" stroke-width="2" stroke-linejoin="round"/></marker>`
+}
+
 /** The graph as the text of an SVG file. An empty graph yields a small blank image. */
 export function buildSvg(content: GraphContent): string {
   const rects = absoluteRects(content.nodes)
@@ -211,7 +220,8 @@ export function buildSvg(content: GraphContent): string {
   const boxes: string[] = []
   for (const node of sortParentsFirst(content.nodes)) {
     const rect = rects.get(node.id)!
-    const color = getColor(node.metadata) ?? DEFAULT_COLOR
+    const elementTypes = content.catalog?.elementTypes ?? []
+    const color = (node.kind === 'node' ? resolveColor(node.metadata, elementTypes) : getColor(node.metadata)) ?? DEFAULT_COLOR
     const blocked = analysis.blockedIds.has(node.id)
     const waiting = !blocked && analysis.waitingIds.has(node.id)
 
@@ -259,10 +269,16 @@ export function buildSvg(content: GraphContent): string {
       status === undefined || status === 'blockiert'
         ? ''
         : statusMark(rect.x + rect.width - 4, rect.y + rect.height - 4, status, info?.known ?? true)
+    const resolvedType = resolveType(node.metadata, elementTypes)
+    const typeLabel =
+      resolvedType.state === 'known'
+        ? `<text x="${num(rect.x + 8)}" y="${num(rect.y + rect.height - 7)}" font-size="10" opacity="0.85" fill="${getContrastColor(color)}">${escapeXml(fit(resolvedType.def.name, rect.width - 40, 5.6))}</text>`
+        : ''
     boxes.push(
       `<g data-id="${escapeXml(node.id)}" data-kind="node">` +
         `<rect x="${num(rect.x + 1)}" y="${num(rect.y + 1)}" width="${num(rect.width - 2)}" height="${num(rect.height - 2)}" rx="8" fill="${color}" stroke="${color}" stroke-width="2"/>` +
         `<text x="${num(rect.x + rect.width / 2)}" y="${num(rect.y + rect.height / 2)}" dy="0.35em" text-anchor="middle" font-size="14" font-weight="${name ? 600 : 400}"${name ? '' : ' font-style="italic" opacity="0.7"'} fill="${getContrastColor(color)}">${escapeXml(label)}</text>` +
+        typeLabel +
         (blocked ? badge(rect.x + 3, rect.y + 3, DANGER, flag(rect.x + 3, rect.y + 3)) : '') +
         (waiting ? badge(rect.x + 3, rect.y + 3, WAITING, hourglass(rect.x + 3, rect.y + 3)) : '') +
         mark +
@@ -271,6 +287,7 @@ export function buildSvg(content: GraphContent): string {
   }
 
   const edges: string[] = []
+  const arrowColors = new Set<string>([EDGE_COLOR])
   for (const edge of content.edges) {
     const source = rects.get(edge.source)
     const target = rects.get(edge.target)
@@ -293,6 +310,8 @@ export function buildSvg(content: GraphContent): string {
     for (let i = 0; i + 1 < numbers.length; i += 2) extend(bounds, numbers[i], numbers[i + 1])
 
     const soft = isSoftEdge(edge)
+    const stroke = edgeTypeColor(edge, content.catalog) ?? EDGE_COLOR
+    arrowColors.add(stroke)
     const caption = getEdgeName(edge)
     let label = ''
     if (caption) {
@@ -301,12 +320,12 @@ export function buildSvg(content: GraphContent): string {
       extend(bounds, labelX - width / 2, labelY - 11)
       extend(bounds, labelX + width / 2, labelY + 11)
       label =
-        `<rect x="${num(labelX - width / 2)}" y="${num(labelY - 11)}" width="${num(width)}" height="22" rx="4" fill="#ffffff" fill-opacity="0.92" stroke="${EDGE_COLOR}"/>` +
-        `<text x="${num(labelX)}" y="${num(labelY)}" dy="0.35em" text-anchor="middle" font-size="13" font-weight="600" fill="${EDGE_COLOR}">${escapeXml(text)}</text>`
+        `<rect x="${num(labelX - width / 2)}" y="${num(labelY - 11)}" width="${num(width)}" height="22" rx="4" fill="#ffffff" fill-opacity="0.92" stroke="${stroke}"/>` +
+        `<text x="${num(labelX)}" y="${num(labelY)}" dy="0.35em" text-anchor="middle" font-size="13" font-weight="600" fill="${stroke}">${escapeXml(text)}</text>`
     }
     edges.push(
       `<g data-id="${escapeXml(edge.id)}" data-kind="edge"${soft ? ' data-soft="true"' : ''}>` +
-        `<path d="${path}" fill="none" stroke="${EDGE_COLOR}" stroke-width="2"${soft ? ' stroke-dasharray="1 6" stroke-linecap="round"' : ''} marker-end="url(#arrow)"/>` +
+        `<path d="${path}" fill="none" stroke="${stroke}" stroke-width="2"${soft ? ' stroke-dasharray="1 6" stroke-linecap="round"' : ''} marker-end="url(#${arrowId(stroke)})"/>` +
         label +
         `</g>`,
     )
@@ -323,7 +342,7 @@ export function buildSvg(content: GraphContent): string {
     `<?xml version="1.0" encoding="UTF-8"?>`,
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${minX} ${minY} ${width} ${height}" font-family="${FONT}">`,
     `<title>${title}</title>`,
-    `<defs><marker id="arrow" viewBox="-10 -10 20 20" markerWidth="20" markerHeight="20" markerUnits="userSpaceOnUse" orient="auto" refX="0" refY="0"><polygon points="-10,-8 0,0 -10,8" fill="${EDGE_COLOR}" stroke="${EDGE_COLOR}" stroke-width="2" stroke-linejoin="round"/></marker></defs>`,
+    `<defs>${[...arrowColors].map(arrowMarker).join('')}</defs>`,
     `<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="#ffffff"/>`,
     ...groups,
     ...edges,

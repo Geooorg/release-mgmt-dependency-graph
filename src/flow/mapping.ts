@@ -4,8 +4,9 @@ import { getSize, pickSides, sortParentsFirst } from '../model/graph'
 import { displayName, getColor, getContrastColor, getEdgeName, getName } from '../model/metadata'
 import { joinNames, type ProjectAnalysis } from '../model/releaseAnalysis'
 import { isSoftEdge } from '../model/softDependency'
+import { resolveColor, resolveType } from '../model/typing'
 import { NOTE_DEFAULT_COLOR } from '../model/types'
-import type { ModelEdge, ModelNode } from '../model/types'
+import type { Catalog, ModelEdge, ModelNode } from '../model/types'
 import type { AppFlowNode } from './types'
 
 export interface FlowUiState {
@@ -21,6 +22,14 @@ export interface FlowUiState {
   analysis?: ProjectAnalysis
   /** Element flashing after a click in the analysis panel. */
   revealedId?: string | null
+  /** Types of the project; undefined = none. */
+  catalog?: Catalog
+}
+
+/** Colour of a known connection type; undefined = default blue. Selection, dependency and cycle colours win over it. */
+export function edgeTypeColor(edge: ModelEdge, catalog: Catalog | undefined): string | undefined {
+  const resolved = resolveType(edge.metadata ?? [], catalog?.edgeTypes ?? [])
+  return resolved.state === 'known' ? resolved.def.color?.toLowerCase() : undefined
 }
 
 const EDGE_COLOR = '#2563eb'
@@ -68,7 +77,11 @@ export function toFlowNodes(
   return sortParentsFirst(nodes).map((node) => {
     const { width, height } = getSize(node)
     // A note without a colour entry is sticky-note yellow; the others fall back to blue in the styles.
-    const color = getColor(node.metadata) ?? (node.kind === 'note' ? NOTE_DEFAULT_COLOR : undefined)
+    const elementTypes = ui.catalog?.elementTypes ?? []
+    const resolved = node.kind === 'node' ? resolveType(node.metadata, elementTypes) : ({ state: 'none' } as const)
+    const color =
+      (node.kind === 'node' ? resolveColor(node.metadata, elementTypes) : getColor(node.metadata)) ??
+      (node.kind === 'note' ? NOTE_DEFAULT_COLOR : undefined)
     return {
       id: node.id,
       type: node.kind === 'group' ? 'group' : node.kind === 'note' ? 'note' : 'box',
@@ -90,6 +103,8 @@ export function toFlowNodes(
         statusKnown: analysis?.statusInfoById.get(node.id)?.known,
         blockedTitle: blockedTitle(node),
         waitingTitle: waitingTitle(node),
+        ...(resolved.state === 'known' && { typeName: resolved.def.name, icon: resolved.def.icon }),
+        ...(resolved.state === 'unknown' && { typeUnknown: true }),
         color,
         textColor: color && getContrastColor(color),
       },
@@ -112,6 +127,7 @@ export function toFlowEdges(
   nodes: readonly ModelNode[],
   cycleIds: ReadonlySet<string> = NO_IDS,
   t: Translate = createTranslate('de'),
+  catalog?: Catalog,
 ): Edge[] {
   const names = new Map(nodes.map((n) => [n.id, displayName(n)]))
   return edges.map((edge) => {
@@ -129,7 +145,7 @@ export function toFlowEdges(
           : EDGE_COLOR_CYCLE
         : selected
           ? EDGE_COLOR_SELECTED
-          : EDGE_COLOR
+          : (edgeTypeColor(edge, catalog) ?? EDGE_COLOR)
     return {
       id: edge.id,
       source: edge.source,

@@ -218,8 +218,8 @@ function AppShell() {
   const closeFilter = () => setFilter((current) => ({ ...current, open: false }))
   // Derived, never stored: the elements with the entered metadata entry, listed in the sidebar while the bar is open.
   const filterHits = useMemo(
-    () => (filter.open ? findByMetadata(nodes, filter.key, filter.value) : []),
-    [filter, nodes],
+    () => (filter.open ? findByMetadata(nodes, filter.key, filter.value, catalog.elementTypes) : []),
+    [filter, nodes, catalog.elementTypes],
   )
   const sidebarFilter = useMemo<SidebarFilterProps | undefined>(() => {
     if (!filter.open) return undefined
@@ -467,7 +467,7 @@ function AppShell() {
   const runExport = async (format: ExportFormat): Promise<boolean> => {
     const state = graphStore.getState()
     const { nodes: current, edges: currentEdges, projectName: name } = state
-    const content = { nodes: current, edges: currentEdges, projectName: name }
+    const content = { nodes: current, edges: currentEdges, projectName: name, catalog: state.catalog }
     if (format === 'json-file') {
       exportModel()
       return true

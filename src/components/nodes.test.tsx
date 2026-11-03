@@ -77,6 +77,15 @@ describe('node components', () => {
     expect(node).not.toHaveClass('box-node--connect-source')
   })
 
+  it('shows the type name and icon of a typed box, and a question mark for an unknown type', () => {
+    const typed = renderNodes([box({ data: makeData({ typeName: 'Service', icon: 'service' }) })])
+    expect(typed.container.querySelector('.box-node__type')).toHaveTextContent('Service')
+    expect(typed.container.querySelector('.box-node__type svg')).not.toBeNull()
+    typed.unmount()
+    const unknown = renderNodes([box({ data: makeData({ typeUnknown: true }) })])
+    expect(unknown.container.querySelector('.box-node__type')).toHaveTextContent('?')
+  })
+
   it('falls back to the shortened id for an empty box name', () => {
     renderNodes([box({ data: makeData({ name: '' }) })])
 
