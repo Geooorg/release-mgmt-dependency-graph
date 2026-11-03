@@ -1,40 +1,32 @@
 import { createTranslate, type Translate } from '../i18n/translate'
 import { parseCatalog } from './catalogParse'
-import type { Catalog, FieldDef, TypeDef } from './types'
+import type { Catalog, TypeDef } from './types'
 
 export const CATALOG_FILE_VERSION = 1
 
 export const TEMPLATE_IDS = ['it-services', 'dataflow'] as const
 export type TemplateId = (typeof TEMPLATE_IDS)[number]
 
-const environment: FieldDef = { key: 'umgebung', kind: 'select', options: ['prod', 'test', 'dev'], default: 'prod' }
-const protection: FieldDef = {
-  key: 'schutzklasse',
-  kind: 'select',
-  options: ['öffentlich', 'intern', 'vertraulich', 'streng vertraulich'],
-  default: 'intern',
-}
-
 const TEMPLATES: Record<TemplateId, Catalog> = {
   'it-services': {
     elementTypes: [
-      { id: 'svc', name: 'Service', color: '#2563eb', icon: 'service', fields: [{ key: 'owner', kind: 'text', required: true }, environment, { key: 'kritisch', kind: 'boolean', default: 'nein' }] },
-      { id: 'db', name: 'Datenbank', color: '#7c3aed', icon: 'database', fields: [{ key: 'owner', kind: 'text', required: true }, environment, protection] },
-      { id: 'queue', name: 'Queue', color: '#d97706', icon: 'queue', fields: [{ key: 'owner', kind: 'text' }, environment] },
-      { id: 'ext', name: 'Externes System', color: '#6b7280', icon: 'external', fields: [{ key: 'betreiber', kind: 'text' }] },
+      { id: 'svc', name: 'Service', color: '#2563eb', icon: 'service', fields: [] },
+      { id: 'db', name: 'Datenbank', color: '#7c3aed', icon: 'database', fields: [] },
+      { id: 'queue', name: 'Queue', color: '#d97706', icon: 'queue', fields: [] },
+      { id: 'ext', name: 'Externes System', color: '#6b7280', icon: 'external', fields: [] },
     ],
     edgeTypes: [
-      { id: 'call', name: 'Aufruf', color: '#2563eb', fields: [{ key: 'protokoll', kind: 'text' }, { key: 'port', kind: 'text' }, { key: 'asynchron', kind: 'boolean', default: 'nein' }] },
+      { id: 'call', name: 'Aufruf', color: '#2563eb', fields: [] },
     ],
   },
   dataflow: {
     elementTypes: [
       { id: 'proc', name: 'Prozess', color: '#2563eb', icon: 'process', fields: [] },
-      { id: 'store', name: 'Datenspeicher', color: '#7c3aed', icon: 'storage', fields: [protection] },
-      { id: 'actor', name: 'Externe Entität', color: '#6b7280', icon: 'user', fields: [{ key: 'vertrauenswürdig', kind: 'boolean', default: 'nein' }] },
+      { id: 'store', name: 'Datenspeicher', color: '#7c3aed', icon: 'storage', fields: [] },
+      { id: 'actor', name: 'Externe Entität', color: '#6b7280', icon: 'user', fields: [] },
     ],
     edgeTypes: [
-      { id: 'flow', name: 'Datenfluss', color: '#dc2626', fields: [{ key: 'daten', kind: 'text' }, { key: 'protokoll', kind: 'text' }, { key: 'authentifiziert', kind: 'boolean', default: 'nein' }, { key: 'verschlüsselt', kind: 'boolean', default: 'nein' }] },
+      { id: 'flow', name: 'Datenfluss', color: '#dc2626', fields: [] },
     ],
   },
 }
