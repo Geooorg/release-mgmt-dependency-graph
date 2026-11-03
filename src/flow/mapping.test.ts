@@ -462,6 +462,28 @@ describe('arrow heads and dimming by meaning', () => {
     expect(flowEdge(edge('e', 'a', 'b'), true).style?.opacity).toBeUndefined()
   })
 
+  it('dims the label background together with the caption and leaves normal edges as before', () => {
+    const named: ModelEdge = { ...typedEdge('flow'), metadata: [{ key: 'name', value: 'Beschriftung' }, { key: 'type', value: 'flow' }] }
+    const dimmed = flowEdge(named, true).labelBgStyle
+    const normal = flowEdge(named, false).labelBgStyle
+    expect(dimmed?.opacity).toBeLessThan(1)
+    expect(normal).toEqual({ fill: '#ffffff', fillOpacity: 0.92, stroke: '#2563eb', strokeWidth: 1 })
+    expect(normal?.opacity).toBeUndefined()
+  })
+
+  it('draws the open head with a stroke width and the colour of selection, cycle and highlight', () => {
+    const head = (selected: ReadonlySet<string>, cycle: ReadonlySet<string>, highlighted: ReadonlySet<string>) =>
+      toFlowEdges([typedEdge('dep')], selected, highlighted, nodes, cycle, undefined, catalog)[0].markerEnd as {
+        strokeWidth?: number
+        color: string
+      }
+    const all = new Set(['e'])
+    expect(head(none, none, none)).toMatchObject({ strokeWidth: 2, color: '#2563eb' })
+    expect(head(all, none, none)).toMatchObject({ strokeWidth: 2, color: '#1e3a8a' })
+    expect(head(none, all, none)).toMatchObject({ strokeWidth: 2, color: '#9333ea' })
+    expect(head(none, none, all)).toMatchObject({ strokeWidth: 2, color: '#dc2626' })
+  })
+
   it('does not dim a selected or highlighted connection', () => {
     expect(flowEdge(typedEdge('none'), true, new Set(['e'])).style?.opacity).toBeUndefined()
     expect(flowEdge(typedEdge('none'), true, none, new Set(['e'])).style?.opacity).toBeUndefined()

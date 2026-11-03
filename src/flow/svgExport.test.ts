@@ -290,6 +290,18 @@ describe('buildSvg: arrow heads by meaning', () => {
     expect(svg).toContain('<marker id="arrow-dc2626-open"')
   })
 
+  it('emits no open marker for a plain graph', () => {
+    const svg = buildSvg({ nodes, edges: [edge('e1', 'a', 'b')] })
+    expect(svg).not.toContain('arrow-open')
+  })
+
+  it('emits both markers for a filled and an open connection of the same colour, and only used kinds', () => {
+    const flowCatalog = { ...catalog, edgeTypes: [...catalog.edgeTypes, { id: 'plain', name: 'Plain', color: '#dc2626', fields: [] }] }
+    const svg = buildSvg({ nodes, edges: [typedEdge('e1', 'red'), typedEdge('e2', 'plain')], catalog: flowCatalog })
+    const ids = [...svg.matchAll(/<marker id="([^"]+)"/g)].map((m) => m[1]).sort()
+    expect(ids).toEqual(['arrow', 'arrow-dc2626', 'arrow-dc2626-open'])
+  })
+
   it('draws a plain connection with the filled head as before', () => {
     const svg = buildSvg({ nodes, edges: [edge('e1', 'a', 'b')] })
     expect(svg).toContain('marker-end="url(#arrow)"')

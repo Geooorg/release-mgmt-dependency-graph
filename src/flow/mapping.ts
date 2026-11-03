@@ -118,8 +118,9 @@ export function toFlowNodes(
  * Directed edges with an arrow at the target: blue, darker when selected, thick red when part of
  * the highlighted dependency graph. Edges in a cycle are purple and dashed; the dependency colour
  * wins over the cycle colour, the dashes stay. Soft (optional) edges are dotted instead, whatever
- * their colour. The accessible label is written in the language
- * of `t`. In the analysis mode, connections that no analysis uses are dimmed. Connectors are the ones the edge was drawn between; edges without stored connectors
+ * their colour. The accessible label is written in the language of `t`.
+ * In the analysis mode, connections that no analysis uses are dimmed.
+ * Connectors are the ones the edge was drawn between; edges without stored connectors
  * (older files) get the facing sides.
  */
 export function toFlowEdges(
@@ -169,7 +170,14 @@ export function toFlowEdges(
       labelStyle: { fill: color, fontWeight: 600, fontSize: 13, opacity: dimmed ? DIMMED_OPACITY : undefined },
       labelBgPadding: [6, 3],
       labelBgBorderRadius: 4,
-      labelBgStyle: { fill: '#ffffff', fillOpacity: 0.92, stroke: color, strokeWidth: 1 },
+      // `opacity` fades fill and border together, so the box does not outshine its faded caption.
+      labelBgStyle: {
+        fill: '#ffffff',
+        fillOpacity: 0.92,
+        stroke: color,
+        strokeWidth: 1,
+        opacity: dimmed ? DIMMED_OPACITY : undefined,
+      },
       // Highlighted edges paint above everything else.
       zIndex: dependency ? 1000 : undefined,
       style: {
