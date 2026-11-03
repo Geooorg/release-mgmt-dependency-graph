@@ -36,6 +36,7 @@ function makeProps(overrides: Partial<AnalysisPanelProps> = {}): AnalysisPanelPr
     selectionFinished: false,
     unknownStatus: [],
     dependencies: null,
+    edgeSummary: null,
     onReveal: vi.fn(),
     onCopy: vi.fn(),
     onClose: vi.fn(),
@@ -44,6 +45,18 @@ function makeProps(overrides: Partial<AnalysisPanelProps> = {}): AnalysisPanelPr
 }
 
 describe('AnalysisPanel', () => {
+  it('shows how many connections feed which analysis when not all are sequence connections', () => {
+    render(<AnalysisPanel {...makeProps({ edgeSummary: { sequence: 12, dependency: 3, none: 5 } })} />)
+    expect(
+      screen.getByText('Berücksichtigt: 12 Reihenfolge, 3 Abhängigkeit; 5 ohne Bedeutung für diese Analysen'),
+    ).toBeInTheDocument()
+  })
+
+  it('shows no such line for a plain release project', () => {
+    render(<AnalysisPanel {...makeProps({ edgeSummary: null })} />)
+    expect(screen.queryByText(/Berücksichtigt:/)).toBeNull()
+  })
+
   it('is a labelled region titled with the selection', () => {
     render(<AnalysisPanel {...makeProps()} />)
     expect(screen.getByRole('complementary', { name: 'Release-Analyse' })).toBeInTheDocument()

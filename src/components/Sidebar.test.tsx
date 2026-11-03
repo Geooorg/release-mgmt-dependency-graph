@@ -1060,6 +1060,31 @@ describe('Sidebar', () => {
     })
   })
 
+  describe('meaning of a connection', () => {
+    const edgeElement = (meaning: SidebarElement['meaning']): SidebarElement => ({
+      id: ID_B,
+      kind: 'edge',
+      metadata: [{ key: 'name', value: '' }],
+      meaning,
+    })
+    const cases: [NonNullable<SidebarElement['meaning']>, string][] = [
+      [{ state: 'untyped', roles: ['sequence'] }, 'Reihenfolge (ohne Typ)'],
+      [{ state: 'known', roles: [] }, 'Nur beschreibend'],
+      [{ state: 'known', roles: ['dependency', 'flow'] }, 'Abhängigkeit, Datenfluss'],
+      [{ state: 'unknown', roles: [] }, 'Unbekannter Typ: zählt für keine Analyse'],
+    ]
+    it.each(cases)('shows the meaning %j as "%s"', (meaning, text) => {
+      render(<Sidebar {...makeProps({ element: edgeElement(meaning) })} />)
+      expect(screen.getByText('Bedeutung')).toBeInTheDocument()
+      expect(screen.getByText(text)).toBeInTheDocument()
+    })
+
+    it('shows no meaning row without the information', () => {
+      render(<Sidebar {...makeProps({ element: edgeElement(undefined) })} />)
+      expect(screen.queryByText('Bedeutung')).toBeNull()
+    })
+  })
+
   describe('edge variant', () => {
     const edgeElement = (label = ''): SidebarElement => ({
       id: ID_B,

@@ -2,7 +2,7 @@ import type { Locale } from '../i18n/locale'
 import type { CatalogSide } from '../model/catalog'
 import type { DependencyDirection } from '../model/dependency'
 import type { Status } from '../model/status'
-import type { ElementKind, FieldKind, MetadataEntry, TypeDef } from '../model/types'
+import type { EdgeRole, ElementKind, FieldKind, MetadataEntry, TypeDef } from '../model/types'
 import type { Highlight, Tool, WorkMode } from '../model/workMode'
 
 export interface ToolbarProps {
@@ -106,6 +106,15 @@ export interface SidebarElement {
   canReverse?: boolean
   /** Edges only: id of the connection's type ('' or absent = none). */
   typeId?: string
+  /** Edges only: what the connection means for the analyses. */
+  meaning?: EdgeMeaning
+}
+
+/** What a connection means, shown read-only in the sidebar. */
+export interface EdgeMeaning {
+  /** `untyped`: no type, counts as sequence; `known`: the roles of its type (maybe none); `unknown`: type not in the catalog. */
+  state: 'untyped' | 'known' | 'unknown'
+  roles: EdgeRole[]
 }
 
 export interface TypeChoice {
@@ -386,6 +395,8 @@ export interface AnalysisPanelProps {
   /** Names of the selected elements (empty for the whole project). */
   selectionNames: string[]
   counts: AnalysisCounts
+  /** Connections per meaning, shown as one line; null when every connection is a plain sequence connection. */
+  edgeSummary: { sequence: number; dependency: number; none: number } | null
   /** Steps in release order (first to do first); null = not computable because of a cycle. */
   criticalPath: { steps: AnalysisEntry[]; length: number } | null
   /** Names of the objects in the cycles that make the critical path undefined. */

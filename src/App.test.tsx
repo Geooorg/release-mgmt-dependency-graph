@@ -1425,6 +1425,31 @@ describe('App: analysis mode layout', () => {
       expect(cycleButton()).toBeNull()
     })
 
+    it('marks the prerequisite of a dependency connection, but not the dependent, in the highlights', async () => {
+      const catalog = {
+        elementTypes: [],
+        edgeTypes: [{ id: 'call', name: 'Aufruf', roles: ['dependency' as const], fields: [] }],
+      }
+      act(() =>
+        graphStore.getState().replaceContent({
+          nodes: [box('a'), box('b')],
+          edges: [{ id: 'e1', source: 'a', target: 'b', metadata: [{ key: 'type', value: 'call' }] }],
+          catalog,
+        }),
+      )
+      render(<App />)
+      select('a')
+      await switchTo('Analysieren')
+      const marked = () => [...document.querySelectorAll('.box-node--dependency')].map((el) => el.textContent)
+
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Hervorhebung' }), 'prerequisites')
+      expect(marked()).toHaveLength(1)
+      expect(marked()[0]).toContain('b')
+
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Hervorhebung' }), 'dependents')
+      expect(marked()).toHaveLength(0)
+    })
+
     it('still reports the cycle when the same mutual connections are untyped', async () => {
       act(() => graphStore.getState().replaceContent({ nodes: [box('a'), box('b')], edges: mutual([]) }))
       render(<App />)

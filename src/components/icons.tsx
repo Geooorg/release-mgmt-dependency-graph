@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { ArrowHead } from '../model/edgeRoles'
 
 interface IconProps {
   children: ReactNode
@@ -291,5 +292,26 @@ export function TypesIcon({ size }: { size?: number }) {
       <rect x="13" y="14" width="8" height="6" rx="1" />
       <path d="M7 10v4h6" />
     </Icon>
+  )
+}
+
+/** The arrow head of a connection meaning: filled triangle (default) or open "V" (dependency). Decorative. */
+export function ArrowHeadIcon({ head }: { head: ArrowHead }) {
+  return (
+    <svg
+      viewBox="0 0 24 12"
+      width="24"
+      height="12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <line x1="1" y1="6" x2="15" y2="6" />
+      {head === 'open' ? <polyline points="13,1 21,6 13,11" /> : <polygon points="13,1 22,6 13,11" fill="currentColor" />}
+    </svg>
   )
 }

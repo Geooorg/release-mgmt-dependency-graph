@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useT } from '../i18n/react'
 import { NAME_KEY } from '../model/types'
+import { EDGE_ROLE_NAME_KEYS } from './edgeRoleLabels'
 import type { SidebarElement, SidebarProps } from './props'
 import { SidebarTypeFields } from './SidebarTypeFields'
 import { useEditGesture } from './useSidebarEffects'
@@ -129,6 +130,21 @@ export function SidebarEdgeForm({
               {t('sidebar.reverse.blocked')}
             </span>
           )}
+        </div>
+      )}
+
+      {element.meaning && (
+        <div className="sidebar__field">
+          <span className="sidebar__label">{t('sidebar.field.meaning')}</span>
+          <span className="sidebar__check-hint">
+            {element.meaning.state === 'untyped'
+              ? t('sidebar.meaning.untyped')
+              : element.meaning.state === 'unknown'
+                ? t('sidebar.meaning.unknown')
+                : element.meaning.roles.length === 0
+                  ? t('sidebar.meaning.none')
+                  : element.meaning.roles.map((role) => t(EDGE_ROLE_NAME_KEYS[role])).join(', ')}
+          </span>
         </div>
       )}
 
