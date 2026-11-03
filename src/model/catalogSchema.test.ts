@@ -13,4 +13,13 @@ describe('catalog.schema.json', () => {
   it('rejects a file without a catalog', () => {
     expect(validate({ catalogVersion: 1 })).toBe(false)
   })
+
+  it('accepts roles and rejects an unknown role', () => {
+    const file = (roles: unknown) => ({
+      catalogVersion: 1,
+      catalog: { elementTypes: [], edgeTypes: [{ id: 'e1', name: 'Aufruf', roles, fields: [] }] },
+    })
+    expect(validate(file(['flow']))).toBe(true)
+    expect(validate(file(['magic']))).toBe(false)
+  })
 })

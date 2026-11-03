@@ -87,6 +87,7 @@ function canonicalType(type: TypeDef): TypeDef {
     name: type.name,
     ...(type.color !== undefined && { color: type.color }),
     ...(type.icon !== undefined && { icon: type.icon }),
+    ...(type.roles !== undefined && type.roles.length > 0 && { roles: [...type.roles] }),
     fields: type.fields.map(canonicalField),
   }
 }

@@ -497,6 +497,8 @@ export const fr: Catalog = {
   'catalog.problem.field.optionsEmpty': 'Un choix a besoin d’au moins une option.',
   'catalog.problem.field.optionsDuplicate': 'Une option apparaît deux fois.',
   'catalog.problem.field.defaultInvalid': 'La valeur par défaut ne correspond pas au type de champ.',
+  'catalog.problem.roles.conflict': 'Ordre et dépendance s’excluent mutuellement pour un type.',
+  'catalog.problem.roles.onElementType': 'Les types d’objets n’ont pas de signification de liaison (roles).',
   'types.title': 'Types',
   'types.open': 'Gérer les types',
   'types.tab.elements': 'Éléments',

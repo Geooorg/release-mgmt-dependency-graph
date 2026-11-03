@@ -730,7 +730,7 @@ function AppShell() {
         onUpdate={(side, type) => graphStore.getState().updateType(side, type)}
         onRemove={(side, id) => graphStore.getState().removeType(side, id)}
         problemsOf={(side, type) =>
-          checkTypeDef(tidyType(type), catalog[side]).map((problem) => t(TYPE_PROBLEM_KEYS[problem]))
+          checkTypeDef(tidyType(type), catalog[side], side).map((problem) => t(TYPE_PROBLEM_KEYS[problem]))
         }
         templates={TEMPLATE_IDS.map((id) => ({ id, label: t(TEMPLATE_LABEL_KEYS[id]) }))}
         onTemplate={(id, mode) => applyCatalogFrom(templateCatalog(id as TemplateId), mode)}

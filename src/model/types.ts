@@ -125,6 +125,13 @@ export interface FieldDef {
   default?: string
 }
 
+/**
+ * What the arrow of a connection type means (see model/edgeRoles.ts): `sequence` = A comes before B,
+ * `dependency` = A depends on B, `flow` = data flows from A to B. `sequence` and `dependency` exclude each other.
+ */
+export const EDGE_ROLES = ['sequence', 'dependency', 'flow'] as const
+export type EdgeRole = (typeof EDGE_ROLES)[number]
+
 export interface TypeDef {
   /** UUID, generated once, never editable; elements refer to a type by it. */
   id: string
@@ -133,6 +140,8 @@ export interface TypeDef {
   /** `#rrggbb` default colour of elements of this type. */
   color?: string
   icon?: IconKey
+  /** Connection types only: what the arrow means. Absent or empty = descriptive only. */
+  roles?: EdgeRole[]
   fields: FieldDef[]
 }
 

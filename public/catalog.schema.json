@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Typkatalog der Release-Management-App",
-  "description": "Eigenständige Katalogdatei (Export/Import im Typen-Dialog). Der Inhalt von catalog entspricht dem Feld catalog im Projektformat (graph.schema.json). Nicht ausdrückbar und erst beim Import geprüft: eindeutige Typ-IDs und -Namen, reservierte oder doppelte Feldschlüssel, Auswahl-Standard unter den Optionen.",
+  "description": "Eigenständige Katalogdatei (Export/Import im Typen-Dialog). Der Inhalt von catalog entspricht dem Feld catalog im Projektformat (graph.schema.json). Nicht ausdrückbar und erst beim Import geprüft: eindeutige Typ-IDs und -Namen, reservierte oder doppelte Feldschlüssel, Auswahl-Standard unter den Optionen, roles nur bei edgeTypes, sequence und dependency nicht zusammen. Verbindungstypen können roles haben (Bedeutung des Pfeils: sequence = A kommt vor B, dependency = A hängt von B ab, flow = Daten fließen von A nach B); ohne roles ist der Typ nur beschreibend.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -68,6 +68,17 @@
             "process",
             "storage"
           ]
+        },
+        "roles": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "sequence",
+              "dependency",
+              "flow"
+            ]
+          }
         },
         "fields": {
           "type": "array",

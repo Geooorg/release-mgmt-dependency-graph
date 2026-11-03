@@ -497,6 +497,8 @@ export const de = {
   'catalog.problem.field.optionsEmpty': 'Eine Auswahl braucht mindestens eine Option.',
   'catalog.problem.field.optionsDuplicate': 'Eine Option kommt doppelt vor.',
   'catalog.problem.field.defaultInvalid': 'Der Standardwert passt nicht zur Feldart.',
+  'catalog.problem.roles.conflict': 'Reihenfolge und Abhängigkeit schließen sich an einem Typ aus.',
+  'catalog.problem.roles.onElementType': 'Objekttypen haben keine Verbindungsbedeutung (roles).',
   'types.title': 'Typen',
   'types.open': 'Typen verwalten',
   'types.tab.elements': 'Elemente',

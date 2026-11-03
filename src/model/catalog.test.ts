@@ -140,3 +140,35 @@ describe('countUsage', () => {
     expect(countUsage(content, 'elementTypes', 'other')).toBe(0)
   })
 })
+
+describe('connection roles', () => {
+  const edgeType = (roles?: TypeDef['roles']): TypeDef => ({ id: 'e1', name: 'Aufruf', fields: [], ...(roles && { roles }) })
+
+  it('tidies roles into canonical order without duplicates and drops an empty list', () => {
+    expect(tidyType(edgeType(['flow', 'dependency', 'flow'])).roles).toEqual(['dependency', 'flow'])
+    expect('roles' in tidyType(edgeType([]))).toBe(false)
+  })
+
+  it('accepts every combination except sequence together with dependency', () => {
+    expect(checkTypeDef(edgeType(['sequence', 'flow']), [], 'edgeTypes')).toEqual([])
+    expect(checkTypeDef(edgeType(['dependency', 'flow']), [], 'edgeTypes')).toEqual([])
+    expect(checkTypeDef(edgeType(['sequence', 'dependency']), [], 'edgeTypes')).toEqual(['roles.conflict'])
+  })
+
+  it('rejects roles on an element type but only when the side is known', () => {
+    expect(checkTypeDef(edgeType(['flow']), [], 'elementTypes')).toEqual(['roles.onElementType'])
+    expect(checkTypeDef(edgeType(['flow']), [])).toEqual([])
+  })
+
+  it('keeps roles through replaceType and refuses a conflicting update', () => {
+    const catalog: Catalog = { elementTypes: [], edgeTypes: [edgeType()] }
+    const updated = replaceType(catalog, 'edgeTypes', edgeType(['dependency', 'flow']))
+    expect(updated.edgeTypes[0].roles).toEqual(['dependency', 'flow'])
+    expect(replaceType(catalog, 'edgeTypes', edgeType(['sequence', 'dependency']))).toBe(catalog)
+  })
+
+  it('refuses roles on a new element type via replaceType', () => {
+    const catalog: Catalog = { elementTypes: [{ id: 't1', name: 'Service', fields: [] }], edgeTypes: [] }
+    expect(replaceType(catalog, 'elementTypes', { id: 't1', name: 'Service', fields: [], roles: ['flow'] })).toBe(catalog)
+  })
+})

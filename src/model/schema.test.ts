@@ -118,3 +118,22 @@ describe('graph.schema.json', () => {
     expect(parseModel(doc).ok).toBe(true)
   })
 })
+
+describe('roles of connection types', () => {
+  const withRoles = (roles: unknown) => ({
+    ...JSON.parse(serializeModel(toModel({ nodes: [box('a', 0, 0)], edges: [] }))),
+    catalog: { elementTypes: [], edgeTypes: [{ id: 'e1', name: 'Aufruf', roles, fields: [] }] },
+  })
+
+  it('accepts roles on a connection type and rejects an unknown role or a duplicate', () => {
+    expect(validate(withRoles(['dependency', 'flow']))).toBe(true)
+    expect(validate(withRoles(['magic']))).toBe(false)
+    expect(validate(withRoles(['flow', 'flow']))).toBe(false)
+  })
+
+  it('documents that the schema cannot express sequence + dependency, while the importer rejects it', () => {
+    const file = withRoles(['sequence', 'dependency'])
+    expect(validate(file)).toBe(true)
+    expect(parseModel(file).ok).toBe(false)
+  })
+})

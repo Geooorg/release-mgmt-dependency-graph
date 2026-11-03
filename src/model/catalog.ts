@@ -1,7 +1,8 @@
 import type { MessageKey } from '../i18n/messages'
 import { isValidColor } from './metadata'
 import { getTypeId } from './typing'
-import type { Catalog, FieldDef, GraphContent, IdGenerator, TypeDef } from './types'
+import { EDGE_ROLES } from './types'
+import type { Catalog, EdgeRole, FieldDef, GraphContent, IdGenerator, TypeDef } from './types'
 
 /** Keys the app itself uses on elements and connections: a type field may not take them. */
 export const RESERVED_FIELD_KEYS: readonly string[] = [
@@ -28,6 +29,8 @@ export type TypeProblem =
   | 'field.optionsEmpty'
   | 'field.optionsDuplicate'
   | 'field.defaultInvalid'
+  | 'roles.conflict'
+  | 'roles.onElementType'
 
 /** Catalog keys of the messages for the problems (used by the import and the type dialog). */
 export const TYPE_PROBLEM_KEYS: Record<TypeProblem, MessageKey> = {
@@ -40,6 +43,8 @@ export const TYPE_PROBLEM_KEYS: Record<TypeProblem, MessageKey> = {
   'field.optionsEmpty': 'catalog.problem.field.optionsEmpty',
   'field.optionsDuplicate': 'catalog.problem.field.optionsDuplicate',
   'field.defaultInvalid': 'catalog.problem.field.defaultInvalid',
+  'roles.conflict': 'catalog.problem.roles.conflict',
+  'roles.onElementType': 'catalog.problem.roles.onElementType',
 }
 
 const norm = (text: string) => text.trim().toLowerCase()
@@ -55,13 +60,19 @@ function tidyField(field: FieldDef): FieldDef {
   }
 }
 
+function tidyRoles(roles: readonly EdgeRole[] | undefined): EdgeRole[] {
+  return EDGE_ROLES.filter((role) => roles?.includes(role))
+}
+
 /** The type in canonical form (fixed key order, trimmed texts, no empty optional parts). Does not validate. */
 export function tidyType(def: TypeDef): TypeDef {
+  const roles = tidyRoles(def.roles)
   return {
     id: def.id,
     name: def.name.trim(),
     ...(def.color !== undefined && def.color.trim() !== '' && { color: def.color.trim().toLowerCase() }),
     ...(def.icon !== undefined && { icon: def.icon }),
+    ...(roles.length > 0 && { roles }),
     fields: def.fields.map(tidyField),
   }
 }
@@ -79,8 +90,11 @@ function checkField(field: FieldDef, problems: Set<TypeProblem>): void {
   }
 }
 
-/** Problems of one type; `others` is its whole list (the type itself is skipped by id). Expects a tidy type. */
-export function checkTypeDef(def: TypeDef, others: readonly TypeDef[]): TypeProblem[] {
+/**
+ * Problems of one type; `others` is its whole list (the type itself is skipped by id). Expects a tidy type.
+ * `side`: only when known, `roles` on an element type is refused.
+ */
+export function checkTypeDef(def: TypeDef, others: readonly TypeDef[], side?: CatalogSide): TypeProblem[] {
   const problems = new Set<TypeProblem>()
   const name = norm(def.name)
   if (name === '') problems.add('name.empty')
@@ -95,6 +109,9 @@ export function checkTypeDef(def: TypeDef, others: readonly TypeDef[]): TypeProb
     seen.add(key)
     checkField(field, problems)
   }
+  const roles = def.roles ?? []
+  if (side === 'elementTypes' && roles.length > 0) problems.add('roles.onElementType')
+  if (roles.includes('sequence') && roles.includes('dependency')) problems.add('roles.conflict')
   return [...problems]
 }
 
@@ -119,7 +136,7 @@ export function addType(
   newId: IdGenerator,
 ): { catalog: Catalog; id: string } | undefined {
   const type = tidyType({ id: newId(), name, fields: [] })
-  if (checkTypeDef(type, catalog[side]).length > 0) return undefined
+  if (checkTypeDef(type, catalog[side], side).length > 0) return undefined
   return { catalog: { ...catalog, [side]: [...catalog[side], type] }, id: type.id }
 }
 
@@ -129,7 +146,7 @@ export function replaceType(catalog: Catalog, side: CatalogSide, def: TypeDef): 
   const index = list.findIndex((type) => type.id === def.id)
   if (index === -1) return catalog
   const tidy = tidyType(def)
-  if (checkTypeDef(tidy, list).length > 0) return catalog
+  if (checkTypeDef(tidy, list, side).length > 0) return catalog
   if (JSON.stringify(tidy) === JSON.stringify(list[index])) return catalog
   return { ...catalog, [side]: list.map((type, i) => (i === index ? tidy : type)) }
 }
