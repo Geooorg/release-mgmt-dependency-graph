@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { box, edge } from '../test/fixtures'
+import { box, edge, group } from '../test/fixtures'
 import { findCycles } from './cycles'
 import { findDependencies } from './dependency'
 import {
@@ -41,6 +41,10 @@ describe('getEdgeRoles', () => {
 
   it('returns no role for an unknown type', () => {
     expect(getEdgeRoles(typed('e', 'a', 'b', 'gone'), c)).toEqual([])
+  })
+
+  it('returns no role for a typed connection when there is no catalog', () => {
+    expect(getEdgeRoles(typed('e', 'a', 'b', 'call'))).toEqual([])
   })
 })
 
@@ -109,6 +113,16 @@ describe('analysisContent', () => {
     expect([...highlight.edgeIds]).toEqual(['e1'])
     const impact = findDependencies(analysisContent(content, 'highlight'), ['b'], 'dependents')
     expect(impact.dependentIds).toEqual(['a'])
+  })
+
+  it('turns a dependency connection to or from a group around and keeps the group as its end', () => {
+    const nodesWithGroup = [group('g', 0, 0, 300, 100), box('m', 10, 10, 'g'), box('x', 500, 0)]
+    // x depends on the group g, so every member of g is a prerequisite of x
+    const content: GraphContent = { nodes: nodesWithGroup, edges: [typed('e1', 'x', 'g', 'dep')], catalog: c }
+    const turned = analysisContent(content, 'highlight')
+    expect(turned.edges.map((e) => [e.source, e.target])).toEqual([['g', 'x']])
+    expect(findDependencies(turned, ['x'], 'prerequisites').prerequisiteIds).toEqual(['m'])
+    expect(findDependencies(turned, ['m'], 'dependents').dependentIds).toEqual(['x'])
   })
 
   it('leaves the results of a plain release project unchanged', () => {

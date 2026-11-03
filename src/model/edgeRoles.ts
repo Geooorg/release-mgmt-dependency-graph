@@ -19,6 +19,10 @@ export interface EdgeRoleCounts {
   none: number
 }
 
+/**
+ * The roles of a connection. A typed connection without a catalog (or with a type missing from it) resolves
+ * to an unknown type and has no roles; only a connection without a type means `sequence`.
+ */
 export function getEdgeRoles(edge: Pick<ModelEdge, 'metadata'>, catalog?: Catalog): readonly EdgeRole[] {
   const resolved = resolveType(edge.metadata ?? [], catalog?.edgeTypes ?? [])
   if (resolved.state === 'none') return UNTYPED
@@ -41,6 +45,7 @@ export function arrowHeadFor(roles: readonly EdgeRole[]): ArrowHead {
  * plus `dependency` connections with their ends swapped (A depends on B reads as "B comes before A"), same id,
  * so the highlight finds the edge it has to draw. The analyses themselves stay unchanged.
  * Nothing to filter or turn -> the very same content.
+ * For ANALYSIS ONLY: a swapped connection keeps its old handles, so this content must never be used for drawing.
  */
 export function analysisContent(content: GraphContent, purpose: AnalysisPurpose): GraphContent {
   let changed = false

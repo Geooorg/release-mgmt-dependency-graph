@@ -134,9 +134,11 @@ export function SidebarEdgeForm({
       )}
 
       {element.meaning && (
-        <div className="sidebar__field">
-          <span className="sidebar__label">{t('sidebar.field.meaning')}</span>
-          <span className="sidebar__check-hint">
+        <div className="sidebar__field" role="group" aria-labelledby={`${formId}-meaning ${formId}-meaning-value`}>
+          <span id={`${formId}-meaning`} className="sidebar__label">
+            {t('sidebar.field.meaning')}
+          </span>
+          <span id={`${formId}-meaning-value`} className="sidebar__check-hint">
             {element.meaning.state === 'untyped'
               ? t('sidebar.meaning.untyped')
               : element.meaning.state === 'unknown'

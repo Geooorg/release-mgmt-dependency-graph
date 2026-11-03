@@ -3,6 +3,7 @@ import type { SyntheticEvent } from 'react'
 import { useT } from '../i18n/react'
 import { tidyType } from '../model/catalog'
 import type { CatalogSide } from '../model/catalog'
+import { arrowHeadFor } from '../model/edgeRoles'
 import { EDGE_ROLES, ICON_KEYS } from '../model/types'
 import type { FieldDef, FieldKind, TypeDef } from '../model/types'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -58,6 +59,14 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
   const draftIsCurrent = draftOfSelected && (draft.base === storedSnapshot || echoed)
   const shown: TypeDef | undefined = draftIsCurrent ? draft.value : selected
   const problems = shown === undefined ? [] : props.problemsOf(side, shown)
+
+  const shownRoles = shown?.roles ?? []
+  const rolesHint =
+    shownRoles.length === 0
+      ? 'types.roles.none'
+      : shownRoles.includes('sequence') || shownRoles.includes('dependency')
+        ? 'types.roles.exclusive'
+        : undefined
 
   function close() {
     endEdit()
@@ -243,14 +252,12 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
                           )
                         }
                       />
-                      <ArrowHeadIcon head={role === 'dependency' ? 'open' : 'closed'} />
+                      <ArrowHeadIcon head={arrowHeadFor([role])} />
                       {t(EDGE_ROLE_NAME_KEYS[role])} – {t(EDGE_ROLE_HINT_KEYS[role])}
                     </label>
                   )
                 })}
-                <p className="types-dialog__hint">
-                  {(shown.roles ?? []).length === 0 ? t('types.roles.none') : t('types.roles.exclusive')}
-                </p>
+                {rolesHint !== undefined && <p className="types-dialog__hint">{t(rolesHint)}</p>}
               </fieldset>
             )}
 

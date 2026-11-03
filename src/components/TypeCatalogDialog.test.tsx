@@ -236,6 +236,46 @@ describe('TypeCatalogDialog', () => {
       expect(screen.getByText('Reihenfolge und Abhängigkeit schließen sich aus.')).toBeInTheDocument()
     })
 
+    it('locks dependency while sequence is checked', async () => {
+      open({ edgeTypes: [{ ...edgeType, roles: ['sequence'] }] })
+      await selectEdgeType()
+      expect(screen.getByRole('checkbox', { name: /Abhängigkeit/ })).toBeDisabled()
+      expect(screen.getByRole('checkbox', { name: /Reihenfolge/ })).toBeEnabled()
+    })
+
+    it('shows the exclusion hint only while sequence or dependency is checked', async () => {
+      const hint = 'Reihenfolge und Abhängigkeit schließen sich aus.'
+      const none = 'Nur beschreibend: wird in keiner Analyse berücksichtigt.'
+      const { unmount } = render(
+        <TypeCatalogDialog {...makeProps({ edgeTypes: [{ ...edgeType, roles: ['flow'] }] })} />,
+      )
+      await selectEdgeType()
+      expect(screen.queryByText(hint)).toBeNull()
+      expect(screen.queryByText(none)).toBeNull()
+      unmount()
+      render(<TypeCatalogDialog {...makeProps({ edgeTypes: [{ ...edgeType, roles: ['sequence', 'flow'] }] })} />)
+      await selectEdgeType()
+      expect(screen.getByText(hint)).toBeInTheDocument()
+    })
+
+    it('stores the roles in canonical order', async () => {
+      const props = open({ edgeTypes: [{ ...edgeType, roles: ['flow'] }] })
+      await selectEdgeType()
+      await userEvent.click(screen.getByRole('checkbox', { name: /Abhängigkeit/ }))
+      expect(props.onUpdate).toHaveBeenLastCalledWith(
+        'edgeTypes',
+        expect.objectContaining({ id: 'e1', roles: ['dependency', 'flow'] }),
+      )
+    })
+
+    it('does not show the meaning block for an element type, which keeps no roles', async () => {
+      const props = open()
+      await userEvent.click(screen.getByText('Service'))
+      await userEvent.type(screen.getByLabelText('Name'), 'x')
+      expect(screen.queryByText('Bedeutung')).toBeNull()
+      expect(props.onUpdate).toHaveBeenLastCalledWith('elementTypes', expect.not.objectContaining({ roles: expect.anything() }))
+    })
+
     it('cannot be changed in the read-only mode', async () => {
       open({ readOnly: true })
       await selectEdgeType()
