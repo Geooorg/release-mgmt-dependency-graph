@@ -1,5 +1,6 @@
 import { MarkerType, type Edge } from '@xyflow/react'
 import { createTranslate, type Translate } from '../i18n/translate'
+import { arrowHeadFor, getEdgeRoles, hasAnalysisRole } from '../model/edgeRoles'
 import { getSize, pickSides, sortParentsFirst } from '../model/graph'
 import { displayName, getColor, getContrastColor, getEdgeName, getName } from '../model/metadata'
 import { joinNames, type ProjectAnalysis } from '../model/releaseAnalysis'
@@ -41,6 +42,7 @@ const CYCLE_DASH = '6 4'
 /** Soft (optional) edges are dotted: short dashes with round caps, spaced relative to the stroke width. */
 const softDash = (width: number) => `1 ${width * 3}`
 const NO_IDS: ReadonlySet<string> = new Set()
+const DIMMED_OPACITY = 0.35
 
 /** Model nodes -> React Flow nodes (parents first, sizes fixed from the model); tooltips are written in the language of `t`. */
 export function toFlowNodes(
@@ -117,7 +119,7 @@ export function toFlowNodes(
  * the highlighted dependency graph. Edges in a cycle are purple and dashed; the dependency colour
  * wins over the cycle colour, the dashes stay. Soft (optional) edges are dotted instead, whatever
  * their colour. The accessible label is written in the language
- * of `t`. Connectors are the ones the edge was drawn between; edges without stored connectors
+ * of `t`. In the analysis mode, connections that no analysis uses are dimmed. Connectors are the ones the edge was drawn between; edges without stored connectors
  * (older files) get the facing sides.
  */
 export function toFlowEdges(
@@ -128,6 +130,7 @@ export function toFlowEdges(
   cycleIds: ReadonlySet<string> = NO_IDS,
   t: Translate = createTranslate('de'),
   catalog?: Catalog,
+  analyzing = false,
 ): Edge[] {
   const names = new Map(nodes.map((n) => [n.id, displayName(n)]))
   return edges.map((edge) => {
@@ -136,6 +139,10 @@ export function toFlowEdges(
     const dependency = dependencyIds.has(edge.id)
     const cyclic = cycleIds.has(edge.id)
     const soft = isSoftEdge(edge)
+    const roles = getEdgeRoles(edge, catalog)
+    const open = arrowHeadFor(roles) === 'open'
+    // Selected and highlighted connections stay readable; only the ones no analysis reads fade out.
+    const dimmed = analyzing && !selected && !dependency && !hasAnalysisRole(roles)
     const width = dependency ? 6 : selected || cyclic ? 3 : 2
     const color = dependency
       ? EDGE_COLOR_DEPENDENCY
@@ -159,7 +166,7 @@ export function toFlowEdges(
         target: names.get(edge.target) ?? edge.target.slice(0, 8),
       }),
       label: getEdgeName(edge) || undefined,
-      labelStyle: { fill: color, fontWeight: 600, fontSize: 13 },
+      labelStyle: { fill: color, fontWeight: 600, fontSize: 13, opacity: dimmed ? DIMMED_OPACITY : undefined },
       labelBgPadding: [6, 3],
       labelBgBorderRadius: 4,
       labelBgStyle: { fill: '#ffffff', fillOpacity: 0.92, stroke: color, strokeWidth: 1 },
@@ -170,8 +177,15 @@ export function toFlowEdges(
         strokeWidth: width,
         strokeDasharray: soft ? softDash(width) : cyclic ? CYCLE_DASH : undefined,
         strokeLinecap: soft ? 'round' : undefined,
+        opacity: dimmed ? DIMMED_OPACITY : undefined,
       },
-      markerEnd: { type: MarkerType.ArrowClosed, color, width: dependency ? 12 : 20, height: dependency ? 12 : 20 },
+      markerEnd: {
+        type: open ? MarkerType.Arrow : MarkerType.ArrowClosed,
+        color,
+        width: dependency ? 12 : 20,
+        height: dependency ? 12 : 20,
+        ...(open && { strokeWidth: 2 }),
+      },
     }
   })
 }

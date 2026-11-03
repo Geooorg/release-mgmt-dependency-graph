@@ -1,4 +1,5 @@
 import { getBezierPath, Position } from '@xyflow/react'
+import { arrowHeadFor, getEdgeRoles, type ArrowHead } from '../model/edgeRoles'
 import { getSize, pickSides, sortParentsFirst } from '../model/graph'
 import { displayName, getColor, getContrastColor, getEdgeName, getName } from '../model/metadata'
 import { DEFAULT_PROJECT_NAME } from '../model/projectName'
@@ -198,11 +199,18 @@ function statusMark(cx: number, cy: number, status: string, known: boolean): str
   return base('#ffffff') + `<circle cx="${num(cx)}" cy="${num(cy)}" r="5" fill="none" stroke="${OPEN}" stroke-width="1.8"/>`
 }
 
-const arrowId = (color: string): string => (color === EDGE_COLOR ? 'arrow' : `arrow-${color.slice(1)}`)
+const arrowId = (color: string, head: ArrowHead): string => {
+  const base = color === EDGE_COLOR ? 'arrow' : `arrow-${color.slice(1)}`
+  return head === 'open' ? `${base}-open` : base
+}
 
-/** Arrow head in one colour; the marker follows the colour of its line. */
-function arrowMarker(color: string): string {
-  return `<marker id="${arrowId(color)}" viewBox="-10 -10 20 20" markerWidth="20" markerHeight="20" markerUnits="userSpaceOnUse" orient="auto" refX="0" refY="0"><polygon points="-10,-8 0,0 -10,8" fill="${color}" stroke="${color}" stroke-width="2" stroke-linejoin="round"/></marker>`
+/** Arrow head in one colour; the marker follows the colour of its line. `open` is the dependency head. */
+function arrowMarker(color: string, head: ArrowHead): string {
+  const shape =
+    head === 'open'
+      ? `<polyline points="-10,-8 0,0 -10,8" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`
+      : `<polygon points="-10,-8 0,0 -10,8" fill="${color}" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>`
+  return `<marker id="${arrowId(color, head)}" viewBox="-10 -10 20 20" markerWidth="20" markerHeight="20" markerUnits="userSpaceOnUse" orient="auto" refX="0" refY="0">${shape}</marker>`
 }
 
 /** The graph as the text of an SVG file. An empty graph yields a small blank image. */
@@ -287,7 +295,9 @@ export function buildSvg(content: GraphContent): string {
   }
 
   const edges: string[] = []
-  const arrowColors = new Set<string>([EDGE_COLOR])
+  const arrowKinds = new Map<string, { color: string; head: ArrowHead }>([
+    [arrowId(EDGE_COLOR, 'closed'), { color: EDGE_COLOR, head: 'closed' }],
+  ])
   for (const edge of content.edges) {
     const source = rects.get(edge.source)
     const target = rects.get(edge.target)
@@ -311,7 +321,8 @@ export function buildSvg(content: GraphContent): string {
 
     const soft = isSoftEdge(edge)
     const stroke = edgeTypeColor(edge, content.catalog) ?? EDGE_COLOR
-    arrowColors.add(stroke)
+    const head = arrowHeadFor(getEdgeRoles(edge, content.catalog))
+    arrowKinds.set(arrowId(stroke, head), { color: stroke, head })
     const caption = getEdgeName(edge)
     let label = ''
     if (caption) {
@@ -325,7 +336,7 @@ export function buildSvg(content: GraphContent): string {
     }
     edges.push(
       `<g data-id="${escapeXml(edge.id)}" data-kind="edge"${soft ? ' data-soft="true"' : ''}>` +
-        `<path d="${path}" fill="none" stroke="${stroke}" stroke-width="2"${soft ? ' stroke-dasharray="1 6" stroke-linecap="round"' : ''} marker-end="url(#${arrowId(stroke)})"/>` +
+        `<path d="${path}" fill="none" stroke="${stroke}" stroke-width="2"${soft ? ' stroke-dasharray="1 6" stroke-linecap="round"' : ''} marker-end="url(#${arrowId(stroke, head)})"/>` +
         label +
         `</g>`,
     )
@@ -342,7 +353,7 @@ export function buildSvg(content: GraphContent): string {
     `<?xml version="1.0" encoding="UTF-8"?>`,
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${minX} ${minY} ${width} ${height}" font-family="${FONT}">`,
     `<title>${title}</title>`,
-    `<defs>${[...arrowColors].map(arrowMarker).join('')}</defs>`,
+    `<defs>${[...arrowKinds.values()].map(({ color, head }) => arrowMarker(color, head)).join('')}</defs>`,
     `<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="#ffffff"/>`,
     ...groups,
     ...edges,

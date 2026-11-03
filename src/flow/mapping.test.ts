@@ -1,6 +1,8 @@
+import { MarkerType } from '@xyflow/react'
 import { describe, expect, it } from 'vitest'
 import { createTranslate } from '../i18n/translate'
 import { analyzeProject } from '../model/releaseAnalysis'
+import type { ModelEdge } from '../model/types'
 import { box, content, edge, group, note, softEdge, withStatus } from '../test/fixtures'
 import { toFlowEdges, toFlowNodes } from './mapping'
 
@@ -422,5 +424,46 @@ describe('types', () => {
     expect(cyclic.style?.stroke).toBe('#9333ea')
     const [plain] = toFlowEdges([typedEdge], none, none, nodes)
     expect(plain.style?.stroke).toBe('#2563eb')
+  })
+})
+
+describe('arrow heads and dimming by meaning', () => {
+  const catalog = {
+    elementTypes: [],
+    edgeTypes: [
+      { id: 'dep', name: 'Aufruf', roles: ['dependency' as const, 'flow' as const], fields: [] },
+      { id: 'flow', name: 'Datenfluss', roles: ['flow' as const], fields: [] },
+      { id: 'none', name: 'Notiz', fields: [] },
+    ],
+  }
+  const typedEdge = (typeId: string): ModelEdge => ({
+    ...edge('e', 'a', 'b'),
+    metadata: [
+      { key: 'name', value: '' },
+      { key: 'type', value: typeId },
+    ],
+  })
+  const flowEdge = (model: ModelEdge, analyzing = false, selected: ReadonlySet<string> = none, highlighted: ReadonlySet<string> = none) =>
+    toFlowEdges([model], selected, highlighted, nodes, none, undefined, catalog, analyzing)[0]
+  const markerType = (model: ModelEdge) => (flowEdge(model).markerEnd as { type: string }).type
+
+  it('uses the open head for a dependency and the filled one for everything else', () => {
+    expect(markerType(typedEdge('dep'))).toBe(MarkerType.Arrow)
+    expect(markerType(typedEdge('flow'))).toBe(MarkerType.ArrowClosed)
+    expect(markerType(edge('e', 'a', 'b'))).toBe(MarkerType.ArrowClosed)
+  })
+
+  it('dims connections without sequence or dependency only in the analysis mode', () => {
+    expect(flowEdge(typedEdge('flow'), true).style?.opacity).toBeLessThan(1)
+    expect(flowEdge(typedEdge('none'), true).style?.opacity).toBeLessThan(1)
+    expect(flowEdge(typedEdge('flow'), true).labelStyle?.opacity).toBeLessThan(1)
+    expect(flowEdge(typedEdge('flow'), false).style?.opacity).toBeUndefined()
+    expect(flowEdge(typedEdge('dep'), true).style?.opacity).toBeUndefined()
+    expect(flowEdge(edge('e', 'a', 'b'), true).style?.opacity).toBeUndefined()
+  })
+
+  it('does not dim a selected or highlighted connection', () => {
+    expect(flowEdge(typedEdge('none'), true, new Set(['e'])).style?.opacity).toBeUndefined()
+    expect(flowEdge(typedEdge('none'), true, none, new Set(['e'])).style?.opacity).toBeUndefined()
   })
 })

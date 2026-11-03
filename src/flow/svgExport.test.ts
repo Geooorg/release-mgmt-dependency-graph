@@ -259,3 +259,39 @@ describe('buildSvg: types', () => {
     expect(svg).toContain('fill="#f59e0b"')
   })
 })
+
+describe('buildSvg: arrow heads by meaning', () => {
+  const catalog = {
+    elementTypes: [],
+    edgeTypes: [
+      { id: 'dep', name: 'Aufruf', roles: ['dependency' as const], fields: [] },
+      { id: 'red', name: 'Rot', color: '#dc2626', roles: ['dependency' as const], fields: [] },
+    ],
+  }
+  const typedEdge = (id: string, typeId: string) =>
+    edge(id, 'a', 'b', {
+      metadata: [
+        { key: 'name', value: '' },
+        { key: 'type', value: typeId },
+      ],
+    })
+  const nodes = [node('a', 'A', 0, 0), node('b', 'B', 300, 0)]
+
+  it('draws an open head for a dependency and keeps the filled one for the rest', () => {
+    const svg = buildSvg({ nodes, edges: [typedEdge('e1', 'dep')], catalog })
+    expect(svg).toContain('marker-end="url(#arrow-open)"')
+    expect(svg).toMatch(/<marker id="arrow-open"[^>]*><polyline /)
+    expect(svg).toMatch(/<marker id="arrow"[^>]*><polygon /)
+  })
+
+  it('creates the marker per colour and head kind', () => {
+    const svg = buildSvg({ nodes, edges: [typedEdge('e1', 'red')], catalog })
+    expect(svg).toContain('marker-end="url(#arrow-dc2626-open)"')
+    expect(svg).toContain('<marker id="arrow-dc2626-open"')
+  })
+
+  it('draws a plain connection with the filled head as before', () => {
+    const svg = buildSvg({ nodes, edges: [edge('e1', 'a', 'b')] })
+    expect(svg).toContain('marker-end="url(#arrow)"')
+  })
+})
