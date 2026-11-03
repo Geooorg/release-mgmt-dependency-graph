@@ -90,12 +90,17 @@ describe('Toolbar', () => {
     expect(screen.getByRole('button', { name: 'Hilfe' }).closest('.toolbar__file-extra')).not.toBeNull()
   })
 
-  it('puts language and type catalog left of the help button, which is last', () => {
+  it('puts the type catalog in the first file row and language and help in the second', () => {
     render(<Toolbar {...makeProps()} />)
 
     const extra = screen.getByRole('button', { name: 'Hilfe' }).closest('.toolbar__file-extra') as HTMLElement
     const controls = within(extra).getAllByRole('combobox').concat(within(extra).getAllByRole('button'))
-    expect(controls.map((el) => el.getAttribute('aria-label'))).toEqual(['Sprache', 'Typen verwalten', 'Hilfe'])
+    expect(controls.map((el) => el.getAttribute('aria-label'))).toEqual(['Sprache', 'Hilfe'])
+    const first = screen.getByRole('button', { name: 'Export' }).closest('.toolbar__section') as HTMLElement
+    const types = screen.getByRole('button', { name: 'Typen verwalten' })
+    expect(first).toContainElement(types)
+    const order = within(first).getAllByRole('button').map((el) => el.getAttribute('aria-label') ?? el.textContent)
+    expect(order).toEqual(['Export', 'Import', 'JSON einfügen', 'Typen verwalten'])
     expect(extra.lastElementChild).toContainElement(screen.getByRole('button', { name: 'Hilfe' }))
   })
 
@@ -531,6 +536,7 @@ describe('Toolbar', () => {
           'Export',
               'Import',
           'JSON einfügen',
+          'Typen verwalten',
         ])
         unmount()
       }

@@ -422,9 +422,19 @@ export function Toolbar({
                 <ClipboardIcon />
               </button>
             </Tooltip>
+            <Tooltip text={t('types.open')}>
+              <button
+                type="button"
+                className="ui-button ui-button--tool"
+                aria-label={t('types.open')}
+                onClick={onTypes}
+              >
+                <TypesIcon />
+              </button>
+            </Tooltip>
           </Section>
 
-          {/* Second row, right-aligned: language, then help at the far right. */}
+          {/* Second row, right-aligned and narrower than the first: language, then help at the far right. */}
           <div className="toolbar__file-extra">
             <Tooltip text={t('toolbar.language.title')}>
               <select
@@ -439,16 +449,6 @@ export function Toolbar({
                   </option>
                 ))}
               </select>
-            </Tooltip>
-            <Tooltip text={t('types.open')}>
-              <button
-                type="button"
-                className="ui-button ui-button--tool"
-                aria-label={t('types.open')}
-                onClick={onTypes}
-              >
-                <TypesIcon />
-              </button>
             </Tooltip>
             <Tooltip text={t('toolbar.help.title')}>
               <button
