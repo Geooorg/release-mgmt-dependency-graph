@@ -1595,6 +1595,64 @@ describe('Sidebar: type and type fields', () => {
     expect(keyInputs().map((i) => i.value)).toEqual(['owner'])
   })
 
+  it('re-derives the draft when the catalog changes: a renamed field key leaves the old value as a free row', () => {
+    const onChange = vi.fn()
+    const metadata = [
+      { key: 'name', value: 'A' },
+      { key: 'type', value: 't1' },
+      { key: 'class', value: 'java.lang.Object' },
+      { key: 'entity', value: '' },
+      { key: 'version', value: '' },
+      { key: 'owner', value: 'Anna' },
+    ]
+    const renamed: SidebarTyping = {
+      ...typing,
+      fieldsOf: (id) =>
+        id === 't1' ? [{ key: 'ownerX', kind: 'text', options: [], required: false, default: '' }] : typing.fieldsOf(id),
+    }
+    const element = makeElement({ metadata })
+    const { rerender } = render(<Sidebar {...makeProps({ element, typing, onChange })} />)
+    expect(screen.getByLabelText('owner *')).toHaveValue('Anna')
+    rerender(<Sidebar {...makeProps({ element, typing: renamed, onChange })} />)
+    expect(screen.getByLabelText('ownerX')).toHaveValue('')
+    expect(keyInputs().map((i) => i.value)).toEqual(['owner'])
+    expect(valueInputs().map((i) => i.value)).toEqual(['Anna'])
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('keeps the draft when the typing is a new object with the same content', async () => {
+    const user = userEvent.setup()
+    const metadata = [
+      { key: 'name', value: 'A' },
+      { key: 'type', value: 't1' },
+      { key: 'owner', value: 'Anna' },
+    ]
+    const element = makeElement({ metadata })
+    const onChange = vi.fn()
+    const { rerender } = render(<Sidebar {...makeProps({ element, typing, onChange })} />)
+    await user.type(screen.getByLabelText('owner *'), '!')
+    rerender(<Sidebar {...makeProps({ element, typing: { ...typing }, onChange })} />)
+    expect(screen.getByLabelText('owner *')).toHaveValue('Anna!')
+  })
+
+  it('an unknown type that becomes known again shows its fields without duplicate rows', () => {
+    const onInvalidChange = vi.fn()
+    const metadata = [
+      { key: 'name', value: 'A' },
+      { key: 'type', value: 't1' },
+      { key: 'owner', value: 'Anna' },
+    ]
+    const element = makeElement({ metadata })
+    const gone: SidebarTyping = { ...typing, fieldsOf: () => undefined }
+    const { rerender } = render(<Sidebar {...makeProps({ element, typing: gone, onInvalidChange })} />)
+    expect(keyInputs().map((i) => i.value)).toEqual(['owner'])
+    rerender(<Sidebar {...makeProps({ element, typing, onInvalidChange })} />)
+    expect(screen.getByLabelText('owner *')).toHaveValue('Anna')
+    expect(keyInputs()).toHaveLength(0)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(onInvalidChange).not.toHaveBeenLastCalledWith(true)
+  })
+
   it('keeps an unknown type visible', () => {
     render(
       <Sidebar

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { countUsage } from '../model/catalog'
+import { parseCatalogText, serializeCatalog } from '../model/catalogTemplates'
 import { contentFingerprint } from '../model/fingerprint'
 import { getAbsolutePosition } from '../model/graph'
 import { serializeModel, toModel } from '../model/serialize'
@@ -1817,6 +1819,22 @@ describe('type catalog', () => {
     expect(store.getState().catalog.elementTypes[0].name).toBe('DB')
     store.getState().undo()
     expect(store.getState().catalog.elementTypes).toHaveLength(0)
+  })
+
+  it('keeps type ids and usage when an exported catalog file is applied again', () => {
+    const store = start()
+    const typeId = store.getState().addType('elementTypes', 'Service')!
+    store.getState().applyNodeSelection([{ id: 'a', selected: true }])
+    store.getState().setSelectionType(typeId)
+    const before = store.getState().catalog
+    const text = serializeCatalog(before)
+    const parsed = parseCatalogText(text)
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    store.getState().applyCatalog(parsed.catalog)
+    const after = store.getState()
+    expect(after.catalog.elementTypes.map((type) => type.id)).toEqual(before.elementTypes.map((type) => type.id))
+    expect(countUsage(after, 'elementTypes', typeId)).toBe(1)
   })
 
   it('takes over the catalog of an imported file', () => {

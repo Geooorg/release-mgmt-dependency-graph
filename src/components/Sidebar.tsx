@@ -155,6 +155,12 @@ function entriesOf(draft: Draft, isObject: boolean, typing?: SidebarTyping): Met
   )
 }
 
+/** What the draft depends on in the catalog, by content: a new but equal `typing` object must not reload the draft. */
+function typingSignature(typing?: SidebarTyping): string {
+  if (typing === undefined) return ''
+  return JSON.stringify(typing.choices.map((choice) => [choice.id, choice.name, typing.fieldsOf(choice.id)]))
+}
+
 type SidebarFormProps = Omit<SidebarProps, 'element' | 'selectionCount' | 'hidden' | 'filter'> & {
   element: SidebarElement & { kind: 'node' | 'group' | 'note' }
   detailsOpen: boolean
@@ -164,7 +170,8 @@ type SidebarFormProps = Omit<SidebarProps, 'element' | 'selectionCount' | 'hidde
 /**
  * Every valid change goes to the model right away (`onChange`). The draft stays in charge while
  * typing (trailing spaces, rows with an empty key survive); it is only reloaded when the metadata
- * changed from outside (undo/redo, import), recognised by not being what this form applied last.
+ * changed from outside (undo/redo, import), recognised by not being what this form applied last,
+ * or when the catalog changed (which fields are typed fields and which are free rows depends on it).
  */
 function SidebarForm({
   element,
@@ -185,13 +192,17 @@ function SidebarForm({
   const [received, setReceived] = useState(element.metadata)
   const [applied, setApplied] = useState(() => entriesOf(toDraft(element.metadata, isObject, typing), isObject, typing))
   const [draft, setDraft] = useState(() => toDraft(element.metadata, isObject, typing))
+  const typingKey = typingSignature(typing)
+  const [seenTyping, setSeenTyping] = useState(typingKey)
   const gesture = useEditGesture(onEditStart, onEditEnd)
 
-  if (received !== element.metadata) {
+  const typingChanged = seenTyping !== typingKey
+  if (received !== element.metadata || typingChanged) {
     setReceived(element.metadata)
+    setSeenTyping(typingKey)
     const incoming = entriesOf(toDraft(element.metadata, isObject, typing), isObject, typing)
     // Our own change coming back is equal to `applied`; anything else is news from outside.
-    if (!sameEntries(incoming, applied)) {
+    if (typingChanged || !sameEntries(incoming, applied)) {
       setApplied(incoming)
       setDraft(toDraft(element.metadata, isObject, typing))
     }

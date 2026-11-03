@@ -142,6 +142,23 @@ function toPanelProps(
   }
 }
 
+/** What the sidebar needs to know about the types of one side of the catalog. */
+function typingOf(catalog: Catalog, side: 'elementTypes' | 'edgeTypes'): SidebarTyping {
+  return {
+    choices: catalog[side].map((type) => ({ id: type.id, name: type.name })),
+    fieldsOf: (typeId) =>
+      catalog[side]
+        .find((candidate) => candidate.id === typeId)
+        ?.fields.map((field) => ({
+          key: field.key,
+          kind: field.kind,
+          options: field.options ?? [],
+          required: field.required === true,
+          default: field.default ?? '',
+        })),
+  }
+}
+
 function AppShell() {
   // Set while the import dialog is open; `unsaved` is decided when it opens.
   const [importDialog, setImportDialog] = useState<{ unsaved: boolean } | null>(null)
@@ -323,19 +340,9 @@ function AppShell() {
       onChange: (typeId) => graphStore.getState().setSelectionType(typeId),
     }
   }, [target, nodes, selectedNodeIds, catalog])
-  const typingFor = (side: 'elementTypes' | 'edgeTypes'): SidebarTyping => ({
-    choices: catalog[side].map((type) => ({ id: type.id, name: type.name })),
-    fieldsOf: (typeId) =>
-      catalog[side]
-        .find((candidate) => candidate.id === typeId)
-        ?.fields.map((field) => ({
-          key: field.key,
-          kind: field.kind,
-          options: field.options ?? [],
-          required: field.required === true,
-          default: field.default ?? '',
-        })),
-  })
+  // Stable per catalog: the sidebar compares it by content, but equal identity spares the work.
+  const elementTyping = useMemo(() => typingOf(catalog, 'elementTypes'), [catalog])
+  const edgeTyping = useMemo(() => typingOf(catalog, 'edgeTypes'), [catalog])
   const sidebarEdge = useMemo(
     () => (target.kind === 'edge' ? (edges.find((e) => e.id === target.id) ?? null) : null),
     [target, edges],
@@ -545,7 +552,8 @@ function AppShell() {
       const result = parseCatalogText(text, t)
       if (!result.ok) return setCatalogImportError(result.errors.join('\n'))
       setCatalogImportError(null)
-      applyCatalogFrom(result.catalog, 'replace')
+      // The ids stay as in the file: re-importing an exported catalog keeps typed elements linked.
+      graphStore.getState().applyCatalog(result.catalog)
     })
   }
 
@@ -657,7 +665,7 @@ function AppShell() {
           bulkStatus={bulkStatus}
           bulkFields={bulkFields}
           bulkType={bulkType}
-          typing={typingFor(sidebarElement?.kind === 'edge' ? 'edgeTypes' : 'elementTypes')}
+          typing={sidebarElement?.kind === 'edge' ? edgeTyping : elementTyping}
           onChange={(metadata) => {
             if (!sidebarElement) return
             const state = graphStore.getState()
