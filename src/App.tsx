@@ -65,6 +65,7 @@ import type { Catalog, GraphContent, MetadataEntry } from './model/types'
 import { copyText } from './storage/clipboard'
 import { downloadTextFile, pickTextFile } from './storage/fileIO'
 import { graphStore, useGraph } from './store/appStore'
+import { selectContent } from './store/graphStore'
 import { setLocale } from './store/localeStore'
 import './App.css'
 
@@ -446,7 +447,7 @@ function AppShell() {
   const copyAnalysis = async () => {
     if (!selection) return
     const state = graphStore.getState()
-    const text = formatAnalysisMarkdown({ nodes, edges, projectName }, analysis, selection, t, dependencies ?? undefined)
+    const text = formatAnalysisMarkdown(selectContent(state), analysis, selection, t, dependencies ?? undefined)
     if (await copyText(text)) {
       state.notify({ kind: 'success', message: { key: 'notice.analysis.copied' } })
     } else {
@@ -483,17 +484,13 @@ function AppShell() {
 
   const exportModel = () => {
     const state = graphStore.getState()
-    const { nodes, edges, projectName: name } = state
-    downloadTextFile(
-      exportFileName(new Date(), name),
-      serializeModel(toModel({ nodes, edges, projectName: name })),
-    )
+    downloadTextFile(exportFileName(new Date(), state.projectName), serializeModel(toModel(selectContent(state))))
     state.markExported()
   }
 
   const hasUnexportedChanges = () => {
-    const { nodes, edges, projectName: name, exportedFingerprint } = graphStore.getState()
-    return contentFingerprint({ nodes, edges, projectName: name }) !== exportedFingerprint
+    const state = graphStore.getState()
+    return contentFingerprint(selectContent(state)) !== state.exportedFingerprint
   }
 
   const requestImport = () => setImportDialog({ unsaved: hasUnexportedChanges() })
@@ -501,8 +498,8 @@ function AppShell() {
   // Files and the clipboard JSON are full copies of the project and so count as an export; the SVG is not (it cannot be imported).
   const runExport = async (format: ExportFormat): Promise<boolean> => {
     const state = graphStore.getState()
-    const { nodes: current, edges: currentEdges, projectName: name } = state
-    const content = { nodes: current, edges: currentEdges, projectName: name, catalog: state.catalog }
+    const content = selectContent(state)
+    const name = content.projectName
     if (format === 'json-file') {
       exportModel()
       return true
@@ -547,14 +544,18 @@ function AppShell() {
 
   const importCatalogFile = () => {
     // pickTextFile has to start synchronously in the click handler (browser rule)
-    void pickTextFile().then((text) => {
-      if (text === null) return
-      const result = parseCatalogText(text, t)
-      if (!result.ok) return setCatalogImportError(result.errors.join('\n'))
-      setCatalogImportError(null)
-      // The ids stay as in the file: re-importing an exported catalog keeps typed elements linked.
-      graphStore.getState().applyCatalog(result.catalog)
-    })
+    pickTextFile()
+      .then((text) => {
+        if (text === null) return
+        const result = parseCatalogText(text, t)
+        if (!result.ok) return setCatalogImportError(result.errors.join('\n'))
+        setCatalogImportError(null)
+        // The ids stay as in the file: re-importing an exported catalog keeps typed elements linked.
+        graphStore.getState().applyCatalog(result.catalog)
+      })
+      .catch((error: unknown) => {
+        setCatalogImportError(error instanceof Error ? error.message : String(error))
+      })
   }
 
   const exportAndImport = () => {

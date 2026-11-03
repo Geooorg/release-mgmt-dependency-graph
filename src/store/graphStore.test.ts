@@ -3,10 +3,10 @@ import { countUsage } from '../model/catalog'
 import { parseCatalogText, serializeCatalog } from '../model/catalogTemplates'
 import { contentFingerprint } from '../model/fingerprint'
 import { getAbsolutePosition } from '../model/graph'
-import { serializeModel, toModel } from '../model/serialize'
+import { parseModel, serializeModel, toModel } from '../model/serialize'
 import { setTestLocale } from '../test/locale'
 import { box, content, counterIds, edge, group, note } from '../test/fixtures'
-import { createGraphStore, selectSidebarTarget, type GraphStore } from './graphStore'
+import { createGraphStore, selectContent, selectSidebarTarget, type GraphStore } from './graphStore'
 
 const twoNodes = () => content([box('a', 0, 0), box('b', 300, 0)])
 const withEdgeStore = () => createGraphStore(content([box('a', 0, 0), box('b', 300, 0)], [edge('e', 'a', 'b')]), counterIds())
@@ -1847,5 +1847,33 @@ describe('type catalog', () => {
     })
     expect(store.getState().importText(text)).toBe(true)
     expect(store.getState().catalog.elementTypes[0].name).toBe('Queue')
+  })
+})
+
+describe('exportable content', () => {
+  const typed = () => {
+    const store = createGraphStore(content([box('a', 0, 0)]), counterIds())
+    const typeId = store.getState().addType('elementTypes', 'Service')!
+    store.getState().applyNodeSelection([{ id: 'a', selected: true }])
+    store.getState().setSelectionType(typeId)
+    return { store, typeId }
+  }
+
+  it('round-trips the catalog and the type entries through the JSON export', () => {
+    const { store, typeId } = typed()
+    const parsed = parseModel(JSON.parse(serializeModel(toModel(selectContent(store.getState())))))
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.model.catalog?.elementTypes.map((t) => t.id)).toEqual([typeId])
+    expect(parsed.model.nodes[0].metadata).toContainEqual({ key: 'type', value: typeId })
+  })
+
+  it('fingerprints like markExported and sees catalog-only edits', () => {
+    const { store } = typed()
+    store.getState().markExported()
+    const state = () => store.getState()
+    expect(contentFingerprint(selectContent(state()))).toBe(state().exportedFingerprint)
+    state().addType('edgeTypes', 'Calls')
+    expect(contentFingerprint(selectContent(state()))).not.toBe(state().exportedFingerprint)
   })
 })

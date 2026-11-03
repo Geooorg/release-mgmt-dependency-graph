@@ -1620,6 +1620,24 @@ describe('Sidebar: type and type fields', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
+  it('shows a stored entry named like a type field as that field only and emits it exactly once on an unrelated edit', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderControlled(
+      [
+        { key: 'name', value: 'A' },
+        { key: 'type', value: 't1' },
+        { key: 'owner', value: 'a' },
+      ],
+      { typing },
+    )
+    expect(screen.getByLabelText('owner *')).toHaveValue('a')
+    expect(keyInputs()).toHaveLength(0)
+    await user.type(screen.getByLabelText('Name'), '!')
+    const last = onChange.mock.lastCall?.[0] as { key: string; value: string }[]
+    expect(last.filter((entry) => entry.key === 'owner')).toEqual([{ key: 'owner', value: 'a' }])
+    expect(last.find((entry) => entry.key === 'name')?.value).toBe('A!')
+  })
+
   it('keeps the draft when the typing is a new object with the same content', async () => {
     const user = userEvent.setup()
     const metadata = [

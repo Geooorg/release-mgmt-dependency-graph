@@ -104,6 +104,13 @@ describe('graph.schema.json', () => {
     expect(validate(JSON.parse(text)), JSON.stringify(validate.errors)).toBe(true)
   })
 
+  it('documents a known gap: a catalog with only one of the two lists is accepted by the importer but rejected by the schema', () => {
+    const doc = { ...base(), catalog: { elementTypes: [] } }
+
+    expect(parseModel(doc).ok).toBe(true)
+    expect(validate(doc)).toBe(false)
+  })
+
   it('is stricter than the importer about unknown properties (catches typos)', () => {
     const doc = { ...base(), nodes: [{ ...base().nodes[2], colour: 'red' }], edges: [] }
 

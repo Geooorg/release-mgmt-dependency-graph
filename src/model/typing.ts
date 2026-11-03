@@ -7,8 +7,9 @@ import type { MetadataEntry, TypeDef } from './types'
 
 /**
  * An element's type is the metadata entry `type` holding a type id. Like `status` and `class` it is an
- * ordinary entry; read and write it only here. Order: name, color, status, blockiert_grund, optional,
- * type, class, entity, version, type fields, free fields.
+ * ordinary entry; read and write it only here. Order for objects: name, color, status, blockiert_grund,
+ * type, class, entity, version, type fields, free fields; for connections: name, optional, type,
+ * type fields, free fields.
  */
 export type ResolvedType =
   | { state: 'none' }

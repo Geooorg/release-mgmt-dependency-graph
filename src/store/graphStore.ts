@@ -247,6 +247,14 @@ const currentT = () => createTranslate(getLocale())
 export type GraphStore = StoreApi<GraphState>
 
 /** What the sidebar shows right now: derived from the selection, not kept separately. */
+/** The exportable project state; every export, fingerprint and analysis input goes through this so the catalog cannot be forgotten. */
+export const selectContent = (state: GraphState): GraphContent => ({
+  nodes: state.nodes,
+  edges: state.edges,
+  projectName: state.projectName,
+  catalog: state.catalog,
+})
+
 export const selectSidebarTarget = (state: GraphState): SidebarTarget =>
   sidebarTarget(state.selectedNodeIds, state.selectedEdgeIds)
 
@@ -263,12 +271,7 @@ export function createGraphStore(
   initialUi: InitialUi = {},
 ): GraphStore {
   return createStore<GraphState>()((set, get) => {
-    const content = (): GraphContent => ({
-      nodes: get().nodes,
-      edges: get().edges,
-      projectName: get().projectName,
-      catalog: get().catalog,
-    })
+    const content = (): GraphContent => selectContent(get())
 
     /**
      * Applies new content and records the previous state as an undo step (unless a gesture is
