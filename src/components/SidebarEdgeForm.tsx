@@ -1,7 +1,9 @@
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useT } from '../i18n/react'
+import type { Translate } from '../i18n/translate'
 import { NAME_KEY } from '../model/types'
+import { EDGE_ROLE_NAME_KEYS } from './edgeRoleLabels'
 import type { SidebarElement, SidebarProps } from './props'
 import { SidebarTypeFields } from './SidebarTypeFields'
 import { useEditGesture } from './useSidebarEffects'
@@ -10,6 +12,17 @@ import './components.css'
 
 type SidebarEdgeFormProps = Omit<SidebarProps, 'element' | 'selectionCount'> & {
   element: SidebarElement
+}
+
+/** Which sentence says what the arrow of the connection means; the direction itself is always source to target. */
+function directionHint(element: SidebarElement, t: Translate): string {
+  const params = { source: element.ends?.source ?? '', target: element.ends?.target ?? '' }
+  const { meaning } = element
+  if (!meaning || meaning.state === 'untyped' || meaning.roles.includes('sequence')) return t('sidebar.direction.hint', params)
+  const sentences: string[] = []
+  if (meaning.roles.includes('dependency')) sentences.push(t('sidebar.direction.hint.dependency', params))
+  if (meaning.roles.includes('flow')) sentences.push(t('sidebar.direction.hint.flow', params))
+  return sentences.length > 0 ? sentences.join(' ') : t('sidebar.direction.hint.plain', params)
 }
 
 const labelOf = (element: SidebarElement) =>
@@ -39,6 +52,8 @@ export function SidebarEdgeForm({
   const [applied, setApplied] = useState(() => labelOf(element).trim())
   const [label, setLabel] = useState(() => labelOf(element))
   const gesture = useEditGesture(onEditStart, onEditEnd)
+  // Only a sequence connection can count for the critical path; an existing mark stays removable.
+  const canBeSoft = !element.meaning || element.meaning.state === 'untyped' || element.meaning.roles.includes('sequence') || element.soft === true
 
   if (received !== element.metadata) {
     setReceived(element.metadata)
@@ -112,7 +127,7 @@ export function SidebarEdgeForm({
           </span>
           {element.ends && (
             <span className="sidebar__check-hint">
-              {t('sidebar.direction.hint', { source: element.ends.source, target: element.ends.target })}
+              {directionHint(element, t)}
             </span>
           )}
           <button
@@ -132,20 +147,39 @@ export function SidebarEdgeForm({
         </div>
       )}
 
-      <div className="sidebar__field">
-        <label className="sidebar__check">
-          <input
-            type="checkbox"
-            checked={element.soft ?? false}
-            aria-describedby={`${formId}-soft-hint`}
-            onChange={(event) => onSoftChange?.(event.target.checked)}
-          />
-          {t('sidebar.field.soft')}
-        </label>
-        <span id={`${formId}-soft-hint`} className="sidebar__check-hint">
-          {t('sidebar.soft.hint')}
-        </span>
-      </div>
+      {element.meaning && (
+        <div className="sidebar__field" role="group" aria-labelledby={`${formId}-meaning ${formId}-meaning-value`}>
+          <span id={`${formId}-meaning`} className="sidebar__label">
+            {t('sidebar.field.meaning')}
+          </span>
+          <span id={`${formId}-meaning-value`} className="sidebar__check-hint">
+            {element.meaning.state === 'untyped'
+              ? t('sidebar.meaning.untyped')
+              : element.meaning.state === 'unknown'
+                ? t('sidebar.meaning.unknown')
+                : element.meaning.roles.length === 0
+                  ? t('sidebar.meaning.none')
+                  : element.meaning.roles.map((role) => t(EDGE_ROLE_NAME_KEYS[role])).join(', ')}
+          </span>
+        </div>
+      )}
+
+      {canBeSoft && (
+        <div className="sidebar__field">
+          <label className="sidebar__check">
+            <input
+              type="checkbox"
+              checked={element.soft ?? false}
+              aria-describedby={`${formId}-soft-hint`}
+              onChange={(event) => onSoftChange?.(event.target.checked)}
+            />
+            {t('sidebar.field.soft')}
+          </label>
+          <span id={`${formId}-soft-hint`} className="sidebar__check-hint">
+            {t('sidebar.soft.hint')}
+          </span>
+        </div>
+      )}
 
       {typing !== undefined && onEdgeTypeChange && onEdgeFieldChange && (
         <SidebarTypeFields

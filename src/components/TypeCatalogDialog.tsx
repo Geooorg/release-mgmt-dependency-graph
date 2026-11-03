@@ -3,9 +3,12 @@ import type { SyntheticEvent } from 'react'
 import { useT } from '../i18n/react'
 import { tidyType } from '../model/catalog'
 import type { CatalogSide } from '../model/catalog'
-import { ICON_KEYS } from '../model/types'
+import { arrowHeadFor } from '../model/edgeRoles'
+import { EDGE_ROLES, ICON_KEYS } from '../model/types'
 import type { FieldDef, FieldKind, TypeDef } from '../model/types'
 import { ConfirmDialog } from './ConfirmDialog'
+import { EDGE_ROLE_HINT_KEYS, EDGE_ROLE_NAME_KEYS } from './edgeRoleLabels'
+import { ArrowHeadIcon } from './icons'
 import type { TypeCatalogDialogProps, TypeDialogType } from './props'
 import { useEditGesture } from './useSidebarEffects'
 import { useNativeDialog } from './useNativeDialog'
@@ -56,6 +59,14 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
   const draftIsCurrent = draftOfSelected && (draft.base === storedSnapshot || echoed)
   const shown: TypeDef | undefined = draftIsCurrent ? draft.value : selected
   const problems = shown === undefined ? [] : props.problemsOf(side, shown)
+
+  const shownRoles = shown?.roles ?? []
+  const rolesHint =
+    shownRoles.length === 0
+      ? 'types.roles.none'
+      : shownRoles.includes('sequence') || shownRoles.includes('dependency')
+        ? 'types.roles.exclusive'
+        : undefined
 
   function close() {
     endEdit()
@@ -221,6 +232,34 @@ export function TypeCatalogDialog(props: TypeCatalogDialogProps) {
                 ))}
               </select>
             </label>
+
+            {side === 'edgeTypes' && (
+              <fieldset className="types-dialog__roles">
+                <legend>{t('types.roles')}</legend>
+                {EDGE_ROLES.map((role) => {
+                  const roles = shown.roles ?? []
+                  const rival = role === 'sequence' ? 'dependency' : role === 'dependency' ? 'sequence' : undefined
+                  return (
+                    <label key={role} className="types-dialog__role">
+                      <input
+                        type="checkbox"
+                        checked={roles.includes(role)}
+                        disabled={rival !== undefined && roles.includes(rival)}
+                        onChange={(event) =>
+                          edit(
+                            { ...shown, roles: EDGE_ROLES.filter((r) => (r === role ? event.target.checked : roles.includes(r))) },
+                            true,
+                          )
+                        }
+                      />
+                      <ArrowHeadIcon head={arrowHeadFor([role])} />
+                      {t(EDGE_ROLE_NAME_KEYS[role])} – {t(EDGE_ROLE_HINT_KEYS[role])}
+                    </label>
+                  )
+                })}
+                {rolesHint !== undefined && <p className="types-dialog__hint">{t(rolesHint)}</p>}
+              </fieldset>
+            )}
 
             <h3>{t('types.fields')}</h3>
             <p className="types-dialog__hint">{t('types.renameHint')}</p>

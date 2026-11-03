@@ -1,8 +1,8 @@
 import type { Translate } from '../i18n/translate'
 import { TYPE_PROBLEM_KEYS, checkTypeDef, tidyType } from './catalog'
 import type { CatalogSide } from './catalog'
-import { EMPTY_CATALOG, FIELD_KINDS, ICON_KEYS } from './types'
-import type { Catalog, FieldDef, IconKey, TypeDef } from './types'
+import { EDGE_ROLES, EMPTY_CATALOG, FIELD_KINDS, ICON_KEYS } from './types'
+import type { Catalog, EdgeRole, FieldDef, IconKey, TypeDef } from './types'
 
 type Report = (message: string) => void
 
@@ -33,6 +33,12 @@ function parseTypeDef(value: unknown): TypeDef | undefined {
   }
   if (value.color !== undefined && typeof value.color !== 'string') return undefined
   if (value.icon !== undefined && !(ICON_KEYS as readonly unknown[]).includes(value.icon)) return undefined
+  if (
+    value.roles !== undefined &&
+    !(Array.isArray(value.roles) && value.roles.every((role) => (EDGE_ROLES as readonly unknown[]).includes(role)))
+  ) {
+    return undefined
+  }
   if (!Array.isArray(value.fields)) return undefined
   const fields = value.fields.map(parseField)
   if (fields.some((field) => field === undefined)) return undefined
@@ -41,6 +47,7 @@ function parseTypeDef(value: unknown): TypeDef | undefined {
     name: value.name,
     ...(value.color !== undefined && { color: value.color }),
     ...(value.icon !== undefined && { icon: value.icon as IconKey }),
+    ...(value.roles !== undefined && { roles: value.roles as EdgeRole[] }),
     fields: fields as FieldDef[],
   })
 }
@@ -79,7 +86,7 @@ export function parseCatalog(raw: unknown, required: boolean, report: Report, t:
       result[side].push(def)
     })
     for (const [index, def] of result[side].entries()) {
-      for (const problem of checkTypeDef(def, result[side])) {
+      for (const problem of checkTypeDef(def, result[side], side)) {
         report(t('parse.catalog.problem', { where: `${side}[${index + 1}]`, reason: t(TYPE_PROBLEM_KEYS[problem]) }))
       }
     }

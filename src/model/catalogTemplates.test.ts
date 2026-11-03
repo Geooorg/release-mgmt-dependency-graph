@@ -15,11 +15,23 @@ describe('templates', () => {
   it.each(TEMPLATE_IDS)('template %s is valid and has unique ids', (id) => {
     const catalog = templateCatalog(id)
     for (const side of ['elementTypes', 'edgeTypes'] as const) {
-      for (const type of catalog[side]) expect(checkTypeDef(type, catalog[side])).toEqual([])
+      for (const type of catalog[side]) expect(checkTypeDef(type, catalog[side], side)).toEqual([])
     }
     const ids = [...catalog.elementTypes, ...catalog.edgeTypes].map((type) => type.id)
     expect(new Set(ids).size).toBe(ids.length)
     expect(catalog.elementTypes.length).toBeGreaterThan(0)
+  })
+})
+
+describe('template connection roles', () => {
+  it.each(TEMPLATE_IDS)('template %s keeps connection roles on connections only', (id) => {
+    const catalog = templateCatalog(id)
+    expect(catalog.elementTypes.every((type) => type.roles === undefined)).toBe(true)
+  })
+
+  it('gives the example connection types their meaning', () => {
+    expect(templateCatalog('it-services').edgeTypes[0].roles).toEqual(['dependency', 'flow'])
+    expect(templateCatalog('dataflow').edgeTypes[0].roles).toEqual(['flow'])
   })
 })
 

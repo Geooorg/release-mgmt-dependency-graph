@@ -97,8 +97,8 @@ export function Canvas({ cycles, analysis, highlighted }: CanvasProps) {
     [nodes, selectedNodeIds, connectSourceId, dropTargetId, highlight, cycles, analysis, revealedId, catalog, t],
   )
   const flowEdges = useMemo(
-    () => toFlowEdges(edges, new Set(selectedEdgeIds), highlight.edgeIds, nodes, cycles.edgeIds, t, catalog),
-    [edges, nodes, selectedEdgeIds, highlight, cycles, t, catalog],
+    () => toFlowEdges(edges, new Set(selectedEdgeIds), highlight.edgeIds, nodes, cycles.edgeIds, t, catalog, analyzing),
+    [edges, nodes, selectedEdgeIds, highlight, cycles, t, catalog, analyzing],
   )
 
   // After an import the new graph may be anywhere: bring it into view.

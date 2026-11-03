@@ -22,6 +22,7 @@ import type {
   BulkObjectFields,
   BulkStatus,
   BulkType,
+  EdgeMeaning,
   ExportFormat,
   SearchOutcome,
   SidebarFilterProps,
@@ -42,9 +43,10 @@ import {
 import { findCycles } from './model/cycles'
 import { canGroup, canReverseEdge, defaultIdGenerator } from './model/graph'
 import { contentFingerprint } from './model/fingerprint'
+import { analysisContent, countEdgeRoles, getEdgeRoles } from './model/edgeRoles'
 import { displayName, getColor, getEdgeName } from './model/metadata'
 import { getClass, getEntity, getVersion } from './model/objectFields'
-import { getTypeId } from './model/typing'
+import { getTypeId, resolveType } from './model/typing'
 import { isSoftEdge } from './model/softDependency'
 import { findByMetadata } from './model/filter'
 import { findByName, nextHit, normalizeQuery } from './model/search'
@@ -61,7 +63,7 @@ import {
   type SelectionAnalysis,
 } from './model/releaseAnalysis'
 import { exportFileName, parseModelJson, serializeModel, toModel } from './model/serialize'
-import type { Catalog, GraphContent, MetadataEntry } from './model/types'
+import type { Catalog, GraphContent, MetadataEntry, ModelEdge } from './model/types'
 import { copyText } from './storage/clipboard'
 import { downloadTextFile, pickTextFile } from './storage/fileIO'
 import { graphStore, useGraph } from './store/appStore'
@@ -83,6 +85,12 @@ const endSidebarEdit = () => graphStore.getState().endGesture()
 /** Keyboard shortcuts of the build mode tools. */
 const TOOL_KEYS: Record<string, Tool> = { v: 'select', n: 'create', s: 'note', c: 'connect', r: 'box' }
 
+/** How the type of a connection resolves, as the sidebar tells it apart. */
+function edgeTypeState(edge: ModelEdge, catalog: Catalog): EdgeMeaning['state'] {
+  const resolved = resolveType(edge.metadata ?? [], catalog.edgeTypes)
+  return resolved.state === 'none' ? 'untyped' : resolved.state === 'known' ? 'known' : 'unknown'
+}
+
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   return target.isContentEditable || target.closest('input, textarea, select, dialog') !== null
@@ -96,7 +104,7 @@ function toPanelProps(
   dependencies: DependencyListing | null,
 ): Omit<
   AnalysisPanelProps,
-  'selected' | 'onStatusChange' | 'onBlockReasonChange' | 'onEditStart' | 'onEditEnd' | 'onReveal' | 'onCopy' | 'onClose'
+  'selected' | 'edgeSummary' | 'onStatusChange' | 'onBlockReasonChange' | 'onEditStart' | 'onEditEnd' | 'onReveal' | 'onCopy' | 'onClose'
 > {
   const byId = new Map(content.nodes.map((n) => [n.id, n]))
   const nameOf = (id: string) => {
@@ -208,8 +216,16 @@ function AppShell() {
         : { elementTypes: [], edgeTypes: [] },
     [typesOpen, catalog, nodes, edges],
   )
-  const cycles = useMemo(() => findCycles({ nodes, edges }), [nodes, edges])
-  const analysis = useMemo(() => analyzeProject({ nodes, edges }), [nodes, edges])
+  // The analyses read different connections: the status analysis only follows `sequence` connections, the
+  // highlights also follow `dependency` connections (turned around). The catalog has to be part of the content,
+  // otherwise typed connections would lose their meaning.
+  const statusContent = useMemo(() => analysisContent({ nodes, edges, catalog }, 'status'), [nodes, edges, catalog])
+  const highlightContent = useMemo(
+    () => analysisContent({ nodes, edges, catalog }, 'highlight'),
+    [nodes, edges, catalog],
+  )
+  const cycles = useMemo(() => findCycles(statusContent), [statusContent])
+  const analysis = useMemo(() => analyzeProject(statusContent), [statusContent])
   const analyzing = mode === 'analyze'
   const panelVisible = analyzing && panelShown
   const drawCritical = analyzing && highlight === 'critical'
@@ -217,8 +233,8 @@ function AppShell() {
   const selectedEdgeIds = useGraph((s) => s.selectedEdgeIds)
   // The selection analysis feeds the panel and the critical path highlight; skip it when neither is shown.
   const selection = useMemo(
-    () => (panelVisible || drawCritical ? analyzeSelection({ nodes, edges }, selectedNodeIds) : null),
-    [panelVisible, drawCritical, nodes, edges, selectedNodeIds],
+    () => (panelVisible || drawCritical ? analyzeSelection(statusContent, selectedNodeIds) : null),
+    [panelVisible, drawCritical, statusContent, selectedNodeIds],
   )
   const critical = useMemo(
     () =>
@@ -236,16 +252,22 @@ function AppShell() {
   const dependencies = useMemo(
     () =>
       dependencyDirection
-        ? { direction: dependencyDirection, ...findDependencies({ nodes, edges }, selectedNodeIds, dependencyDirection) }
+        ? { direction: dependencyDirection, ...findDependencies(highlightContent, selectedNodeIds, dependencyDirection) }
         : null,
-    [dependencyDirection, nodes, edges, selectedNodeIds],
+    [dependencyDirection, highlightContent, selectedNodeIds],
   )
   // One highlight at a time: the critical path, a dependency direction, or none.
   const highlighted = critical ?? dependencies
   const panelProps = useMemo(
-    () => (panelVisible && selection ? toPanelProps({ nodes, edges }, analysis, selection, dependencies) : null),
-    [panelVisible, selection, nodes, edges, analysis, dependencies],
+    () => (panelVisible && selection ? toPanelProps(statusContent, analysis, selection, dependencies) : null),
+    [panelVisible, selection, statusContent, analysis, dependencies],
   )
+  // Only worth a line when some connection does not feed the analyses as a plain sequence connection.
+  const edgeSummary = useMemo(() => {
+    if (!panelVisible) return null
+    const counts = countEdgeRoles({ nodes, edges, catalog })
+    return counts.sequence === edges.length ? null : counts
+  }, [panelVisible, nodes, edges, catalog])
   const nextCycle = useRef(0)
   // The sidebar follows the selection: one element is edited, several only get a hint.
   const target = useMemo(
@@ -383,10 +405,14 @@ function AppShell() {
         soft: isSoftEdge(sidebarEdge),
         ends: { source: nameOf(sidebarEdge.source), target: nameOf(sidebarEdge.target) },
         canReverse: canReverseEdge({ nodes, edges }, sidebarEdge.id),
+        meaning: {
+          state: edgeTypeState(sidebarEdge, catalog),
+          roles: [...getEdgeRoles(sidebarEdge, catalog)],
+        },
       }
     }
     return null
-  }, [sidebarNode, sidebarEdge, analysis, nodes, edges])
+  }, [sidebarNode, sidebarEdge, analysis, nodes, edges, catalog])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -641,6 +667,7 @@ function AppShell() {
         {panelProps && (
           <AnalysisPanel
             {...panelProps}
+            edgeSummary={edgeSummary}
             selected={panelSelected}
             onStatusChange={(status) => {
               if (panelSelected) graphStore.getState().setStatus(panelSelected.id, status)
@@ -730,7 +757,7 @@ function AppShell() {
         onUpdate={(side, type) => graphStore.getState().updateType(side, type)}
         onRemove={(side, id) => graphStore.getState().removeType(side, id)}
         problemsOf={(side, type) =>
-          checkTypeDef(tidyType(type), catalog[side]).map((problem) => t(TYPE_PROBLEM_KEYS[problem]))
+          checkTypeDef(tidyType(type), catalog[side], side).map((problem) => t(TYPE_PROBLEM_KEYS[problem]))
         }
         templates={TEMPLATE_IDS.map((id) => ({ id, label: t(TEMPLATE_LABEL_KEYS[id]) }))}
         onTemplate={(id, mode) => applyCatalogFrom(templateCatalog(id as TemplateId), mode)}

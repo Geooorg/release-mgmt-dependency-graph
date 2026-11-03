@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useEffect, useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -1060,6 +1060,31 @@ describe('Sidebar', () => {
     })
   })
 
+  describe('meaning of a connection', () => {
+    const edgeElement = (meaning: SidebarElement['meaning']): SidebarElement => ({
+      id: ID_B,
+      kind: 'edge',
+      metadata: [{ key: 'name', value: '' }],
+      meaning,
+    })
+    const cases: [NonNullable<SidebarElement['meaning']>, string][] = [
+      [{ state: 'untyped', roles: ['sequence'] }, 'Reihenfolge (ohne Typ)'],
+      [{ state: 'known', roles: [] }, 'Nur beschreibend'],
+      [{ state: 'known', roles: ['dependency', 'flow'] }, 'Abhängigkeit, Datenfluss'],
+      [{ state: 'unknown', roles: [] }, 'Unbekannter Typ: zählt für keine Analyse'],
+    ]
+    it.each(cases)('shows the meaning %j as "%s"', (meaning, text) => {
+      render(<Sidebar {...makeProps({ element: edgeElement(meaning) })} />)
+      expect(screen.getByText('Bedeutung')).toBeInTheDocument()
+      expect(screen.getByText(text)).toBeInTheDocument()
+    })
+
+    it('shows no meaning row without the information', () => {
+      render(<Sidebar {...makeProps({ element: edgeElement(undefined) })} />)
+      expect(screen.queryByText('Bedeutung')).toBeNull()
+    })
+  })
+
   describe('edge variant', () => {
     const edgeElement = (label = ''): SidebarElement => ({
       id: ID_B,
@@ -1182,6 +1207,69 @@ describe('Sidebar', () => {
       expect(screen.getByText('„Build“ kommt zuerst; „Release“ hängt davon ab.')).toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Richtung umkehren' }))
       expect(onReverse).toHaveBeenCalledTimes(1)
+    })
+
+    describe('direction hint by meaning', () => {
+      const withMeaning = (meaning: SidebarElement['meaning']) =>
+        makeProps({
+          element: { ...edgeElement(), ends: { source: 'Build', target: 'Release' }, canReverse: true, meaning },
+          onReverse: vi.fn(),
+        })
+      const hint = (props: SidebarProps) => {
+        const { container } = render(<Sidebar {...props} />)
+        return container.querySelector('[role="group"][aria-labelledby$="-direction"] .sidebar__check-hint')?.textContent
+      }
+
+      it('keeps the sequence text for untyped connections and sequence types', () => {
+        expect(hint(withMeaning({ state: 'untyped', roles: ['sequence'] }))).toBe('„Build“ kommt zuerst; „Release“ hängt davon ab.')
+        cleanup()
+        expect(hint(withMeaning({ state: 'known', roles: ['sequence', 'flow'] }))).toBe('„Build“ kommt zuerst; „Release“ hängt davon ab.')
+      })
+      it('says the source depends on the target for a dependency type', () => {
+        expect(hint(withMeaning({ state: 'known', roles: ['dependency'] }))).toBe('„Build“ hängt von „Release“ ab.')
+      })
+      it('says where the data flows for a flow-only type', () => {
+        expect(hint(withMeaning({ state: 'known', roles: ['flow'] }))).toBe('Daten fließen von „Build“ nach „Release“.')
+      })
+      it('names dependency and flow for a type with both', () => {
+        expect(hint(withMeaning({ state: 'known', roles: ['dependency', 'flow'] }))).toBe(
+          '„Build“ hängt von „Release“ ab. Daten fließen von „Build“ nach „Release“.',
+        )
+      })
+      it('states no ordering for a descriptive or an unknown type', () => {
+        expect(hint(withMeaning({ state: 'known', roles: [] }))).toBe('Von „Build“ nach „Release“.')
+        cleanup()
+        expect(hint(withMeaning({ state: 'unknown', roles: [] }))).toBe('Von „Build“ nach „Release“.')
+      })
+    })
+
+    describe('optional dependency checkbox by meaning', () => {
+      const box = () => screen.queryByRole('checkbox', { name: 'Optionale Abhängigkeit' })
+      const edgeWith = (meaning: SidebarElement['meaning'], soft?: boolean): SidebarElement => ({ ...edgeElement(), meaning, soft })
+
+      it('is offered for untyped and sequence connections', () => {
+        const { rerender } = render(<Sidebar {...makeProps({ element: edgeWith({ state: 'untyped', roles: ['sequence'] }) })} />)
+        expect(box()).toBeInTheDocument()
+        rerender(<Sidebar {...makeProps({ element: edgeWith({ state: 'known', roles: ['sequence', 'flow'] }) })} />)
+        expect(box()).toBeInTheDocument()
+      })
+      it('is not offered when the connection can never count for the critical path', () => {
+        const { rerender } = render(<Sidebar {...makeProps({ element: edgeWith({ state: 'known', roles: ['dependency'] }) })} />)
+        expect(box()).toBeNull()
+        for (const meaning of [
+          { state: 'known', roles: ['flow'] },
+          { state: 'known', roles: [] },
+          { state: 'unknown', roles: [] },
+        ] as const) {
+          rerender(<Sidebar {...makeProps({ element: edgeWith({ ...meaning, roles: [...meaning.roles] }) })} />)
+          expect(box()).toBeNull()
+        }
+        expect(screen.queryByText(/zählt nicht zum kritischen Pfad/)).toBeNull()
+      })
+      it('stays so an existing mark can be removed', () => {
+        render(<Sidebar {...makeProps({ element: edgeWith({ state: 'known', roles: ['dependency'] }, true) })} />)
+        expect(box()).toBeChecked()
+      })
     })
 
     it('disables reversing when the opposite connection already exists', () => {

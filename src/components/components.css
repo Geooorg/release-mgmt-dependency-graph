@@ -1157,6 +1157,12 @@
   color: #78350f;
 }
 
+.analysis-edges {
+  margin: 8px 0 12px;
+  color: var(--gray-600);
+  font-size: 12px;
+}
+
 .analysis-section + .analysis-section {
   margin-top: 14px;
 }
@@ -2019,6 +2025,20 @@ ol.analysis-list > li::before {
 .types-dialog__hint {
   margin: 0;
   color: var(--gray-600);
+}
+
+.types-dialog__roles {
+  border: 1px solid var(--gray-400);
+  border-radius: 6px;
+  padding: 8px;
+  margin: 8px 0;
+}
+
+.types-dialog__role {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
 }
 
 .types-dialog__problems {

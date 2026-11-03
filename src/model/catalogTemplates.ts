@@ -16,7 +16,7 @@ const TEMPLATES: Record<TemplateId, Catalog> = {
       { id: 'ext', name: 'Externes System', color: '#6b7280', icon: 'external', fields: [] },
     ],
     edgeTypes: [
-      { id: 'call', name: 'Aufruf', color: '#2563eb', fields: [] },
+      { id: 'call', name: 'Aufruf', color: '#2563eb', roles: ['dependency', 'flow'], fields: [] },
     ],
   },
   dataflow: {
@@ -26,7 +26,7 @@ const TEMPLATES: Record<TemplateId, Catalog> = {
       { id: 'actor', name: 'Externe Entität', color: '#6b7280', icon: 'user', fields: [] },
     ],
     edgeTypes: [
-      { id: 'flow', name: 'Datenfluss', color: '#dc2626', fields: [] },
+      { id: 'flow', name: 'Datenfluss', color: '#dc2626', roles: ['flow'], fields: [] },
     ],
   },
 }

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://georgstach.de/release-management/graph.schema.json",
   "title": "Release-Management: Abhängigkeitsgraph",
-  "description": "Austauschformat der App (JSON-Export, localStorage-Schlüssel release-management.graph.v1). Beschreibt die Struktur. Nicht ausdrückbar und erst beim Import der App geprüft: eindeutige ids, existierende parentId (nur Gruppen, keine Zyklen), source/target verweisen auf vorhandene Objekte oder Gruppen (nicht auf Notizen), keine Selbstschleife und kein doppeltes (source, target)-Paar, keine doppelten Metadaten-Schlüssel. Die App trimmt Schlüssel und Werte beim Import und stellt den Eintrag name an die erste Stelle. Pfeil A -> B: A kommt vor B (B hängt von A ab, A wird zuerst released). Kinder müssen im Array nach ihrer Gruppe stehen (die App sortiert beim Import selbst). Dateien der Version 4 (ohne catalog) importiert die App weiterhin mit leerem Katalog. Ein Element verweist über den Metadateneintrag type (Typ-ID) auf einen Typ des Katalogs; ein unbekannter Verweis ist erlaubt. Nicht ausdrückbar: eindeutige Typ-IDs und -Namen, reservierte oder doppelte Feldschlüssel, Auswahl-Standard unter den Optionen. Dateien der Version 3 (Objekte ohne class, entity und version: die App ergänzt class = java.lang.Object, entity und version = leer), der Version 2 (zusätzlich ohne Notizen) und der Version 1 (Verbindungen mit label statt metadata) importiert die App weiterhin und wandelt label in den Namen um; dieses Schema beschreibt nur die aktuelle Version.",
+  "description": "Austauschformat der App (JSON-Export, localStorage-Schlüssel release-management.graph.v1). Beschreibt die Struktur. Nicht ausdrückbar und erst beim Import der App geprüft: eindeutige ids, existierende parentId (nur Gruppen, keine Zyklen), source/target verweisen auf vorhandene Objekte oder Gruppen (nicht auf Notizen), keine Selbstschleife und kein doppeltes (source, target)-Paar, keine doppelten Metadaten-Schlüssel. Die App trimmt Schlüssel und Werte beim Import und stellt den Eintrag name an die erste Stelle. Pfeil A -> B: A kommt vor B (B hängt von A ab, A wird zuerst released). Kinder müssen im Array nach ihrer Gruppe stehen (die App sortiert beim Import selbst). Dateien der Version 4 (ohne catalog) importiert die App weiterhin mit leerem Katalog. Ein Element verweist über den Metadateneintrag type (Typ-ID) auf einen Typ des Katalogs; ein unbekannter Verweis ist erlaubt. Nicht ausdrückbar: eindeutige Typ-IDs und -Namen, reservierte oder doppelte Feldschlüssel, Auswahl-Standard unter den Optionen, roles nur bei edgeTypes, sequence und dependency nicht zusammen. Verbindungstypen können roles haben (Bedeutung des Pfeils: sequence = A kommt vor B, dependency = A hängt von B ab, flow = Daten fließen von A nach B); ohne roles ist der Typ nur beschreibend. Dateien der Version 3 (Objekte ohne class, entity und version: die App ergänzt class = java.lang.Object, entity und version = leer), der Version 2 (zusätzlich ohne Notizen) und der Version 1 (Verbindungen mit label statt metadata) importiert die App weiterhin und wandelt label in den Namen um; dieses Schema beschreibt nur die aktuelle Version.",
   "type": "object",
   "required": ["version", "catalog", "nodes", "edges"],
   "additionalProperties": false,
@@ -49,6 +49,11 @@
         "name": { "type": "string", "minLength": 1 },
         "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
         "icon": { "enum": ["service", "database", "queue", "user", "cloud", "external", "process", "storage"] },
+        "roles": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["sequence", "dependency", "flow"] }
+        },
         "fields": { "type": "array", "items": { "$ref": "#/$defs/fieldDef" } }
       }
     },

@@ -325,6 +325,7 @@ export function AnalysisPanel({
   scope,
   selectionNames,
   counts,
+  edgeSummary,
   criticalPath,
   cycleNames,
   unfinished,
@@ -417,6 +418,8 @@ export function AnalysisPanel({
             </li>
           )}
         </ul>
+
+        {edgeSummary && <p className="analysis-edges">{t('analysis.edges', edgeSummary)}</p>}
 
         {clarifyCount > 0 && (
           <Section title={t('analysis.clarify.title')}>

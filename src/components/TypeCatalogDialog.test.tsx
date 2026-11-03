@@ -192,6 +192,97 @@ describe('TypeCatalogDialog', () => {
     expect(screen.queryByLabelText('Schlüssel')).not.toBeInTheDocument()
   })
 
+  describe('meaning of a connection type', () => {
+    const edgeType = { id: 'e1', name: 'Aufruf', fields: [], usage: 0 }
+    const open = (over: Partial<TypeCatalogDialogProps> = {}) => {
+      const props = makeProps({ edgeTypes: [edgeType], ...over })
+      render(<TypeCatalogDialog {...props} />)
+      return props
+    }
+    const selectEdgeType = async () => {
+      await userEvent.click(screen.getByRole('tab', { name: 'Verbindungen' }))
+      await userEvent.click(screen.getByText('Aufruf'))
+    }
+
+    it('shows the meaning block only for connection types', async () => {
+      open()
+      await userEvent.click(screen.getByText('Service'))
+      expect(screen.queryByText('Bedeutung')).toBeNull()
+      await selectEdgeType()
+      expect(screen.getByText('Bedeutung')).toBeInTheDocument()
+    })
+
+    it('applies a checked role at once and says that a type without a role is descriptive', async () => {
+      const props = open()
+      await selectEdgeType()
+      expect(screen.getByText('Nur beschreibend: wird in keiner Analyse berücksichtigt.')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('checkbox', { name: /Datenfluss/ }))
+      expect(props.onUpdate).toHaveBeenLastCalledWith('edgeTypes', expect.objectContaining({ id: 'e1', roles: ['flow'] }))
+      expect(props.onEditStart).not.toHaveBeenCalled()
+    })
+
+    it('unchecks a role again', async () => {
+      const props = open({ edgeTypes: [{ ...edgeType, roles: ['flow'] }] })
+      await selectEdgeType()
+      await userEvent.click(screen.getByRole('checkbox', { name: /Datenfluss/ }))
+      expect(props.onUpdate).toHaveBeenLastCalledWith('edgeTypes', expect.objectContaining({ id: 'e1', roles: [] }))
+    })
+
+    it('locks sequence while dependency is checked and the other way round', async () => {
+      open({ edgeTypes: [{ ...edgeType, roles: ['dependency'] }] })
+      await selectEdgeType()
+      expect(screen.getByRole('checkbox', { name: /Reihenfolge/ })).toBeDisabled()
+      expect(screen.getByRole('checkbox', { name: /Abhängigkeit/ })).toBeEnabled()
+      expect(screen.getByText('Reihenfolge und Abhängigkeit schließen sich aus.')).toBeInTheDocument()
+    })
+
+    it('locks dependency while sequence is checked', async () => {
+      open({ edgeTypes: [{ ...edgeType, roles: ['sequence'] }] })
+      await selectEdgeType()
+      expect(screen.getByRole('checkbox', { name: /Abhängigkeit/ })).toBeDisabled()
+      expect(screen.getByRole('checkbox', { name: /Reihenfolge/ })).toBeEnabled()
+    })
+
+    it('shows the exclusion hint only while sequence or dependency is checked', async () => {
+      const hint = 'Reihenfolge und Abhängigkeit schließen sich aus.'
+      const none = 'Nur beschreibend: wird in keiner Analyse berücksichtigt.'
+      const { unmount } = render(
+        <TypeCatalogDialog {...makeProps({ edgeTypes: [{ ...edgeType, roles: ['flow'] }] })} />,
+      )
+      await selectEdgeType()
+      expect(screen.queryByText(hint)).toBeNull()
+      expect(screen.queryByText(none)).toBeNull()
+      unmount()
+      render(<TypeCatalogDialog {...makeProps({ edgeTypes: [{ ...edgeType, roles: ['sequence', 'flow'] }] })} />)
+      await selectEdgeType()
+      expect(screen.getByText(hint)).toBeInTheDocument()
+    })
+
+    it('stores the roles in canonical order', async () => {
+      const props = open({ edgeTypes: [{ ...edgeType, roles: ['flow'] }] })
+      await selectEdgeType()
+      await userEvent.click(screen.getByRole('checkbox', { name: /Abhängigkeit/ }))
+      expect(props.onUpdate).toHaveBeenLastCalledWith(
+        'edgeTypes',
+        expect.objectContaining({ id: 'e1', roles: ['dependency', 'flow'] }),
+      )
+    })
+
+    it('does not show the meaning block for an element type, which keeps no roles', async () => {
+      const props = open()
+      await userEvent.click(screen.getByText('Service'))
+      await userEvent.type(screen.getByLabelText('Name'), 'x')
+      expect(screen.queryByText('Bedeutung')).toBeNull()
+      expect(props.onUpdate).toHaveBeenLastCalledWith('elementTypes', expect.not.objectContaining({ roles: expect.anything() }))
+    })
+
+    it('cannot be changed in the read-only mode', async () => {
+      open({ readOnly: true })
+      await selectEdgeType()
+      expect(screen.getByRole('checkbox', { name: /Datenfluss/ })).toBeDisabled()
+    })
+  })
+
   describe('typing in a dialog whose owner stores the tidied type', () => {
     function Harness({ onEditStart = vi.fn(), onEditEnd = vi.fn() }: { onEditStart?: () => void; onEditEnd?: () => void }) {
       const [types, setTypes] = useState<TypeDef[]>([

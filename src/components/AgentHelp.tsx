@@ -26,7 +26,7 @@ const PAIR = '{ source, target }'
 const MODEL_SKELETON = `{ version: ${SCHEMA_VERSION}, projectName, catalog, nodes: [...], edges: [...] }`
 const CATALOG_SKELETON = '{ elementTypes: [...], edgeTypes: [...] }'
 const TYPE_SHAPE =
-  '{ id, name, color?:"#rrggbb", icon?, fields:[{ key, kind:"text"|"select"|"boolean", options?, required?, default? }] }'
+  '{ id, name, color?:"#rrggbb", icon?, roles?:["sequence"|"dependency"|"flow"] (edgeTypes only), fields:[{ key, kind:"text"|"select"|"boolean", options?, required?, default? }] }'
 const TYPE_ENTRY = '{"key":"type","value":"<type id>"}'
 const CATALOG_FILE_SHAPE = '{ "catalogVersion": 1, "catalog": { "elementTypes": [...], "edgeTypes": [...] } }'
 const CATALOG_EXAMPLE = JSON.stringify(
@@ -44,7 +44,15 @@ const CATALOG_EXAMPLE = JSON.stringify(
         ],
       },
     ],
-    edgeTypes: [],
+    edgeTypes: [
+      {
+        id: 'c1a…',
+        name: 'Aufruf',
+        color: '#2563eb',
+        roles: ['dependency', 'flow'],
+        fields: [],
+      },
+    ],
   },
   null,
   2,
@@ -149,6 +157,21 @@ export function AgentHelp() {
               exportCatalog: t('types.export'),
               typeLabel: t('sidebar.type.label'),
               bulkType: t('sidebar.bulkType'),
+            })}
+          />
+        </li>
+        <li>
+          <RichText
+            text={t('agent.types.roles', {
+              title: t('types.title'),
+              tabEdges: t('types.tab.edges'),
+              roles: t('types.roles'),
+              sequence: t('types.role.sequence'),
+              dependency: t('types.role.dependency'),
+              flow: t('types.role.flow'),
+              prerequisites: t('toolbar.highlight.prerequisites'),
+              dependents: t('toolbar.highlight.dependents'),
+              closure: t('toolbar.highlight.closure'),
             })}
           />
         </li>

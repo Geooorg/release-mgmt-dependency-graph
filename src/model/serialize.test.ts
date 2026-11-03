@@ -1181,6 +1181,42 @@ describe('catalog (schema version 5)', () => {
     expect(again).toEqual(parsed)
   })
 
+  it('keeps the roles of a connection type through export and import', () => {
+    const catalog = {
+      elementTypes: [],
+      edgeTypes: [{ id: 'e1', name: 'Aufruf', roles: ['flow', 'dependency'], fields: [] }],
+    }
+    const parsed = parseModel(source({ catalog }))
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.model.catalog.edgeTypes[0].roles).toEqual(['dependency', 'flow'])
+    const again = parseModel(JSON.parse(serializeModel(parsed.model)))
+    expect(again).toEqual(parsed)
+    const text = serializeModel(parsed.model)
+    expect(text.indexOf('"roles"')).toBeGreaterThan(text.indexOf('"name": "Aufruf"'))
+    expect(text.indexOf('"roles"')).toBeLessThan(text.indexOf('"fields"'))
+  })
+
+  it('reads a version 5 file without roles as descriptive', () => {
+    const parsed = parseModel(source({ catalog: { elementTypes: [], edgeTypes: [{ id: 'e1', name: 'Aufruf', fields: [] }] } }))
+    expect(parsed.ok && parsed.model.catalog.edgeTypes[0].roles).toBeFalsy()
+  })
+
+  it.each([
+    ['an unknown role', { id: 'e1', name: 'A', roles: ['magic'], fields: [] }],
+    ['roles that are not a list', { id: 'e1', name: 'A', roles: 'flow', fields: [] }],
+  ])('rejects %s', (_label, type) => {
+    const parsed = parseModel(source({ catalog: { elementTypes: [], edgeTypes: [type] } }))
+    expect(parsed.ok).toBe(false)
+  })
+
+  it('rejects sequence together with dependency and roles on an element type', () => {
+    const conflict = parseModel(source({ catalog: { elementTypes: [], edgeTypes: [{ id: 'e1', name: 'A', roles: ['sequence', 'dependency'], fields: [] }] } }))
+    const onElement = parseModel(source({ catalog: { elementTypes: [{ id: 't1', name: 'A', roles: ['flow'], fields: [] }], edgeTypes: [] } }))
+    expect(conflict.ok).toBe(false)
+    expect(onElement.ok).toBe(false)
+  })
+
   it('writes the catalog after the project name and before the nodes', () => {
     const text = serializeModel(toModel({ nodes: [], edges: [], projectName: 'P', catalog: typed as never }))
     expect(Object.keys(JSON.parse(text))).toEqual(['version', 'projectName', 'catalog', 'nodes', 'edges'])
