@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { counterIds } from '../test/fixtures'
+import { box, counterIds } from '../test/fixtures'
 import {
   addType,
   checkTypeDef,
+  countUsage,
   findType,
   mergeCatalog,
   removeType,
@@ -124,5 +125,18 @@ describe('catalog operations', () => {
     const fresh = withFreshIds(catalogOf(def()), counterIds())
     expect(fresh.elementTypes[0].id).not.toBe('t1')
     expect(fresh.elementTypes[0].name).toBe('Service')
+  })
+})
+
+describe('countUsage', () => {
+  it('counts the objects and connections that use a type', () => {
+    const typed = { ...box('a', 0, 0), metadata: [{ key: 'name', value: 'A' }, { key: 'type', value: 't1' }] }
+    const content = {
+      nodes: [typed, box('b', 100, 0)],
+      edges: [{ id: 'e', source: 'a', target: 'b', metadata: [{ key: 'name', value: '' }, { key: 'type', value: 'e1' }] }],
+    }
+    expect(countUsage(content, 'elementTypes', 't1')).toBe(1)
+    expect(countUsage(content, 'edgeTypes', 'e1')).toBe(1)
+    expect(countUsage(content, 'elementTypes', 'other')).toBe(0)
   })
 })

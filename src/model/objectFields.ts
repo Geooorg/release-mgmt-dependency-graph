@@ -1,12 +1,12 @@
 import { isBlockReasonKey, isStatusKey } from './status'
-import { COLOR_KEY, NAME_KEY } from './types'
+import { COLOR_KEY, NAME_KEY, TYPE_KEY } from './types'
 import type { MetadataEntry } from './types'
 
 /**
  * Every object (kind `node`, not groups or notes) carries the three metadata entries `class`, `entity`
  * and `version`. They have no function yet: `class` names a Java type (a Java object may represent it
  * one day), `entity` and `version` are reserved. Like `color` and `status` they are ordinary entries;
- * the canonical order is name, color, status, blockiert_grund, class, entity, version, free fields.
+ * the canonical order is name, color, status, blockiert_grund, type, class, entity, version, free fields.
  */
 export const CLASS_KEY = 'class'
 export const ENTITY_KEY = 'entity'
@@ -37,7 +37,7 @@ export function getVersion(entries: readonly MetadataEntry[]): string {
 function insertionIndex(entries: readonly MetadataEntry[], field: string): number {
   const earlier = OBJECT_KEYS.slice(0, OBJECT_KEYS.indexOf(field))
   const isFixed = (key: string) =>
-    key === NAME_KEY || key === COLOR_KEY || isStatusKey(key) || isBlockReasonKey(key) || earlier.includes(key)
+    key === NAME_KEY || key === COLOR_KEY || key === TYPE_KEY || isStatusKey(key) || isBlockReasonKey(key) || earlier.includes(key)
   let at = 0
   while (at < entries.length && isFixed(entries[at].key)) at += 1
   return at

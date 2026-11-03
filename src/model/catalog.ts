@@ -1,6 +1,7 @@
 import type { MessageKey } from '../i18n/messages'
 import { isValidColor } from './metadata'
-import type { Catalog, FieldDef, IdGenerator, TypeDef } from './types'
+import { getTypeId } from './typing'
+import type { Catalog, FieldDef, GraphContent, IdGenerator, TypeDef } from './types'
 
 /** Keys the app itself uses on elements and connections: a type field may not take them. */
 export const RESERVED_FIELD_KEYS: readonly string[] = [
@@ -156,4 +157,12 @@ export function mergeCatalog(current: Catalog, incoming: Catalog, newId: IdGener
     elementTypes: merge(current.elementTypes, incoming.elementTypes),
     edgeTypes: merge(current.edgeTypes, incoming.edgeTypes),
   }
+}
+
+/** How many elements refer to the type: objects for `elementTypes`, connections for `edgeTypes`. */
+export function countUsage(content: GraphContent, side: CatalogSide, id: string): number {
+  if (side === 'elementTypes') {
+    return content.nodes.filter((node) => node.kind === 'node' && getTypeId(node.metadata) === id).length
+  }
+  return content.edges.filter((edge) => getTypeId(edge.metadata ?? []) === id).length
 }

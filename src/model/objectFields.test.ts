@@ -140,3 +140,10 @@ describe('withClassEntry / withEntityEntry / withVersionEntry', () => {
     expect(withVersionEntry([name, { key: 'version', value: '1' }], '2')).toEqual([name, { key: 'version', value: '2' }])
   })
 })
+
+describe('type entry in front of the object fields', () => {
+  it('inserts class behind a type entry', () => {
+    const entries = [{ key: 'name', value: 'A' }, { key: 'type', value: 't1' }]
+    expect(withClassEntry(entries, 'x').map((e) => e.key)).toEqual(['name', 'type', 'class'])
+  })
+})
