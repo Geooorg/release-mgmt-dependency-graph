@@ -751,6 +751,11 @@ describe('round trip', () => {
 // ---------------------------------------------------------------------------
 
 describe('exportFileName', () => {
+  it('accepts the ttl extension', () => {
+    const date = new Date(2026, 9, 9, 14, 10, 22)
+    expect(exportFileName(date, 'Release-Management', 'ttl')).toBe('Release-Management_2026-10-09_141022.ttl')
+  })
+
   it('is <project name>_<date>_<time>.json with the local time as HHmmss', () => {
     expect(exportFileName(new Date(2026, 9, 9, 14, 10, 22), 'Release-Management')).toBe(
       'Release-Management_2026-10-09_141022.json',

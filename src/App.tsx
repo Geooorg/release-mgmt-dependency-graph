@@ -66,6 +66,7 @@ import { exportFileName, parseModelJson, serializeModel, toModel } from './model
 import type { Catalog, GraphContent, MetadataEntry, ModelEdge } from './model/types'
 import { copyText } from './storage/clipboard'
 import { downloadTextFile, pickTextFile } from './storage/fileIO'
+import { exportTurtle, looksLikeJson, turtleToModelJson } from './storage/rdfIo'
 import { graphStore, useGraph } from './store/appStore'
 import { selectContent } from './store/graphStore'
 import { setLocale } from './store/localeStore'
@@ -521,13 +522,22 @@ function AppShell() {
 
   const requestImport = () => setImportDialog({ unsaved: hasUnexportedChanges() })
 
-  // Files and the clipboard JSON are full copies of the project and so count as an export; the SVG is not (it cannot be imported).
+  // Files, the clipboard JSON and the Turtle file are full copies of the project and so count as an export; the SVG is not (it cannot be imported).
   const runExport = async (format: ExportFormat): Promise<boolean> => {
     const state = graphStore.getState()
     const content = selectContent(state)
     const name = content.projectName
     if (format === 'json-file') {
       exportModel()
+      return true
+    }
+    if (format === 'rdf-file') {
+      try {
+        downloadTextFile(exportFileName(new Date(), name, 'ttl'), await exportTurtle(content), 'text/turtle')
+      } catch {
+        return false
+      }
+      state.markExported()
       return true
     }
     if (format === 'svg') {
@@ -550,13 +560,33 @@ function AppShell() {
     setJsonImport(null)
   }
 
+  // JSON files go straight to the store; Turtle files are converted first (the parser loads on demand).
+  const importFileText = async (text: string) => {
+    const store = graphStore.getState()
+    if (looksLikeJson(text)) {
+      store.importText(text)
+      return
+    }
+    try {
+      const result = await turtleToModelJson(text, t)
+      if (result.ok) store.importText(result.json)
+      else store.notify({ kind: 'error', message: { key: 'notice.import.failed' }, details: result.errors })
+    } catch (error) {
+      store.notify({
+        kind: 'error',
+        message: { key: 'notice.import.failed' },
+        details: [error instanceof Error ? error.message : String(error)],
+      })
+    }
+  }
+
   // Both import paths call this synchronously from the click handler (no `await` before the picker),
   // so the file picker still counts as user-initiated.
   const pickAndImport = async () => {
     setImportDialog(null)
-    const text = await pickTextFile()
+    const text = await pickTextFile('.json,application/json,.ttl,text/turtle')
     if (text === null) return
-    graphStore.getState().importText(text)
+    await importFileText(text)
   }
 
   const applyCatalogFrom = (incoming: Catalog, mode: 'merge' | 'replace') => {

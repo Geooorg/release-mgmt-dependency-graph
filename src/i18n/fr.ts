@@ -126,10 +126,11 @@ export const fr: Catalog = {
   'toolbar.search.title':
     'Rechercher un objet ou un groupe par son nom (début du nom, sans tenir compte de la casse). Entrée saute au résultat, Entrée à nouveau au suivant.',
   'toolbar.export': 'Exporter',
-  'toolbar.export.title': 'Exporter le projet : en fichier JSON, en image SVG ou en JSON dans le presse-papiers',
+  'toolbar.export.title':
+    'Exporter le projet : en fichier JSON, en fichier RDF (Turtle), en image SVG ou en JSON dans le presse-papiers',
   'toolbar.import': 'Importer',
   'toolbar.import.title':
-    'Charger un projet depuis un fichier JSON. Il remplace le projet actuel ; une confirmation est demandée et les modifications non exportées sont signalées.',
+    'Charger un projet depuis un fichier JSON ou RDF (Turtle, uniquement exporté par cet outil). Il remplace le projet actuel ; une confirmation est demandée et les modifications non exportées sont signalées.',
   'toolbar.pasteJson': 'Coller du JSON',
   'toolbar.pasteJson.title':
     'Charger un projet depuis du texte JSON collé. Il remplace le projet actuel ; les modifications non exportées sont signalées.',
@@ -159,6 +160,8 @@ export const fr: Catalog = {
   'export.format': 'Format',
   'export.json': 'Fichier JSON',
   'export.json.hint': 'Télécharger le projet sous forme de fichier. Il peut être réimporté.',
+  'export.rdf': 'RDF (Turtle)',
+  'export.rdf.hint': 'Télécharger le projet en fichier Turtle (.ttl), lisible par les outils RDF. Il peut être réimporté.',
   'export.svg': 'SVG',
   'export.svg.hint': 'Télécharger le graphe sous forme d’image vectorielle, par ex. pour des documents. Elle ne peut pas être réimportée.',
   'export.svg.empty': 'Le graphe est vide – il n’y a rien à dessiner.',
@@ -166,6 +169,7 @@ export const fr: Catalog = {
   'export.clipboard.hint': 'Copier le projet sous forme de texte JSON dans le presse-papiers.',
   'export.submit': 'Exporter',
   'export.copied': 'Copié dans le presse-papiers.',
+  'export.failed': 'L’export a échoué. Réessayez ou choisissez « Fichier JSON ».',
   'export.copyFailed': 'Copie impossible. Choisissez plutôt « Fichier JSON ».',
   'filter.label': 'Filtrer par métadonnées',
   'filter.key': 'Clé',

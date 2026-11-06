@@ -280,8 +280,8 @@ export interface ImportDialogProps {
   onCancel: () => void
 }
 
-/** What the export dialog offers: the project as a JSON file, the graph as an SVG file, the project as JSON text on the clipboard. */
-export type ExportFormat = 'json-file' | 'svg' | 'json-clipboard'
+/** What the export dialog offers: the project as a JSON file or an RDF (Turtle) file, the graph as an SVG file, the project as JSON text on the clipboard. */
+export type ExportFormat = 'json-file' | 'rdf-file' | 'svg' | 'json-clipboard'
 
 export interface ExportDialogProps {
   open: boolean

@@ -122,7 +122,7 @@ function canonicalNode(node: ModelNode) {
 export function exportFileName(
   date: Date = new Date(),
   projectName: string = DEFAULT_PROJECT_NAME,
-  extension: 'json' | 'svg' = 'json',
+  extension: 'json' | 'svg' | 'ttl' = 'json',
 ): string {
   const pad = (value: number, length = 2) => String(value).padStart(length, '0')
   const name = isValidProjectName(projectName) ? projectName : DEFAULT_PROJECT_NAME

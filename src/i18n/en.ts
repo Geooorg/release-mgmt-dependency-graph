@@ -126,10 +126,11 @@ export const en: Catalog = {
   'toolbar.search.title':
     'Search an object or group by name (start of the name, case-insensitive). Enter jumps to the hit, Enter again to the next one.',
   'toolbar.export': 'Export',
-  'toolbar.export.title': 'Export the project: as a JSON file, as an SVG image or as JSON on the clipboard',
+  'toolbar.export.title':
+    'Export the project: as a JSON file, as an RDF file (Turtle), as an SVG graphic or as JSON to the clipboard',
   'toolbar.import': 'Import',
   'toolbar.import.title':
-    'Load a project from a JSON file. It replaces the current project; you are asked first and warned about changes that were not exported.',
+    'Load a project from a JSON or RDF file (Turtle, only files exported by this tool). It replaces the current project; you are asked first and warned about changes that were not exported.',
   'toolbar.pasteJson': 'Paste JSON',
   'toolbar.pasteJson.title':
     'Load a project from pasted JSON text. It replaces the current project; you are warned about changes that were not exported.',
@@ -159,6 +160,8 @@ export const en: Catalog = {
   'export.format': 'Format',
   'export.json': 'JSON file',
   'export.json.hint': 'Download the project as a file. It can be imported again.',
+  'export.rdf': 'RDF (Turtle)',
+  'export.rdf.hint': 'Download the project as a Turtle file (.ttl), readable by RDF tools. It can be imported again.',
   'export.svg': 'SVG',
   'export.svg.hint': 'Download the graph as a vector image, e.g. for documents. It cannot be imported.',
   'export.svg.empty': 'The graph is empty – there is nothing to draw.',
@@ -166,6 +169,7 @@ export const en: Catalog = {
   'export.clipboard.hint': 'Copy the project as JSON text to the clipboard.',
   'export.submit': 'Export',
   'export.copied': 'Copied to the clipboard.',
+  'export.failed': 'The export failed. Please try again or choose “JSON file”.',
   'export.copyFailed': 'Copying is not possible. Please choose “JSON file” instead.',
   'filter.label': 'Filter by metadata',
   'filter.key': 'Key',

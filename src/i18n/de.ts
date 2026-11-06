@@ -125,10 +125,11 @@ export const de = {
   'toolbar.search.title':
     'Objekt oder Gruppe über den Namen suchen (Anfang des Namens, Groß-/Kleinschreibung egal). Enter springt zum Treffer, nochmal Enter zum nächsten.',
   'toolbar.export': 'Export',
-  'toolbar.export.title': 'Das Projekt exportieren: als JSON-Datei, als SVG-Grafik oder als JSON in die Zwischenablage',
+  'toolbar.export.title':
+    'Das Projekt exportieren: als JSON-Datei, als RDF-Datei (Turtle), als SVG-Grafik oder als JSON in die Zwischenablage',
   'toolbar.import': 'Import',
   'toolbar.import.title':
-    'Ein Projekt aus einer JSON-Datei laden. Es ersetzt das aktuelle Projekt; vorher wird gefragt und bei nicht exportierten Änderungen gewarnt.',
+    'Ein Projekt aus einer JSON- oder RDF-Datei (Turtle, nur aus diesem Werkzeug exportiert) laden. Es ersetzt das aktuelle Projekt; vorher wird gefragt und bei nicht exportierten Änderungen gewarnt.',
   'toolbar.pasteJson': 'JSON einfügen',
   'toolbar.pasteJson.title':
     'Ein Projekt aus eingefügtem JSON-Text laden. Es ersetzt das aktuelle Projekt; bei nicht exportierten Änderungen wird gewarnt.',
@@ -158,6 +159,9 @@ export const de = {
   'export.format': 'Format',
   'export.json': 'JSON-Datei',
   'export.json.hint': 'Das Projekt als Datei herunterladen. Sie lässt sich wieder importieren.',
+  'export.rdf': 'RDF (Turtle)',
+  'export.rdf.hint':
+    'Das Projekt als Turtle-Datei (.ttl) herunterladen, lesbar für RDF-Werkzeuge. Sie lässt sich wieder importieren.',
   'export.svg': 'SVG',
   'export.svg.hint': 'Den Graphen als Vektorgrafik herunterladen, z. B. für Dokumente. Sie lässt sich nicht importieren.',
   'export.svg.empty': 'Der Graph ist leer – es gibt nichts zu zeichnen.',
@@ -165,6 +169,7 @@ export const de = {
   'export.clipboard.hint': 'Das Projekt als JSON-Text in die Zwischenablage kopieren.',
   'export.submit': 'Exportieren',
   'export.copied': 'In die Zwischenablage kopiert.',
+  'export.failed': 'Der Export ist fehlgeschlagen. Bitte noch einmal versuchen oder „JSON-Datei“ wählen.',
   'export.copyFailed': 'Kopieren nicht möglich. Bitte stattdessen „JSON-Datei“ wählen.',
   'filter.label': 'Nach Metadaten filtern',
   'filter.key': 'Schlüssel',

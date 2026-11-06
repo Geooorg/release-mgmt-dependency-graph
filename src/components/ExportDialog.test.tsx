@@ -18,12 +18,13 @@ function makeProps(overrides: Partial<ExportDialogProps> = {}): ExportDialogProp
 const option = (name: string) => screen.getByRole('radio', { name: new RegExp(`^${name}`) })
 
 describe('ExportDialog', () => {
-  it('offers JSON file, SVG and JSON (clipboard), the file preselected', () => {
+  it('offers JSON file, RDF (Turtle), SVG and JSON (clipboard), the file preselected', () => {
     render(<ExportDialog {...makeProps()} />)
 
     expect(screen.getByRole('dialog', { name: 'Exportieren' })).toBeInTheDocument()
     expect(screen.getAllByRole('radio').map((r) => r.closest('label')?.textContent)).toEqual([
       expect.stringContaining('JSON-Datei'),
+      expect.stringContaining('RDF (Turtle)'),
       expect.stringContaining('SVG'),
       expect.stringContaining('JSON (Zwischenablage)'),
     ])
@@ -39,6 +40,7 @@ describe('ExportDialog', () => {
 
   it.each([
     ['JSON-Datei', 'json-file'],
+    ['RDF \\(Turtle\\)', 'rdf-file'],
     ['SVG', 'svg'],
     ['JSON \\(Zwischenablage\\)', 'json-clipboard'],
   ] as const)('exports "%s" as %s', async (label, format) => {
@@ -101,6 +103,17 @@ describe('ExportDialog', () => {
     rerender(<ExportDialog {...makeProps()} />)
 
     expect(option('JSON-Datei')).toBeChecked()
+  })
+
+  it('stays open and says so when a file export fails', async () => {
+    const props = makeProps({ onExport: vi.fn(() => Promise.resolve(false)) })
+    render(<ExportDialog {...props} />)
+
+    await userEvent.click(option('RDF \\(Turtle\\)'))
+    await userEvent.click(screen.getByRole('button', { name: 'Exportieren' }))
+
+    expect(screen.getByRole('status')).toHaveTextContent('Der Export ist fehlgeschlagen')
+    expect(props.onClose).not.toHaveBeenCalled()
   })
 
   it('cancels by button and by Escape', async () => {
