@@ -378,6 +378,11 @@ export const en: Catalog = {
   'notice.dropRefused': 'Element not added to the group: the two are connected.',
   'notice.import.failed': 'Import failed – the file is not a valid model. The current model was left unchanged.',
   'notice.import.done': 'Model imported.',
+  'rdf.error.notThisTool':
+    'This file does not come from this tool (no project found). Importing foreign RDF data is not supported yet.',
+  'rdf.error.version': 'The file has schema version {found}; version {expected} is supported.',
+  'rdf.error.edgeEnds': 'Connection {id} has no valid start or end.',
+  'rdf.error.syntax': 'The file is not valid Turtle: {reason}',
   'notice.stored.invalid': 'The saved model was invalid and has not been loaded.',
   'notice.stored.unavailable': 'Browser storage is not available – changes are lost on reload. Use export.',
   'notice.save.failed': 'Saving to browser storage failed (full or blocked). Please use export.',

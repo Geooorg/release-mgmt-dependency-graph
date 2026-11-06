@@ -378,6 +378,11 @@ export const de = {
   'notice.dropRefused': 'Element nicht in die Gruppe aufgenommen: Es besteht eine Verbindung zwischen beiden.',
   'notice.import.failed': 'Import fehlgeschlagen – die Datei ist kein gültiges Modell. Das aktuelle Modell blieb unverändert.',
   'notice.import.done': 'Modell importiert.',
+  'rdf.error.notThisTool':
+    'Die Datei stammt nicht aus diesem Werkzeug (kein Projekt gefunden). Der Import fremder RDF-Daten ist noch nicht möglich.',
+  'rdf.error.version': 'Die Datei hat die Schema-Version {found}; unterstützt wird {expected}.',
+  'rdf.error.edgeEnds': 'Die Verbindung {id} hat keinen gültigen Anfang oder kein gültiges Ende.',
+  'rdf.error.syntax': 'Die Datei ist kein gültiges Turtle: {reason}',
   'notice.stored.invalid': 'Das gespeicherte Modell war ungültig und wurde nicht geladen.',
   'notice.stored.unavailable': 'Der Browser-Speicher ist nicht verfügbar – Änderungen gehen beim Neuladen verloren. Nutze Export.',
   'notice.save.failed': 'Speichern im Browser-Speicher fehlgeschlagen (voll oder blockiert). Bitte Export nutzen.',

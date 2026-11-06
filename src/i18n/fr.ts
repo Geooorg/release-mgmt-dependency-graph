@@ -378,6 +378,11 @@ export const fr: Catalog = {
   'notice.dropRefused': 'Élément non ajouté au groupe : les deux sont reliés.',
   'notice.import.failed': 'Échec de l’import – le fichier n’est pas un modèle valide. Le modèle actuel est resté inchangé.',
   'notice.import.done': 'Modèle importé.',
+  'rdf.error.notThisTool':
+    'Ce fichier ne provient pas de cet outil (aucun projet trouvé). L’import de données RDF externes n’est pas encore possible.',
+  'rdf.error.version': 'Le fichier a la version de schéma {found} ; la version {expected} est prise en charge.',
+  'rdf.error.edgeEnds': 'La liaison {id} n’a pas d’origine ou de destination valide.',
+  'rdf.error.syntax': 'Le fichier n’est pas du Turtle valide : {reason}',
   'notice.stored.invalid': 'Le modèle enregistré n’était pas valide et n’a pas été chargé.',
   'notice.stored.unavailable': 'Le stockage du navigateur n’est pas disponible – les modifications seront perdues au rechargement. Utilisez l’export.',
   'notice.save.failed': 'Échec de l’enregistrement dans le stockage du navigateur (plein ou bloqué). Veuillez utiliser l’export.',
