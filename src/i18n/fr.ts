@@ -386,6 +386,7 @@ export const fr: Catalog = {
     'Ce fichier ne provient pas de cet outil (aucun projet trouvé). L’import de données RDF externes n’est pas encore possible.',
   'rdf.error.version': 'Le fichier a la version de schéma {found} ; la version {expected} est prise en charge.',
   'rdf.error.edgeEnds': 'La liaison {id} n’a pas d’origine ou de destination valide.',
+  'rdf.error.sharedId': 'Le fichier utilise l’id {id} pour plus d’une ressource (élément, liaison ou type).',
   'rdf.error.syntax': 'Le fichier n’est pas du Turtle valide : {reason}',
   'notice.stored.invalid': 'Le modèle enregistré n’était pas valide et n’a pas été chargé.',
   'notice.stored.unavailable': 'Le stockage du navigateur n’est pas disponible – les modifications seront perdues au rechargement. Utilisez l’export.',

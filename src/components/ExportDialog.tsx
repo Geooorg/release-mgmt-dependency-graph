@@ -45,6 +45,7 @@ function ExportContent({ svgDisabled, onExport, onClose, titleId }: ExportDialog
   const [busy, setBusy] = useState(false)
 
   async function submit() {
+    setFeedback('none')
     setBusy(true)
     const ok = await onExport(format)
     setBusy(false)

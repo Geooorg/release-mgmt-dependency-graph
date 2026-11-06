@@ -534,7 +534,8 @@ function AppShell() {
     if (format === 'rdf-file') {
       try {
         downloadTextFile(exportFileName(new Date(), name, 'ttl'), await exportTurtle(content), 'text/turtle')
-      } catch {
+      } catch (error) {
+        console.error(error)
         return false
       }
       state.markExported()

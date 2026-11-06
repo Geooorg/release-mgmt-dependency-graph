@@ -14,6 +14,9 @@ const RDF_FIRST = `${NS.rdf}first`
 const RDF_REST = `${NS.rdf}rest`
 const RDF_NIL = `${NS.rdf}nil`
 
+/** Classes of the tool's resources; a subject may carry only one, because ids share one IRI scheme. */
+const RESOURCE_CLASSES = ['Node', 'Group', 'Note', 'Edge', 'ElementType', 'EdgeType'] as const
+
 const NODE_CLASSES: readonly (readonly [string, ElementKind])[] = [
   ['Node', 'node'],
   ['Group', 'group'],
@@ -220,6 +223,20 @@ function readEdges(index: Index, types: readonly ReadType[], errors: string[], t
   return edges
 }
 
+/** One error per subject that is typed as more than one kind of resource (the id is used for two things). */
+function sharedIdErrors(index: Index, t: Translate): string[] {
+  const kinds = new Map<string, { id: string; count: number }>()
+  for (const local of RESOURCE_CLASSES) {
+    for (const subject of index.subjectsOfType(RM + local)) {
+      const known = kinds.get(keyOf(subject))
+      if (known === undefined) kinds.set(keyOf(subject), { id: iriToId(subject.value), count: 1 })
+      else known.count += 1
+    }
+  }
+  const ids = [...kinds.values()].filter((kind) => kind.count > 1).map((kind) => kind.id)
+  return [...new Set(ids)].map((id) => t('rdf.error.sharedId', { id }))
+}
+
 /**
  * Reads triples written by `toTriples` back into a model. Only the resources of the tool's own vocabulary count;
  * the shortcut triples and any foreign triples are ignored. The assembled object goes through `parseModel`, so every
@@ -233,6 +250,9 @@ export function modelFromTriples(triples: readonly Triple[], t: Translate = crea
   const version = numberOf(index.one(project, `${RM}schemaVersion`))
   if (version === undefined) return fail(t('rdf.error.notThisTool'))
   if (version !== SCHEMA_VERSION) return fail(t('rdf.error.version', { found: version, expected: SCHEMA_VERSION }))
+
+  const shared = sharedIdErrors(index, t)
+  if (shared.length > 0) return { ok: false, errors: shared }
 
   const elementTypes = readTypes(index, 'ElementType')
   const edgeTypes = readTypes(index, 'EdgeType')

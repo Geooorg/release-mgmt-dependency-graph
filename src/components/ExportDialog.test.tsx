@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ExportDialog } from './ExportDialog'
@@ -114,6 +114,25 @@ describe('ExportDialog', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('Der Export ist fehlgeschlagen')
     expect(props.onClose).not.toHaveBeenCalled()
+  })
+
+  it('drops an old failure message as soon as a retry starts', async () => {
+    let finish: (ok: boolean) => void = () => {}
+    const onExport = vi
+      .fn<ExportDialogProps['onExport']>()
+      .mockResolvedValueOnce(false)
+      .mockImplementationOnce(() => new Promise<boolean>((resolve) => (finish = resolve)))
+    const props = makeProps({ onExport })
+    render(<ExportDialog {...props} />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Exportieren' }))
+    expect(screen.getByRole('status')).toHaveTextContent('Der Export ist fehlgeschlagen')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Exportieren' }))
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+
+    await act(async () => finish(true))
+    expect(props.onClose).toHaveBeenCalledTimes(1)
   })
 
   it('cancels by button and by Escape', async () => {

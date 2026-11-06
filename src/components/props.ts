@@ -48,7 +48,7 @@ export interface ToolbarProps {
   /** The search field is shown. */
   searchOpen: boolean
   onToggleSearch: () => void
-  /** Opens the export dialog (JSON file, SVG, JSON on the clipboard). */
+  /** Opens the export dialog (JSON file, RDF (Turtle) file, SVG, JSON on the clipboard). */
   onExport: () => void
   onImport: () => void
   /** Open the dialog to import pasted JSON text. */
@@ -287,7 +287,7 @@ export interface ExportDialogProps {
   open: boolean
   /** The graph has no elements, so there is nothing to draw as SVG. */
   svgDisabled: boolean
-  /** Runs the export; resolves with whether it worked (only the clipboard can fail). */
+  /** Runs the export; resolves with whether it worked (the clipboard and the RDF file can fail). */
   onExport: (format: ExportFormat) => Promise<boolean>
   onClose: () => void
 }

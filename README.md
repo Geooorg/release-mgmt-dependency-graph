@@ -236,14 +236,14 @@ Namensraum `rm:` = `urn:release-management:vocab:`. Ressourcen heißen `urn:uuid
 | Projekt | Blank Node `a rm:Project; rm:schemaVersion 5; rdfs:label <Projektname>` |
 | Objekt / Gruppe / Notiz | `a rm:Node / rm:Group / rm:Note; rdfs:label <name>; rm:x, rm:y (relativ zur Gruppe); rm:width, rm:height; rm:index` |
 | Gruppenzugehörigkeit | `dcterms:isPartOf <Gruppe>` am Mitglied |
-| feste Felder | `rm:color`, `rm:status`, `rm:blockReason`, `rm:class`, `rm:entity`, `rm:version`, `rm:type <Typ>` (zusätzlich `rdf:type <Typ>`, wenn der Typ im Katalog steht) |
-| Typfelder | Prädikat `<Typ-IRI>#<Feldname>` (kodiert), je Feld mit `rdfs:label` und `rdfs:domain` beschrieben |
+| feste Felder | `rm:color`, `rm:status`, `rm:blockReason`, `rm:class`, `rm:entity`, `rm:version`, `rm:type <Typ>` (bei Objekten zusätzlich `rdf:type <Typ>`, wenn der Typ im Katalog steht; Verbindungen nicht, ihr Typ ist eine `rdf:Property`) |
+| Typfelder | Prädikat `<Typ-IRI>#<Feldname>` (kodiert, selbst eine `rdf:Property`), je Feld mit `rdfs:label` und `rdfs:domain` beschrieben |
 | freie Felder | geordnete `rdf:List` aus `[ rm:key …; rm:value … ]` unter `rm:metadata` |
-| Verbindung | `a rm:Edge; rm:source; rm:target; rm:sourceHandle; rm:targetHandle; rdfs:label; rm:optional; rm:type; rm:index` |
+| Verbindung | `a rm:Edge; rm:source; rm:target; rm:sourceHandle; rm:targetHandle; rdfs:label (ein leerer Name wird nicht geschrieben); rm:optional; rm:type; rm:index` |
 | Verbindung (Abkürzung für Dritte) | `<A> rm:precedes <B>` (Reihenfolge; `rm:softPrecedes` bei optionaler Abhängigkeit), `dcterms:requires` (Abhängigkeit), `rm:flowsTo` (Datenfluss), dazu die Typ-IRI als Prädikat; der Import liest sie nicht |
 | Typ | `a rdfs:Class, rm:ElementType` bzw. `a rdf:Property, rm:EdgeType; rdfs:label; rm:color; rm:icon; rm:role; rm:field (…); rm:index` |
 
-Alle Metadatenwerte stehen als einfache Zeichenketten, auch `ja`/`nein` und die Statuswerte. Die Semantik „Verbindungen zu oder von einer Gruppe gelten für alle Mitglieder“ gehört zum Werkzeug, nicht zu RDF. Der Import stellt die Typfelder in der Reihenfolge des Katalogs wieder her.
+Alle Metadatenwerte stehen als einfache Zeichenketten, auch `ja`/`nein` und die Statuswerte; nur `rm:type` ist eine IRI. Die Semantik „Verbindungen zu oder von einer Gruppe gelten für alle Mitglieder“ gehört zum Werkzeug, nicht zu RDF. Der Import stellt die Typfelder in der Reihenfolge des Katalogs wieder her. Die Reihenfolge der Einträge wird kanonisch wiederhergestellt (name, color, status, blockiert_grund, type, class, entity, version, Typfelder in Katalogreihenfolge, danach die freien Felder); eine abweichende gespeicherte Reihenfolge fester Einträge bleibt nicht erhalten. Eine id darf nicht für mehr als eine Ressource (Objekt, Verbindung, Typ) stehen: der Export bricht dann ab, der Import lehnt die Datei ab.
 
 ## Projektstruktur
 

@@ -58,10 +58,28 @@ function createSink(): Sink {
 }
 
 /**
+ * Ids used more than once across nodes, connections and types (also within one collection), in order of first
+ * occurrence. They all map to the same IRI scheme, so such resources would collapse into one in RDF.
+ */
+export function findSharedIds(content: GraphContent): string[] {
+  const catalog = content.catalog ?? EMPTY_CATALOG
+  const ids = [...content.nodes, ...content.edges, ...catalog.elementTypes, ...catalog.edgeTypes].map((item) => item.id)
+  const seen = new Set<string>()
+  const shared = new Set<string>()
+  for (const id of ids) {
+    if (seen.has(id)) shared.add(id)
+    seen.add(id)
+  }
+  return ids.filter((id, position) => shared.has(id) && ids.indexOf(id) === position)
+}
+
+/**
  * The project as RDF triples (vocabulary: README, "RDF-Austausch"). Pure and deterministic: the same content gives
  * the same triples in the same order. `rm:index` records the position in the lists of nodes, edges and types.
  */
 export function toTriples(content: GraphContent): Triple[] {
+  const [sharedId] = findSharedIds(content)
+  if (sharedId !== undefined) throw new Error(`Cannot write RDF: the id "${sharedId}" is used by more than one resource`)
   const catalog = content.catalog ?? EMPTY_CATALOG
   const sink = createSink()
   writeProject(sink, content)
@@ -175,7 +193,8 @@ function writeEntries(
       free.push(entry)
     }
   }
-  if (def !== undefined) sink.add(subject, rdf('type'), idToIri(def.id))
+  // Only objects are instances of their type; a connection type is an rdf:Property, not a class.
+  if (def !== undefined && owner === 'node') sink.add(subject, rdf('type'), idToIri(def.id))
   if (free.length > 0) {
     const pairs = free.map((entry) => {
       const pair = sink.blank()

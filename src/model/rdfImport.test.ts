@@ -64,6 +64,7 @@ describe('modelFromTriples: round trip', () => {
     const content = fullContent()
     const model = viaJson(content)
     expect(model.nodes.map((node) => node.id).sort()).toEqual(content.nodes.map((node) => node.id).sort())
+    expect(model.nodes.map((node) => [node.id, node.metadata]).sort()).toEqual(content.nodes.map((node) => [node.id, node.metadata]).sort())
     expect(model.edges).toEqual(content.edges)
     expect(model.catalog).toEqual(fixtureCatalog)
   })
@@ -117,7 +118,62 @@ describe('modelFromTriples: round trip', () => {
   })
 })
 
+describe('modelFromTriples: entry order', () => {
+  it('restores the canonical order, not the stored one (fixed entries first, free fields last)', () => {
+    const content: GraphContent = {
+      nodes: [
+        {
+          id: 'n',
+          kind: 'node',
+          position: { x: 0, y: 0 },
+          metadata: [{ key: 'name', value: 'N' }, { key: 'foo', value: 'bar' }, { key: 'color', value: '#112233' }],
+        },
+      ],
+      edges: [],
+    }
+    const model = modelOf(modelFromTriples(toTriples(content), t))
+    expect(model.nodes[0].metadata).toEqual([
+      { key: 'name', value: 'N' },
+      { key: 'color', value: '#112233' },
+      { key: 'class', value: 'java.lang.Object' },
+      { key: 'entity', value: '' },
+      { key: 'version', value: '' },
+      { key: 'foo', value: 'bar' },
+    ])
+  })
+})
+
 describe('modelFromTriples: errors', () => {
+  const classTriple = (subject: Triple['subject'], local: string): Triple => ({
+    subject,
+    predicate: iri(`${NS.rdf}type`),
+    object: rm(local),
+  })
+
+  it('rejects two projects', () => {
+    const triples = [...toTriples(fullContent()), classTriple(blank('other'), 'Project')]
+    expect(modelFromTriples(triples, t)).toEqual({ ok: false, errors: [t('rdf.error.notThisTool')] })
+  })
+
+  it('names an id that is used for a node and a connection', () => {
+    const triples = [...toTriples(fullContent()), classTriple(idToIri('api'), 'Edge')]
+    expect(modelFromTriples(triples, t)).toEqual({ ok: false, errors: [t('rdf.error.sharedId', { id: 'api' })] })
+  })
+
+  it('names an id that is used for a type and a node, once per id', () => {
+    const triples = [
+      ...toTriples(fullContent()),
+      classTriple(idToIri('t-svc'), 'Node'),
+      classTriple(idToIri('t-svc'), 'Group'),
+      classTriple(idToIri(UUID_ID), 'Note'),
+    ]
+    const result = modelFromTriples(triples, t)
+    expect(result.ok).toBe(false)
+    const errors = result.ok ? [] : result.errors
+    expect(errors).toHaveLength(2)
+    expect(errors).toEqual(expect.arrayContaining([t('rdf.error.sharedId', { id: 't-svc' }), t('rdf.error.sharedId', { id: UUID_ID })]))
+  })
+
   it('rejects data without a project resource', () => {
     const result = modelFromTriples([{ subject: iri('urn:x:a'), predicate: iri('urn:x:p'), object: text('x') }], t)
     expect(result).toEqual({ ok: false, errors: [t('rdf.error.notThisTool')] })

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { fullContent } from '../test/rdfFixtures'
-import { toTriples } from './rdfExport'
+import { findSharedIds, toTriples } from './rdfExport'
 import { NS, idToIri } from './rdfTerms'
 import type { Term, Triple } from './rdfTerms'
+import type { GraphContent } from './types'
 
 const id = (value: string) => idToIri(value).value
 const RM = NS.rm
@@ -116,6 +117,10 @@ describe('toTriples: connections', () => {
     expect(valuesOf(triples, id('e5'), `${RM}sourceHandle`)).toEqual([])
   })
 
+  it('does not make a connection an instance of its type (the type is a property, not a class)', () => {
+    expect(valuesOf(triples, id('e1'), RDF_TYPE).map((t) => t.value)).toEqual([`${RM}Edge`])
+  })
+
   it('leaves out an empty label and writes the optional marker', () => {
     expect(valuesOf(triples, id('e2'), LABEL)).toEqual([])
     expect(one(triples, id('e2'), `${RM}optional`)?.value).toBe('ja')
@@ -171,6 +176,44 @@ describe('toTriples: catalog', () => {
   it('writes the fields of a type as a list, an empty one as rdf:nil', () => {
     expect(one(triples, id('t-svc'), `${RM}field`)?.termType).toBe('BlankNode')
     expect(one(triples, id('t-desc'), `${RM}field`)).toEqual({ termType: 'NamedNode', value: `${NS.rdf}nil` })
+  })
+})
+
+describe('shared ids', () => {
+  const node = (nodeId: string) => ({ id: nodeId, kind: 'node' as const, position: { x: 0, y: 0 }, metadata: [{ key: 'name', value: nodeId }] })
+  const withCatalog = (content: GraphContent, elementIds: string[], edgeIds: string[]): GraphContent => ({
+    ...content,
+    catalog: {
+      elementTypes: elementIds.map((typeId) => ({ id: typeId, name: typeId, fields: [] })),
+      edgeTypes: edgeIds.map((typeId) => ({ id: typeId, name: typeId, fields: [] })),
+    },
+  })
+  const clashes: [string, GraphContent][] = [
+    ['a node and a connection', { nodes: [node('a'), node('b')], edges: [{ id: 'a', source: 'a', target: 'b' }] }],
+    ['a node and an element type', withCatalog({ nodes: [node('a')], edges: [] }, ['a'], [])],
+    ['a connection and a connection type', withCatalog({ nodes: [node('a'), node('b')], edges: [{ id: 'x', source: 'a', target: 'b' }] }, [], ['x'])],
+    ['two nodes', { nodes: [node('a'), node('a')], edges: [] }],
+  ]
+
+  it('finds none in a project with distinct ids', () => {
+    expect(findSharedIds(fullContent())).toEqual([])
+  })
+
+  it.each(clashes)('finds the id shared by %s', (_name, content) => {
+    expect(findSharedIds(content)).toHaveLength(1)
+  })
+
+  it('lists each shared id once, in order of first occurrence', () => {
+    const content = withCatalog(
+      { nodes: [node('a'), node('b'), node('a')], edges: [{ id: 'b', source: 'a', target: 'b' }, { id: 'a', source: 'b', target: 'a' }] },
+      ['b'],
+      [],
+    )
+    expect(findSharedIds(content)).toEqual(['a', 'b'])
+  })
+
+  it.each(clashes)('refuses to write RDF for %s', (_name, content) => {
+    expect(() => toTriples(content)).toThrow(/Cannot write RDF.*"(a|x)"/)
   })
 })
 

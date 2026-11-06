@@ -386,6 +386,7 @@ export const en: Catalog = {
     'This file does not come from this tool (no project found). Importing foreign RDF data is not supported yet.',
   'rdf.error.version': 'The file has schema version {found}; version {expected} is supported.',
   'rdf.error.edgeEnds': 'Connection {id} has no valid start or end.',
+  'rdf.error.sharedId': 'The file uses the id {id} for more than one resource (element, connection or type).',
   'rdf.error.syntax': 'The file is not valid Turtle: {reason}',
   'notice.stored.invalid': 'The saved model was invalid and has not been loaded.',
   'notice.stored.unavailable': 'Browser storage is not available – changes are lost on reload. Use export.',

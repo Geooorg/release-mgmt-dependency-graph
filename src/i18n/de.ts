@@ -387,6 +387,7 @@ export const de = {
     'Die Datei stammt nicht aus diesem Werkzeug (kein Projekt gefunden). Der Import fremder RDF-Daten ist noch nicht möglich.',
   'rdf.error.version': 'Die Datei hat die Schema-Version {found}; unterstützt wird {expected}.',
   'rdf.error.edgeEnds': 'Die Verbindung {id} hat keinen gültigen Anfang oder kein gültiges Ende.',
+  'rdf.error.sharedId': 'Die Datei verwendet die Id {id} für mehr als eine Ressource (Objekt, Verbindung oder Typ).',
   'rdf.error.syntax': 'Die Datei ist kein gültiges Turtle: {reason}',
   'notice.stored.invalid': 'Das gespeicherte Modell war ungültig und wurde nicht geladen.',
   'notice.stored.unavailable': 'Der Browser-Speicher ist nicht verfügbar – Änderungen gehen beim Neuladen verloren. Nutze Export.',
