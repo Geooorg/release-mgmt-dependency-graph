@@ -79,7 +79,7 @@ Regeln:
 - `rm:type` ist immer eine IRI (auch für unbekannte Typen, ids ohne UUID-Form wie oben kodiert); `rdf:type` kommt nur dazu, wenn der Typ im Katalog steht.
 - Ein leerer Name einer Verbindung wird nicht als `rdfs:label` geschrieben; der Import ergänzt ihn bei Bedarf. Bei Objekten, Gruppen und Notizen steht `rdfs:label` immer.
 - Für feste Felder und Typfelder gilt nur die exakte Schreibweise des Schlüssels; andere Schreibweisen (z. B. `Status`) laufen als freie Felder.
-- Die Reihenfolge der Einträge (name, color, status, blockiert_grund, type, class, entity, version, Typfelder, freie Felder) stellt der Import über die bestehenden Metadaten-Helfer wieder her, nie über `entry.key === …`. In RDF selbst ist sie nur bei den freien Feldern kodiert (Liste).
+- Die Reihenfolge der Einträge (name, color, status, blockiert_grund, type, class, entity, version, Typfelder, freie Felder) baut der Import direkt aus der gemeinsamen Tabelle `FIXED_FIELDS`, dem Katalog und der Liste der freien Felder zusammen. In RDF selbst ist sie nur bei den freien Feldern kodiert (Liste).
 
 ### Kante
 
@@ -121,7 +121,7 @@ Zusätzlich bekommt jede typisierte Kante die Typ-IRI als Prädikat (`<A> <urn:u
                  rm:default "…" ] … ) .
 ```
 
-Das Typfeld-Prädikat `<urn:uuid:TYP#Owner>` erhält zusätzlich `rdfs:label "Owner"` und `rdfs:domain <urn:uuid:TYP>`, damit Dritte es verstehen.
+Das Typfeld-Prädikat `<urn:uuid:TYP#Owner>` erhält zusätzlich `a rdf:Property`, `rdfs:label "Owner"` und `rdfs:domain <urn:uuid:TYP>`, damit Dritte es verstehen.
 
 ## Architektur
 
@@ -129,19 +129,19 @@ Abhängigkeitsrichtung wie bisher; n3 bleibt in `storage/`.
 
 | Datei | Aufgabe |
 |---|---|
-| `src/model/rdfTerms.ts` | Eigener Tripel-Typ in RDF/JS-Form (`NamedNode`, `BlankNode`, `Literal` mit `datatype`), Namensräume `RM`, `RDF`, … |
+| `src/model/rdfTerms.ts` | Eigener Tripel-Typ in RDF/JS-Form (`NamedNode`, `BlankNode`, `Literal` mit `datatype`), Namensräume `NS`, Hilfen für IRIs (`idToIri`/`iriToId`, `fieldPredicate`) und die gemeinsame Tabelle `FIXED_FIELDS` für Export und Import. |
 | `src/model/rdfExport.ts` | Rein: `toTriples(content: GraphContent): Triple[]`, deterministisch nach `rm:index` sortiert. |
-| `src/model/rdfImport.ts` | Rein: `fromTriples(triples, t): { raw } \| { error: MessageRef }`. Baut ein rohes `GraphModel`-Objekt; `parseModel` validiert es danach. Kein zweiter Regelsatz. |
+| `src/model/rdfImport.ts` | Rein: `modelFromTriples(triples, t): ParseResult`. Baut ein rohes `GraphModel`-Objekt und reicht es an `parseModel` weiter, dessen Ergebnis (Modell oder Fehlerliste) zurückkommt. Kein zweiter Regelsatz. |
 | `src/storage/rdfIo.ts` | `looksLikeJson`, `triplesToTurtle`, `parseTurtle`, `exportTurtle`, `turtleToModelJson` über `n3` (`Writer` mit Präfixen, `Parser`), nachgeladen per `import('n3')`. |
-| `src/storage/fileIO.ts` | `downloadTextFile` mit `text/turtle`; `pickTextFile` mit `.json,.ttl`. |
+| `src/storage/fileIO.ts` | Unverändert; `App` übergibt `text/turtle` an `downloadTextFile` und `.json,application/json,.ttl,text/turtle` an `pickTextFile`. |
 | `src/model/serialize.ts` | `exportFileName(date, name, 'ttl')`. |
 | `src/components/props.ts` | `ExportFormat` um `'rdf-file'` erweitert; `ExportDialog` bekommt die Option. |
 | `src/App.tsx` | `runExport` für `rdf-file` (ruft `markExported`); Import erkennt am ersten nicht leeren Zeichen JSON (`{`) oder Turtle und nutzt danach denselben Pfad inklusive Rückfrage bei ungesichertem Stand. |
 | `src/i18n/*` | Neue Texte in `de`, `en`, `fr`: Format-Beschriftung, `rdf.error.*`. |
 
-Import im Einzelnen (`fromTriples`):
+Import im Einzelnen (`modelFromTriples`):
 
-1. Genau ein `rm:Project`, sonst Fehler. `rm:schemaVersion` muss `5` sein; größer ⇒ Fehler „Datei stammt aus einer neueren Version“.
+1. Genau ein `rm:Project` mit lesbarer `rm:schemaVersion`, sonst `rdf.error.notThisTool`. Die Version muss `5` sein; jede andere ⇒ `rdf.error.version` („Die Datei hat die Schema-Version … ; unterstützt wird 5“).
 2. Objekte, Gruppen, Notizen: alle Subjekte mit `a rm:Node|rm:Group|rm:Note`, sortiert nach `rm:index`.
 3. Metadaten werden direkt in kanonischer Reihenfolge zusammengesetzt: feste Einträge laut gemeinsamer Tabelle `FIXED_FIELDS` (dieselbe wie im Export), dann Typfelder in Katalogreihenfolge, dann die Liste der freien Felder.
 4. Kanten: alle Subjekte `a rm:Edge`, nach `rm:index`. Fehlt `rm:source` oder `rm:target`, Fehler mit der Kanten-ID.
@@ -162,14 +162,14 @@ Import im Einzelnen (`fromTriples`):
 
 - `rdfExport.test.ts`: je Elementart die erwarteten Tripel; Abkürzungen je Rolle inklusive `optional` und unbekanntem Typ; Zahlenformate; Sortierung.
 - `rdfImport.test.ts`: Fehlerfälle aus der Liste oben; Ignorieren fremder Tripel.
-- **Round-Trip:** `fromTriples(toTriples(m))` ergibt nach `parseModel` genau `m`. Modelle: Startgraph, verschachtelte Gruppen, mehrzeilige Notiz, Typen mit allen Feldarten (`text`, `select`, `boolean`), Verbindungstypen mit mehreren Rollen, optionale Kante, unbekannter Typ, unbekannter Statuswert, leere Werte, Sonderzeichen (Anführungszeichen, `#`, Unicode, Zeilenumbrüche, Tabulator), leerer Katalog.
+- **Round-Trip:** `modelFromTriples(toTriples(m))` ergibt nach `parseModel` genau `m`. Modelle: Startgraph, verschachtelte Gruppen, mehrzeilige Notiz, Typen mit allen Feldarten (`text`, `select`, `boolean`), Verbindungstypen mit mehreren Rollen, optionale Kante, unbekannter Typ, unbekannter Statuswert, leere Werte, Sonderzeichen (Anführungszeichen, `#`, Unicode, Zeilenumbrüche, Tabulator), leerer Katalog.
 - `rdfIo.test.ts`: Text-Round-Trip über n3 (Turtle schreiben, lesen, gleiche Tripel); syntaktisch kaputte Datei.
-- Komponenten: Export-Dialog zeigt das Format, Import mit `.ttl` ruft den neuen Pfad.
+- Komponenten: Export-Dialog zeigt das Format (`ExportDialog.test.tsx`). Die Weiche `App.importFileText` (JSON oder Turtle) hat keinen eigenen Test; sie ist durch `looksLikeJson` und `turtleToModelJson` (`rdfIo.test.ts`) gedeckt und wird manuell im Browser geprüft.
 - Der Export übersteht außerdem eine unabhängige Prüfung der Syntax (ein Parser außer n3, falls eine Dev-Abhängigkeit vertretbar ist, sonst manuell mit einem externen Werkzeug).
 
 ## Dokumentation
 
-- README: Abschnitt „RDF“ mit Vokabular-Tabelle, Beispiel und Hinweis, dass nur eigene Dateien importierbar sind.
+- README: Abschnitt „RDF-Austausch (Turtle)“ mit Vokabular-Tabelle und Hinweis, dass nur eigene Dateien importierbar sind.
 - Hilfe (`help.*`) und `AgentHelp` in allen drei Sprachen: Format, Dateiendung, Aussage zum Import.
 - CLAUDE.md: Abschnitt zum RDF-Austausch (Dateien, Regeln, „Vokabular ändern ⇒ Round-Trip-Test und README“).
 
@@ -177,5 +177,5 @@ Import im Einzelnen (`fromTriples`):
 
 - **Namensraum:** Vorgabe `urn:release-management:vocab:` (nicht abrufbar). Ist eine `https://…`-Adresse gewünscht, ist das eine Konstante in `rdfTerms.ts`; spätere Änderung bricht aber die Lesbarkeit bereits exportierter Dateien.
 - **Reihenfolge der Typfelder (entschieden):** Der Import stellt Typfelder in der Reihenfolge des Katalogs her (wie `withTypeDefaults`); eine davon abweichende gespeicherte Reihenfolge geht verloren. Der Rückfall in die Liste entfällt.
-- **Größe von `n3`:** Vor der Umsetzung per `npm run build` messen (Chunk und gzip). Als Obergrenze gilt, dass der Hauptbundle unverändert bleibt, weil n3 nur beim RDF-Export und -Import nachgeladen wird.
-- **Unabhängige Syntaxprüfung** im Test (siehe oben).
+- **Größe von `n3`:** Gemessen: eigener Chunk `src-*.js` 58,48 kB (gzip 16,51), nur beim RDF-Export und -Import nachgeladen. `index-*.js` wächst nur um 2,2 kB; `App-*.js` um rund 11 kB, weil `rdfIo.ts` das RDF-Modell statisch einbindet.
+- **Unabhängige Syntaxprüfung** (siehe oben): kein zweiter Parser als Abhängigkeit; die Datei wird stattdessen im Round-Trip durch den Parser von `n3` gelesen und bei Bedarf manuell mit einem externen Werkzeug geprüft.

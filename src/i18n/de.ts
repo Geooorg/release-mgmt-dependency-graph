@@ -39,7 +39,7 @@ export const de = {
     '- Strg/Cmd + C kopiert die markierten Objekte und Gruppen samt dem Inhalt der Gruppen, aber ohne Verbindungen. Strg/Cmd + V fügt sie als neue Elemente mit neuen IDs ein. Beides geht nur im Editiermodus; im Analysemodus ist Einfügen gesperrt.\n- Strg/Cmd + Z macht die letzte Änderung rückgängig, Strg/Cmd + Umschalt + Z oder Strg/Cmd + Y stellt sie wieder her. Diese Kürzel gelten in beiden Modi.\n- Die Schaltflächen für diese Aktionen stehen nur im Editiermodus zur Verfügung.',
   'help.file.title': 'Speichern, Export und Import',
   'help.file.body':
-    '- Das Projekt wird automatisch im Browser gespeichert (nur in diesem Browser).\n- „Export“ öffnet einen Dialog: Das Projekt lässt sich als JSON-Datei <Projektname>_<Datum>_<Uhrzeit>.json herunterladen, der Graph als SVG-Grafik (gleiche Namensform, nicht importierbar) oder das Projekt als JSON-Text in die Zwischenablage kopieren.\n- „Import“ lädt eine JSON-Datei und ersetzt das aktuelle Projekt; vorher wird gefragt, bei nicht exportierten Änderungen zusätzlich gewarnt.\n- „JSON einfügen“ lädt ein Projekt aus eingefügtem Text.\n- Der Projektname (oben links, änderbar) darf nur A–Z, a–z, 0–9 sowie - _ . enthalten.',
+    '- Das Projekt wird automatisch im Browser gespeichert (nur in diesem Browser).\n- „Export“ öffnet einen Dialog: Das Projekt lässt sich als JSON-Datei <Projektname>_<Datum>_<Uhrzeit>.json herunterladen, als RDF-Datei (Turtle, .ttl; für RDF-Werkzeuge lesbar und wieder importierbar), der Graph als SVG-Grafik (gleiche Namensform, nicht importierbar) oder das Projekt als JSON-Text in die Zwischenablage kopieren.\n- „Import“ lädt eine JSON- oder Turtle-Datei und ersetzt das aktuelle Projekt; Turtle-Dateien müssen aus diesem Werkzeug stammen. Vorher wird gefragt, bei nicht exportierten Änderungen zusätzlich gewarnt.\n- „JSON einfügen“ lädt ein Projekt aus eingefügtem Text.\n- Der Projektname (oben links, änderbar) darf nur A–Z, a–z, 0–9 sowie - _ . enthalten.',
   'help.shortcuts.title': 'Tastenkürzel',
   'help.shortcuts.body':
     '- V: Auswählen · N: Objekt · C: Verbinden · S: Notiz · R: Rahmen (nur im Editiermodus)\n- Entf oder Rücktaste: Markiertes löschen (nur im Editiermodus)\n- Esc: Werkzeug beenden, dann Filter schließen, dann Panel schließen, dann Auswahl aufheben\n- Strg/Cmd + C / V: Kopieren / Einfügen (nur im Editiermodus)\n- Strg/Cmd + Z / Strg/Cmd + Umschalt + Z oder Strg/Cmd + Y: Rückgängig / Wiederholen (in beiden Modi)\n- Enter im Suchfeld: nächster Treffer',
@@ -498,7 +498,7 @@ export const de = {
   'agent.ui.multi':
     'Mehrfachauswahl (Strg/Shift-Klick, Aufziehrechteck, Werkzeug „Rahmen“) funktioniert mit simulierten Events NICHT. Stattdessen den JSON-Weg nehmen.',
   'agent.ui.files':
-    'Datei-Import/-Export („{import}“, „{export}“) öffnen native Dateidialoge bzw. Downloads und sind für Agenten unzuverlässig. Dafür gibt es den Weg über Text (vorheriger Abschnitt).',
+    'Datei-Import/-Export („{import}“, „{export}“) öffnen native Dateidialoge bzw. Downloads und sind für Agenten unzuverlässig. Dafür gibt es den Weg über Text (vorheriger Abschnitt). Das gilt auch für den Export als RDF (Turtle) und den Import von .ttl-Dateien; Agenten nutzen das JSON.',
   'agent.chrome.title': 'Stolpersteine bei Chrome-Steuerung (execute_javascript)',
   'agent.chrome.world':
     'Läuft in einer isolierten Welt: kein Zugriff auf React-Fiber oder page-eigene window-Objekte; DOM und Events sind geteilt.',
