@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ExportDialog } from './ExportDialog'
@@ -18,12 +18,13 @@ function makeProps(overrides: Partial<ExportDialogProps> = {}): ExportDialogProp
 const option = (name: string) => screen.getByRole('radio', { name: new RegExp(`^${name}`) })
 
 describe('ExportDialog', () => {
-  it('offers JSON file, SVG and JSON (clipboard), the file preselected', () => {
+  it('offers JSON file, RDF (Turtle), SVG and JSON (clipboard), the file preselected', () => {
     render(<ExportDialog {...makeProps()} />)
 
     expect(screen.getByRole('dialog', { name: 'Exportieren' })).toBeInTheDocument()
     expect(screen.getAllByRole('radio').map((r) => r.closest('label')?.textContent)).toEqual([
       expect.stringContaining('JSON-Datei'),
+      expect.stringContaining('RDF (Turtle)'),
       expect.stringContaining('SVG'),
       expect.stringContaining('JSON (Zwischenablage)'),
     ])
@@ -39,6 +40,7 @@ describe('ExportDialog', () => {
 
   it.each([
     ['JSON-Datei', 'json-file'],
+    ['RDF \\(Turtle\\)', 'rdf-file'],
     ['SVG', 'svg'],
     ['JSON \\(Zwischenablage\\)', 'json-clipboard'],
   ] as const)('exports "%s" as %s', async (label, format) => {
@@ -101,6 +103,36 @@ describe('ExportDialog', () => {
     rerender(<ExportDialog {...makeProps()} />)
 
     expect(option('JSON-Datei')).toBeChecked()
+  })
+
+  it('stays open and says so when a file export fails', async () => {
+    const props = makeProps({ onExport: vi.fn(() => Promise.resolve(false)) })
+    render(<ExportDialog {...props} />)
+
+    await userEvent.click(option('RDF \\(Turtle\\)'))
+    await userEvent.click(screen.getByRole('button', { name: 'Exportieren' }))
+
+    expect(screen.getByRole('status')).toHaveTextContent('Der Export ist fehlgeschlagen')
+    expect(props.onClose).not.toHaveBeenCalled()
+  })
+
+  it('drops an old failure message as soon as a retry starts', async () => {
+    let finish: (ok: boolean) => void = () => {}
+    const onExport = vi
+      .fn<ExportDialogProps['onExport']>()
+      .mockResolvedValueOnce(false)
+      .mockImplementationOnce(() => new Promise<boolean>((resolve) => (finish = resolve)))
+    const props = makeProps({ onExport })
+    render(<ExportDialog {...props} />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Exportieren' }))
+    expect(screen.getByRole('status')).toHaveTextContent('Der Export ist fehlgeschlagen')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Exportieren' }))
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+
+    await act(async () => finish(true))
+    expect(props.onClose).toHaveBeenCalledTimes(1)
   })
 
   it('cancels by button and by Escape', async () => {

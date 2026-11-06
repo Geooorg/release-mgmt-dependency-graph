@@ -39,7 +39,7 @@ export const de = {
     '- Strg/Cmd + C kopiert die markierten Objekte und Gruppen samt dem Inhalt der Gruppen, aber ohne Verbindungen. Strg/Cmd + V fügt sie als neue Elemente mit neuen IDs ein. Beides geht nur im Editiermodus; im Analysemodus ist Einfügen gesperrt.\n- Strg/Cmd + Z macht die letzte Änderung rückgängig, Strg/Cmd + Umschalt + Z oder Strg/Cmd + Y stellt sie wieder her. Diese Kürzel gelten in beiden Modi.\n- Die Schaltflächen für diese Aktionen stehen nur im Editiermodus zur Verfügung.',
   'help.file.title': 'Speichern, Export und Import',
   'help.file.body':
-    '- Das Projekt wird automatisch im Browser gespeichert (nur in diesem Browser).\n- „Export“ öffnet einen Dialog: Das Projekt lässt sich als JSON-Datei <Projektname>_<Datum>_<Uhrzeit>.json herunterladen, der Graph als SVG-Grafik (gleiche Namensform, nicht importierbar) oder das Projekt als JSON-Text in die Zwischenablage kopieren.\n- „Import“ lädt eine JSON-Datei und ersetzt das aktuelle Projekt; vorher wird gefragt, bei nicht exportierten Änderungen zusätzlich gewarnt.\n- „JSON einfügen“ lädt ein Projekt aus eingefügtem Text.\n- Der Projektname (oben links, änderbar) darf nur A–Z, a–z, 0–9 sowie - _ . enthalten.',
+    '- Das Projekt wird automatisch im Browser gespeichert (nur in diesem Browser).\n- „Export“ öffnet einen Dialog: Das Projekt lässt sich als JSON-Datei <Projektname>_<Datum>_<Uhrzeit>.json herunterladen, als RDF-Datei (Turtle, .ttl; für RDF-Werkzeuge lesbar und wieder importierbar), der Graph als SVG-Grafik (gleiche Namensform, nicht importierbar) oder das Projekt als JSON-Text in die Zwischenablage kopieren.\n- „Import“ lädt eine JSON- oder Turtle-Datei und ersetzt das aktuelle Projekt; Turtle-Dateien müssen aus diesem Werkzeug stammen. Vorher wird gefragt, bei nicht exportierten Änderungen zusätzlich gewarnt.\n- „JSON einfügen“ lädt ein Projekt aus eingefügtem Text.\n- Der Projektname (oben links, änderbar) darf nur A–Z, a–z, 0–9 sowie - _ . enthalten.',
   'help.shortcuts.title': 'Tastenkürzel',
   'help.shortcuts.body':
     '- V: Auswählen · N: Objekt · C: Verbinden · S: Notiz · R: Rahmen (nur im Editiermodus)\n- Entf oder Rücktaste: Markiertes löschen (nur im Editiermodus)\n- Esc: Werkzeug beenden, dann Filter schließen, dann Panel schließen, dann Auswahl aufheben\n- Strg/Cmd + C / V: Kopieren / Einfügen (nur im Editiermodus)\n- Strg/Cmd + Z / Strg/Cmd + Umschalt + Z oder Strg/Cmd + Y: Rückgängig / Wiederholen (in beiden Modi)\n- Enter im Suchfeld: nächster Treffer',
@@ -125,10 +125,11 @@ export const de = {
   'toolbar.search.title':
     'Objekt oder Gruppe über den Namen suchen (Anfang des Namens, Groß-/Kleinschreibung egal). Enter springt zum Treffer, nochmal Enter zum nächsten.',
   'toolbar.export': 'Export',
-  'toolbar.export.title': 'Das Projekt exportieren: als JSON-Datei, als SVG-Grafik oder als JSON in die Zwischenablage',
+  'toolbar.export.title':
+    'Das Projekt exportieren: als JSON-Datei, als RDF-Datei (Turtle), als SVG-Grafik oder als JSON in die Zwischenablage',
   'toolbar.import': 'Import',
   'toolbar.import.title':
-    'Ein Projekt aus einer JSON-Datei laden. Es ersetzt das aktuelle Projekt; vorher wird gefragt und bei nicht exportierten Änderungen gewarnt.',
+    'Ein Projekt aus einer JSON- oder RDF-Datei (Turtle, nur aus diesem Werkzeug exportiert) laden. Es ersetzt das aktuelle Projekt; vorher wird gefragt und bei nicht exportierten Änderungen gewarnt.',
   'toolbar.pasteJson': 'JSON einfügen',
   'toolbar.pasteJson.title':
     'Ein Projekt aus eingefügtem JSON-Text laden. Es ersetzt das aktuelle Projekt; bei nicht exportierten Änderungen wird gewarnt.',
@@ -158,6 +159,9 @@ export const de = {
   'export.format': 'Format',
   'export.json': 'JSON-Datei',
   'export.json.hint': 'Das Projekt als Datei herunterladen. Sie lässt sich wieder importieren.',
+  'export.rdf': 'RDF (Turtle)',
+  'export.rdf.hint':
+    'Das Projekt als Turtle-Datei (.ttl) herunterladen, lesbar für RDF-Werkzeuge. Sie lässt sich wieder importieren.',
   'export.svg': 'SVG',
   'export.svg.hint': 'Den Graphen als Vektorgrafik herunterladen, z. B. für Dokumente. Sie lässt sich nicht importieren.',
   'export.svg.empty': 'Der Graph ist leer – es gibt nichts zu zeichnen.',
@@ -165,6 +169,7 @@ export const de = {
   'export.clipboard.hint': 'Das Projekt als JSON-Text in die Zwischenablage kopieren.',
   'export.submit': 'Exportieren',
   'export.copied': 'In die Zwischenablage kopiert.',
+  'export.failed': 'Der Export ist fehlgeschlagen. Bitte noch einmal versuchen oder „JSON-Datei“ wählen.',
   'export.copyFailed': 'Kopieren nicht möglich. Bitte stattdessen „JSON-Datei“ wählen.',
   'filter.label': 'Nach Metadaten filtern',
   'filter.key': 'Schlüssel',
@@ -378,6 +383,12 @@ export const de = {
   'notice.dropRefused': 'Element nicht in die Gruppe aufgenommen: Es besteht eine Verbindung zwischen beiden.',
   'notice.import.failed': 'Import fehlgeschlagen – die Datei ist kein gültiges Modell. Das aktuelle Modell blieb unverändert.',
   'notice.import.done': 'Modell importiert.',
+  'rdf.error.notThisTool':
+    'Die Datei stammt nicht aus diesem Werkzeug (kein Projekt gefunden). Der Import fremder RDF-Daten ist noch nicht möglich.',
+  'rdf.error.version': 'Die Datei hat die Schema-Version {found}; unterstützt wird {expected}.',
+  'rdf.error.edgeEnds': 'Die Verbindung {id} hat keinen gültigen Anfang oder kein gültiges Ende.',
+  'rdf.error.sharedId': 'Die Datei verwendet die Id {id} für mehr als eine Ressource (Objekt, Verbindung oder Typ).',
+  'rdf.error.syntax': 'Die Datei ist kein gültiges Turtle: {reason}',
   'notice.stored.invalid': 'Das gespeicherte Modell war ungültig und wurde nicht geladen.',
   'notice.stored.unavailable': 'Der Browser-Speicher ist nicht verfügbar – Änderungen gehen beim Neuladen verloren. Nutze Export.',
   'notice.save.failed': 'Speichern im Browser-Speicher fehlgeschlagen (voll oder blockiert). Bitte Export nutzen.',
@@ -488,7 +499,7 @@ export const de = {
   'agent.ui.multi':
     'Mehrfachauswahl (Strg/Shift-Klick, Aufziehrechteck, Werkzeug „Rahmen“) funktioniert mit simulierten Events NICHT. Stattdessen den JSON-Weg nehmen.',
   'agent.ui.files':
-    'Datei-Import/-Export („{import}“, „{export}“) öffnen native Dateidialoge bzw. Downloads und sind für Agenten unzuverlässig. Dafür gibt es den Weg über Text (vorheriger Abschnitt).',
+    'Datei-Import/-Export („{import}“, „{export}“) öffnen native Dateidialoge bzw. Downloads und sind für Agenten unzuverlässig. Dafür gibt es den Weg über Text (vorheriger Abschnitt). Das gilt auch für den Export als RDF (Turtle) und den Import von .ttl-Dateien; Agenten nutzen das JSON.',
   'agent.chrome.title': 'Stolpersteine bei Chrome-Steuerung (execute_javascript)',
   'agent.chrome.world':
     'Läuft in einer isolierten Welt: kein Zugriff auf React-Fiber oder page-eigene window-Objekte; DOM und Events sind geteilt.',

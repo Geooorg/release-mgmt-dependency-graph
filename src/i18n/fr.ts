@@ -40,7 +40,7 @@ export const fr: Catalog = {
     '- Ctrl/Cmd + C copie les objets et groupes sélectionnés avec le contenu des groupes, mais sans les liaisons. Ctrl/Cmd + V les colle comme nouveaux éléments avec de nouveaux ID. Les deux ne fonctionnent qu’en mode édition ; le collage est verrouillé en mode analyse.\n- Ctrl/Cmd + Z annule la dernière modification, Ctrl/Cmd + Maj + Z ou Ctrl/Cmd + Y la rétablit. Ces raccourcis fonctionnent dans les deux modes.\n- Les boutons correspondants ne sont disponibles qu’en mode édition.',
   'help.file.title': 'Enregistrement, export et import',
   'help.file.body':
-    '- Le projet est enregistré automatiquement dans le navigateur (uniquement dans ce navigateur).\n- « Exporter » ouvre une boîte de dialogue : télécharger le projet en fichier JSON <nom du projet>_<date>_<heure>.json, télécharger le graphe en image SVG (même nommage, non importable) ou copier le projet en texte JSON dans le presse-papiers.\n- « Importer » charge un fichier JSON et remplace le projet actuel ; une confirmation est demandée et les modifications non exportées sont signalées.\n- « Coller du JSON » charge un projet depuis du texte collé.\n- Le nom du projet (en haut à gauche, modifiable) ne peut contenir que A–Z, a–z, 0–9 ainsi que - _ .',
+    '- Le projet est enregistré automatiquement dans le navigateur (uniquement dans ce navigateur).\n- « Exporter » ouvre une boîte de dialogue : télécharger le projet en fichier JSON <nom du projet>_<date>_<heure>.json, en fichier RDF (Turtle, .ttl ; lisible par les outils RDF et réimportable), le graphe en image SVG (même forme de nom, non importable), ou copier le projet en JSON dans le presse-papiers.\n- « Importer » charge un fichier JSON ou Turtle et remplace le projet actuel ; les fichiers Turtle doivent provenir de cet outil. Une confirmation est demandée, avec un avertissement en cas de modifications non exportées.\n- « Coller du JSON » charge un projet depuis du texte collé.\n- Le nom du projet (en haut à gauche, modifiable) ne peut contenir que A–Z, a–z, 0–9 ainsi que - _ .',
   'help.shortcuts.title': 'Raccourcis clavier',
   'help.shortcuts.body':
     '- V : Sélectionner · N : Objet · C : Relier · S : Note · R : Cadre (mode édition uniquement)\n- Suppr ou Retour arrière : supprimer la sélection (mode édition uniquement)\n- Échap : terminer l’outil, puis fermer le filtre, puis fermer le panneau, puis effacer la sélection\n- Ctrl/Cmd + C / V : copier / coller (mode édition uniquement)\n- Ctrl/Cmd + Z / Ctrl/Cmd + Maj + Z ou Ctrl/Cmd + Y : annuler / rétablir (dans les deux modes)\n- Entrée dans le champ de recherche : résultat suivant',
@@ -126,10 +126,11 @@ export const fr: Catalog = {
   'toolbar.search.title':
     'Rechercher un objet ou un groupe par son nom (début du nom, sans tenir compte de la casse). Entrée saute au résultat, Entrée à nouveau au suivant.',
   'toolbar.export': 'Exporter',
-  'toolbar.export.title': 'Exporter le projet : en fichier JSON, en image SVG ou en JSON dans le presse-papiers',
+  'toolbar.export.title':
+    'Exporter le projet : en fichier JSON, en fichier RDF (Turtle), en image SVG ou en JSON dans le presse-papiers',
   'toolbar.import': 'Importer',
   'toolbar.import.title':
-    'Charger un projet depuis un fichier JSON. Il remplace le projet actuel ; une confirmation est demandée et les modifications non exportées sont signalées.',
+    'Charger un projet depuis un fichier JSON ou RDF (Turtle, uniquement exporté par cet outil). Il remplace le projet actuel ; une confirmation est demandée et les modifications non exportées sont signalées.',
   'toolbar.pasteJson': 'Coller du JSON',
   'toolbar.pasteJson.title':
     'Charger un projet depuis du texte JSON collé. Il remplace le projet actuel ; les modifications non exportées sont signalées.',
@@ -159,6 +160,8 @@ export const fr: Catalog = {
   'export.format': 'Format',
   'export.json': 'Fichier JSON',
   'export.json.hint': 'Télécharger le projet sous forme de fichier. Il peut être réimporté.',
+  'export.rdf': 'RDF (Turtle)',
+  'export.rdf.hint': 'Télécharger le projet en fichier Turtle (.ttl), lisible par les outils RDF. Il peut être réimporté.',
   'export.svg': 'SVG',
   'export.svg.hint': 'Télécharger le graphe sous forme d’image vectorielle, par ex. pour des documents. Elle ne peut pas être réimportée.',
   'export.svg.empty': 'Le graphe est vide – il n’y a rien à dessiner.',
@@ -166,6 +169,7 @@ export const fr: Catalog = {
   'export.clipboard.hint': 'Copier le projet sous forme de texte JSON dans le presse-papiers.',
   'export.submit': 'Exporter',
   'export.copied': 'Copié dans le presse-papiers.',
+  'export.failed': 'L’export a échoué. Réessayez ou choisissez « Fichier JSON ».',
   'export.copyFailed': 'Copie impossible. Choisissez plutôt « Fichier JSON ».',
   'filter.label': 'Filtrer par métadonnées',
   'filter.key': 'Clé',
@@ -378,6 +382,12 @@ export const fr: Catalog = {
   'notice.dropRefused': 'Élément non ajouté au groupe : les deux sont reliés.',
   'notice.import.failed': 'Échec de l’import – le fichier n’est pas un modèle valide. Le modèle actuel est resté inchangé.',
   'notice.import.done': 'Modèle importé.',
+  'rdf.error.notThisTool':
+    'Ce fichier ne provient pas de cet outil (aucun projet trouvé). L’import de données RDF externes n’est pas encore possible.',
+  'rdf.error.version': 'Le fichier a la version de schéma {found} ; la version {expected} est prise en charge.',
+  'rdf.error.edgeEnds': 'La liaison {id} n’a pas d’origine ou de destination valide.',
+  'rdf.error.sharedId': 'Le fichier utilise l’id {id} pour plus d’une ressource (élément, liaison ou type).',
+  'rdf.error.syntax': 'Le fichier n’est pas du Turtle valide : {reason}',
   'notice.stored.invalid': 'Le modèle enregistré n’était pas valide et n’a pas été chargé.',
   'notice.stored.unavailable': 'Le stockage du navigateur n’est pas disponible – les modifications seront perdues au rechargement. Utilisez l’export.',
   'notice.save.failed': 'Échec de l’enregistrement dans le stockage du navigateur (plein ou bloqué). Veuillez utiliser l’export.',
@@ -488,7 +498,7 @@ export const fr: Catalog = {
   'agent.ui.multi':
     'La sélection multiple (clic avec Ctrl/Maj, rectangle de sélection, outil « Cadre ») ne fonctionne PAS avec des événements simulés. Utiliser plutôt la voie JSON.',
   'agent.ui.files':
-    'L’import/export de fichiers (« {import} », « {export} ») ouvre des boîtes de dialogue de fichiers natives ou des téléchargements et n’est pas fiable pour les agents. Utiliser plutôt la voie par le texte (section précédente).',
+    'L’import/export de fichiers (« {import} », « {export} ») ouvre des boîtes de dialogue de fichiers natives ou des téléchargements et n’est pas fiable pour les agents. Utiliser plutôt la voie par le texte (section précédente). Cela vaut aussi pour l’export RDF (Turtle) et l’import de fichiers .ttl ; les agents utilisent le JSON.',
   'agent.chrome.title': 'Pièges du pilotage de Chrome (execute_javascript)',
   'agent.chrome.world':
     'S’exécute dans un monde isolé : pas d’accès au fiber React ni aux objets window propres à la page ; le DOM et les événements sont partagés.',

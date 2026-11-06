@@ -8,13 +8,14 @@ import './components.css'
 
 const FORMATS: readonly { value: ExportFormat; labelKey: MessageKey; hintKey: MessageKey }[] = [
   { value: 'json-file', labelKey: 'export.json', hintKey: 'export.json.hint' },
+  { value: 'rdf-file', labelKey: 'export.rdf', hintKey: 'export.rdf.hint' },
   { value: 'svg', labelKey: 'export.svg', hintKey: 'export.svg.hint' },
   { value: 'json-clipboard', labelKey: 'export.clipboard', hintKey: 'export.clipboard.hint' },
 ]
 
-type Feedback = 'none' | 'copied' | 'failed'
+type Feedback = 'none' | 'copied' | 'failed' | 'fileFailed'
 
-/** Asks in which form to export: JSON file, SVG file or JSON text on the clipboard. */
+/** Asks in which form to export: JSON file, RDF file, SVG file or JSON text on the clipboard. */
 export function ExportDialog(props: ExportDialogProps) {
   const dialogRef = useNativeDialog(props.open)
   const titleId = useId()
@@ -44,12 +45,14 @@ function ExportContent({ svgDisabled, onExport, onClose, titleId }: ExportDialog
   const [busy, setBusy] = useState(false)
 
   async function submit() {
+    setFeedback('none')
     setBusy(true)
     const ok = await onExport(format)
     setBusy(false)
     // A download speaks for itself; the clipboard needs a word.
     if (format !== 'json-clipboard') {
       if (ok) onClose()
+      else setFeedback('fileFailed')
       return
     }
     setFeedback(ok ? 'copied' : 'failed')
@@ -88,6 +91,7 @@ function ExportContent({ svgDisabled, onExport, onClose, titleId }: ExportDialog
       <p className="json-dialog__status" role="status">
         {feedback === 'copied' && t('export.copied')}
         {feedback === 'failed' && t('export.copyFailed')}
+        {feedback === 'fileFailed' && t('export.failed')}
       </p>
       <div className="confirm-dialog__actions">
         <button type="button" className="ui-button ui-button--secondary" onClick={onClose}>
